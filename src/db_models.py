@@ -110,8 +110,22 @@ class Branch(Base):
     branch_code = Column(String(10), primary_key=True)
     branch_name = Column(String(100), nullable=False)
     client_id = Column(Integer, nullable=False)
+    state_code = Column(String(10), nullable=True)
     active = Column(Boolean, nullable=False, default=True)
     created_by = Column(String(30), nullable=True)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class State(Base):
+    __tablename__ = "states"
+    __table_args__ = schema_args("config")
+
+    state_code = Column(String(10), primary_key=True)
+    state_name = Column(String(50), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=False)
     created_date = Column(DateTime, nullable=False, server_default=func.now())
     last_modified_by = Column(String(30), nullable=True)
     last_modified_date = Column(DateTime, nullable=True)

@@ -35,6 +35,7 @@ class ConfigurationOrchestrator:
             )
             if commit_callback:
                 commit_callback(db, after_payload)
+            db.commit()
 
             return ConfigExecutionResult(
                 status="COMMITTED",

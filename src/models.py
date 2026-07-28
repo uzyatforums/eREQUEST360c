@@ -503,6 +503,33 @@ class ConfigExecutionResult(BaseModel):
     message: str
 
 
+class BranchCreateRequest(BaseModel):
+    branch_code: str = Field(..., max_length=10)
+    branch_name: str = Field(..., max_length=100)
+    state_code: Optional[str] = Field(None, max_length=10)
+
+
+class BranchUpdateRequest(BaseModel):
+    branch_name: str = Field(..., max_length=100)
+    state_code: Optional[str] = Field(None, max_length=10)
+
+
+class BranchReadResponse(BaseModel):
+    branch_code: str
+    branch_name: str
+    client_id: int
+    state_code: Optional[str] = None
+    active: bool
+    created_by: Optional[str] = None
+    created_date: datetime
+    last_modified_by: Optional[str] = None
+    last_modified_date: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+
 
 
 
