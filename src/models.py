@@ -394,4 +394,77 @@ class CardSegmentMemberRead(BaseModel):
         from_attributes = True
 
 
+class MakerCheckerSubmitRequest(BaseModel):
+    entity_type_code: str
+    entity_id: int = Field(..., alias="entity_key")
+    operation_code: str
+    entity_name: Optional[str] = None
+    before_payload: Optional[dict | str] = None
+    after_payload: dict | str
+
+    class Config:
+        populate_by_name = True
+
+
+class MakerCheckerActionRequest(BaseModel):
+    remarks: Optional[str] = None
+
+
+class MakerCheckerResubmitRequest(BaseModel):
+    after_payload: dict | str
+    remarks: Optional[str] = None
+
+
+class WorkItemRead(BaseModel):
+    id: int
+    work_item_number: str
+    client_id: int
+    entity_type_code: str
+    entity_id: int
+    operation_code: str
+    status_code: str
+    checker_user_id: Optional[str] = None
+    approved_date: Optional[datetime] = None
+    rejected_date: Optional[datetime] = None
+    cancelled_date: Optional[datetime] = None
+    active: bool
+    created_by: str
+    created_date: datetime
+    last_modified_by: Optional[str] = None
+    last_modified_date: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class WorkItemPayloadRead(BaseModel):
+    work_item_id: int
+    entity_name: Optional[str] = None
+    before_payload: Optional[str] = None
+    after_payload: str
+    created_by: str
+    created_date: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class WorkItemActionRead(BaseModel):
+    id: int
+    work_item_id: int
+    action_sequence: int
+    operation_code: str
+    status_code: str
+    action_by: str
+    remarks: Optional[str] = None
+    action_date: datetime
+    created_by: str
+    created_date: datetime
+    change_summary: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+
 

@@ -487,3 +487,98 @@ class LocalEmailRecipient(Base):
     active = Column(Boolean, nullable=False, default=True)
 
 
+class MakerCheckerStatus(Base):
+    __tablename__ = "statuses"
+    __table_args__ = schema_args("maker_checker")
+
+    status_code = Column(String(20), primary_key=True)
+    status_name = Column(String(50), nullable=False)
+    description = Column(String(200), nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(50), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(50), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class MakerCheckerOperation(Base):
+    __tablename__ = "operations"
+    __table_args__ = schema_args("maker_checker")
+
+    operation_code = Column(String(30), primary_key=True)
+    operation_name = Column(String(100), nullable=False)
+    description = Column(String(200), nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(50), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(50), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class MakerCheckerEntityType(Base):
+    __tablename__ = "entity_types"
+    __table_args__ = schema_args("maker_checker")
+
+    entity_type_code = Column(String(50), primary_key=True)
+    entity_type_name = Column(String(100), nullable=False)
+    description = Column(String(200), nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(50), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(50), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class MakerCheckerWorkItem(Base):
+    __tablename__ = "work_items"
+    __table_args__ = schema_args("maker_checker")
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    work_item_number = Column(String(30), nullable=False, unique=True)
+    client_id = Column(Integer, nullable=False)
+    entity_type_code = Column(String(50), ForeignKey(fk_ref("maker_checker.entity_types.entity_type_code")), nullable=False)
+    entity_id = Column(BigInteger, nullable=False)
+    operation_code = Column(String(30), ForeignKey(fk_ref("maker_checker.operations.operation_code")), nullable=False)
+    status_code = Column(String(20), ForeignKey(fk_ref("maker_checker.statuses.status_code")), nullable=False)
+    checker_user_id = Column(String(31), ForeignKey(fk_ref("iam.users.user_id")), nullable=True)
+    approved_date = Column(DateTime, nullable=True)
+    rejected_date = Column(DateTime, nullable=True)
+    cancelled_date = Column(DateTime, nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(31), ForeignKey(fk_ref("iam.users.user_id")), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(31), ForeignKey(fk_ref("iam.users.user_id")), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class MakerCheckerWorkItemPayload(Base):
+    __tablename__ = "work_item_payloads"
+    __table_args__ = schema_args("maker_checker")
+
+    work_item_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey(fk_ref("maker_checker.work_items.id")), primary_key=True)
+    entity_name = Column(String(200), nullable=True)
+    before_payload = Column(String, nullable=True)
+    after_payload = Column(String, nullable=False)
+    created_by = Column(String(31), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+
+
+class MakerCheckerWorkItemAction(Base):
+    __tablename__ = "work_item_actions"
+    __table_args__ = schema_args("maker_checker")
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    work_item_id = Column(BigInteger().with_variant(Integer, "sqlite"), ForeignKey(fk_ref("maker_checker.work_items.id")), nullable=False)
+    action_sequence = Column(Integer, nullable=False)
+    operation_code = Column(String(30), ForeignKey(fk_ref("maker_checker.operations.operation_code")), nullable=False)
+    status_code = Column(String(20), ForeignKey(fk_ref("maker_checker.statuses.status_code")), nullable=False)
+    action_by = Column(String(31), ForeignKey(fk_ref("iam.users.user_id")), nullable=False)
+    remarks = Column(String(1000), nullable=True)
+    action_date = Column(DateTime, nullable=False, server_default=func.now())
+    created_by = Column(String(31), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    change_summary = Column(String(1000), nullable=True)
+
+
+
+

@@ -7,6 +7,7 @@ from src.api.auth import router as auth_router, users_router, roles_router
 from src.api.config_api import router as config_router
 from src.api.eligibility import router as eligibility_router
 from src.api.charges import router as charges_router
+from src.api.maker_checker import router as maker_checker_router
 from src.db import init_db
 from src.api.audit_service import ApiLoggingMiddleware
 
@@ -25,6 +26,8 @@ app.include_router(requests_router)
 app.include_router(config_router)
 app.include_router(eligibility_router)
 app.include_router(charges_router)
+app.include_router(maker_checker_router)
+
 
 # Mount the static folder for the frontend dashboard
 app.mount("/static", StaticFiles(directory="src/static"), name="static")
