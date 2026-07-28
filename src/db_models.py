@@ -1,0 +1,489 @@
+import os
+from sqlalchemy import Column, Integer, String, DateTime, BigInteger, Boolean, Numeric, func, ForeignKey
+from src.db import Base
+
+def schema_args(schema_name: str):
+    db_url = os.getenv("DATABASE_URL", "sqlite:///./dev.db")
+    if db_url.startswith("sqlite"):
+        return {}
+    return {"schema": schema_name}
+
+
+def fk_ref(target: str) -> str:
+    db_url = os.getenv("DATABASE_URL", "sqlite:///./dev.db")
+    if db_url.startswith("sqlite"):
+        if "." in target:
+            parts = target.split(".")
+            if len(parts) == 3:
+                return f"{parts[1]}.{parts[2]}"
+    return target
+
+
+
+class ClientCardPolicy(Base):
+    __tablename__ = "client_card_policies"
+    __table_args__ = schema_args("request")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False, unique=True)
+    card_policy = Column(String(50), nullable=False, default="one_card_per_account")
+    requires_approval_for_deviation = Column(Boolean, nullable=False, default=True)
+
+
+class Request(Base):
+    __tablename__ = "requests"
+    __table_args__ = schema_args("request")
+
+    request_id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    account_number = Column(String(30), nullable=False)
+    programme_id = Column(Integer, nullable=False)
+    request_status = Column(String(30), nullable=False)
+    request_branch = Column(String(10), nullable=False)
+    pickup_branch = Column(String(10), nullable=True)
+    created_by = Column(String(50), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    status_last_updated = Column(DateTime, nullable=False, server_default=func.now())
+    channel_id = Column(Integer, nullable=True)
+    category_id = Column(Integer, nullable=True)
+    source_type = Column(String(20), nullable=True)
+    source_reference = Column(BigInteger, nullable=True)
+    brand = Column(String(50), nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class User(Base):
+    __tablename__ = "users"
+    __table_args__ = schema_args("iam")
+
+    user_id = Column(String(31), primary_key=True)
+    client_id = Column(Integer, nullable=True)
+    branch_id = Column(String(10), nullable=True)
+    username = Column(String(100), nullable=False)
+    email = Column(String(64), nullable=True)
+    password_hash = Column(String(255), nullable=False)
+    role_code = Column(String(50), nullable=False)
+    phone_1 = Column(String(20), nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=True)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class Role(Base):
+    __tablename__ = "roles"
+    __table_args__ = schema_args("iam")
+
+    role_code = Column(String(50), primary_key=True)
+    role_name = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    is_maker = Column(Boolean, nullable=False, default=False)
+    is_checker = Column(Boolean, nullable=False, default=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class Client(Base):
+    __tablename__ = "clients"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    tenant_id = Column(Integer, nullable=False, unique=True)
+    client_name = Column(String(255), nullable=False)
+    client_code = Column(String(50), nullable=False, unique=True)
+    parent_client_id = Column(Integer, nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+    contact_email = Column(String(255), nullable=True)
+    contact_phone = Column(String(20), nullable=True)
+    address = Column(String(255), nullable=True)
+    country = Column(String(50), nullable=True)
+    created_by = Column(String(30), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class Branch(Base):
+    __tablename__ = "branches"
+    __table_args__ = schema_args("config")
+
+    branch_code = Column(String(10), primary_key=True)
+    branch_name = Column(String(100), nullable=False)
+    client_id = Column(Integer, nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=True)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class CardProgramme(Base):
+    __tablename__ = "card_programmes"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    card_programme_code = Column(String(35), nullable=False)
+    card_programme_name = Column(String(100), nullable=False)
+    card_type = Column(String(20), ForeignKey(fk_ref("config.card_types.card_type")), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class CardSegment(Base):
+    __tablename__ = "card_segments"
+    __table_args__ = schema_args("config")
+
+    card_seg_grp = Column(String(5), primary_key=True)
+    card_seg_name = Column(String(50), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    client_id = Column(Integer, nullable=True)
+    created_by = Column(String(30), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+
+
+class CardSegmentProgramme(Base):
+    __tablename__ = "card_segment_programmes"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    card_seg_grp = Column(String(5), ForeignKey(fk_ref("config.card_segments.card_seg_grp")), nullable=False)
+    card_programme_id = Column(Integer, ForeignKey(fk_ref("config.card_programmes.id")), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    client_id = Column(Integer, nullable=False)
+    seq = Column(Integer, nullable=False, default=0)
+    created_by = Column(String(30), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+
+
+class CardSegmentMember(Base):
+    __tablename__ = "card_segment_members"
+    __table_args__ = schema_args("config")
+
+    card_seg_grp = Column(String(5), ForeignKey(fk_ref("config.card_segments.card_seg_grp")), primary_key=True)
+    acct_seg = Column(String(10), primary_key=True)
+    active = Column(Boolean, nullable=False, default=True)
+    client_id = Column(Integer, nullable=True)
+    created_by = Column(String(30), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+
+
+class RequestStatusHistory(Base):
+    __tablename__ = "request_status_history"
+    __table_args__ = schema_args("request")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    request_id = Column(BigInteger, nullable=False)
+    from_status = Column(String(30), nullable=True)
+    to_status = Column(String(30), nullable=False)
+    action = Column(String(50), nullable=True)
+    performed_by = Column(String(50), nullable=True)
+    performed_date = Column(DateTime, nullable=False, server_default=func.now())
+    remarks = Column(String(255), nullable=True)
+
+
+class RequestSpecialApproval(Base):
+    __tablename__ = "request_special_approvals"
+    __table_args__ = schema_args("request")
+
+    approval_id = Column(Integer, primary_key=True, autoincrement=True)
+    request_id = Column(BigInteger, nullable=True)
+    account_number = Column(String(30), nullable=False)
+    programme_id = Column(Integer, nullable=False)
+    approval_type = Column(String(20), nullable=False)
+    status = Column(String(30), nullable=False, default="PENDING")
+    requested_by_user = Column(String(50), nullable=False)
+    approved_by_user = Column(String(50), nullable=True)
+    requested_date = Column(DateTime, nullable=False, server_default=func.now())
+    approved_date = Column(DateTime, nullable=True)
+
+
+class ChargePostingAttempt(Base):
+    __tablename__ = "charge_posting_attempts"
+    __table_args__ = schema_args("eligibility")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    request_id = Column(BigInteger, nullable=False)
+    payment_ref = Column(String(50), nullable=True)
+    amount = Column(Numeric(18, 2), nullable=True)
+    status = Column(String(25), nullable=False)
+    response = Column(String(1000), nullable=True)
+    created_by = Column(String(30), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class NochargePolicy(Base):
+    __tablename__ = "nocharge_policies"
+    __table_args__ = schema_args("eligibility")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    programme_id = Column(Integer, nullable=False)
+    account_product_code = Column(String(20), nullable=True)
+    is_allowed = Column(Boolean, nullable=False, default=True)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class AuditEventType(Base):
+    __tablename__ = "audit_event_types"
+    __table_args__ = schema_args("audit")
+
+    event_type_id = Column(Integer, primary_key=True)
+    event_code = Column(String(30), nullable=False, unique=True)
+    description = Column(String(100), nullable=True)
+
+
+class AuditEvent(Base):
+    __tablename__ = "audit_events"
+    __table_args__ = schema_args("audit")
+
+    event_id = Column(Integer, primary_key=True, autoincrement=True)
+    entity_type = Column(String(50), nullable=False)
+    entity_id = Column(BigInteger, nullable=False)
+    event_type_id = Column(Integer, nullable=False)
+    event_source = Column(String(50), nullable=True)
+    performed_by = Column(String(100), nullable=True)
+    branch_code = Column(String(3), nullable=True)
+    event_time = Column(DateTime, nullable=False, server_default=func.now())
+    correlation_id = Column(String(100), nullable=True)
+    remarks = Column(String(255), nullable=True)
+
+
+class AuditEventDetail(Base):
+    __tablename__ = "audit_event_details"
+    __table_args__ = schema_args("audit")
+
+    detail_id = Column(Integer, primary_key=True, autoincrement=True)
+    event_id = Column(BigInteger, nullable=False)
+    column_name = Column(String(100), nullable=False)
+    old_value = Column(String, nullable=True)
+    new_value = Column(String, nullable=True)
+
+
+class AuditSnapshot(Base):
+    __tablename__ = "audit_snapshots"
+    __table_args__ = schema_args("audit")
+
+    snapshot_id = Column(Integer, primary_key=True, autoincrement=True)
+    entity_type = Column(String(50), nullable=False)
+    entity_id = Column(BigInteger, nullable=False)
+    snapshot_time = Column(DateTime, nullable=False, server_default=func.now())
+    snapshot_data = Column(String, nullable=False)
+    event_id = Column(BigInteger, nullable=True)
+
+
+class ApiLogRequestResponse(Base):
+    __tablename__ = "api_log_request_response"
+    __table_args__ = schema_args("audit")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    request_path = Column(String(255), nullable=False)
+    request_method = Column(String(10), nullable=False)
+    request_headers = Column(String, nullable=True)
+    request_body = Column(String, nullable=True)
+    response_status_code = Column(Integer, nullable=False)
+    response_body = Column(String, nullable=True)
+    performed_by = Column(String(100), nullable=True)
+    client_id = Column(Integer, nullable=True)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+
+
+class CardType(Base):
+    __tablename__ = "card_types"
+    __table_args__ = schema_args("config")
+
+    card_type = Column(String(20), primary_key=True)
+    description = Column(String(50), nullable=True)
+    client_id = Column(Integer, nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class CardChargesHeader(Base):
+    __tablename__ = "card_charges_headers"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    charge_name = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+
+
+class CardChargeEntry(Base):
+    __tablename__ = "card_charge_entries"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    header_id = Column(Integer, nullable=False)
+    charge_type = Column(String(50), nullable=False)
+    amount = Column(Numeric(18, 2), nullable=False)
+    currency = Column(String(3), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class CardSegmentProgrammeCharge(Base):
+    __tablename__ = "card_segment_programme_charges"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    card_seg_grp = Column(String(5), ForeignKey(fk_ref("config.card_segments.card_seg_grp")), nullable=False)
+    card_programme_id = Column(Integer, ForeignKey(fk_ref("config.card_programmes.id")), nullable=False)
+    charge_header_id = Column(Integer, ForeignKey(fk_ref("config.card_charges_headers.id")), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class LocalAccount(Base):
+    __tablename__ = "local_accounts"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    account_number = Column(String(10), nullable=False)
+    account_name = Column(String(100), nullable=False)
+    branch_code = Column(String(20), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class RequestStatus(Base):
+    __tablename__ = "request_statuses"
+    __table_args__ = schema_args("request")
+
+    status_code = Column(String(30), primary_key=True)
+    status_name = Column(String(50), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class RequestChannel(Base):
+    __tablename__ = "request_channels"
+    __table_args__ = schema_args("request")
+
+    channel_code = Column(String(20), primary_key=True)
+    channel_name = Column(String(50), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class RequestCategory(Base):
+    __tablename__ = "request_categories"
+    __table_args__ = schema_args("request")
+
+    category_code = Column(String(20), primary_key=True)
+    category_name = Column(String(50), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class RequestStatusTransition(Base):
+    __tablename__ = "request_status_transitions"
+    __table_args__ = schema_args("request")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    from_status = Column(String(30), nullable=False)
+    to_status = Column(String(30), nullable=False)
+    allowed_role = Column(String(50), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class DispatchStatus(Base):
+    __tablename__ = "dispatch_statuses"
+    __table_args__ = schema_args("config")
+
+    status_code = Column(String(30), primary_key=True)
+    description = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class DispatchType(Base):
+    __tablename__ = "dispatch_types"
+    __table_args__ = schema_args("config")
+
+    type_code = Column(String(30), primary_key=True)
+    description = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class Courier(Base):
+    __tablename__ = "couriers"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    courier_name = Column(String(100), nullable=False)
+    contact_email = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class EligibleAccountProduct(Base):
+    __tablename__ = "eligible_account_products"
+    __table_args__ = schema_args("eligibility")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    product_code = Column(String(20), nullable=False)
+    card_programme_id = Column(Integer, nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class NochargeAccountProduct(Base):
+    __tablename__ = "nocharge_account_products"
+    __table_args__ = schema_args("eligibility")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    product_code = Column(String(20), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class NochargeProgrammeId(Base):
+    __tablename__ = "nocharge_programme_ids"
+    __table_args__ = schema_args("eligibility")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    card_programme_id = Column(Integer, nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class InstantCardStatus(Base):
+    __tablename__ = "instant_card_statuses"
+    __table_args__ = schema_args("config")
+
+    status_code = Column(String(30), primary_key=True)
+    description = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class InstantCardType(Base):
+    __tablename__ = "instant_card_types"
+    __table_args__ = schema_args("config")
+
+    type_code = Column(String(30), primary_key=True)
+    description = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class InstantInventoryMovementType(Base):
+    __tablename__ = "instant_inventory_movement_types"
+    __table_args__ = schema_args("config")
+
+    movement_code = Column(String(30), primary_key=True)
+    description = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class LocalEmailRecipient(Base):
+    __tablename__ = "local_email_recipients"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    recipient_role = Column(String(50), nullable=False)
+    email_address = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+

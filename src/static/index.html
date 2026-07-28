@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eREQUEST 360 - Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- 1. Header (shown only when logged in) -->
+        <header id="app-header" class="hidden">
+            <div class="brand-section">
+                <div class="brand-logo">eR</div>
+                <h1 class="brand-title">eREQUEST <span>360</span></h1>
+            </div>
+            <div class="user-profile">
+                <div class="nav-tabs hidden" id="header-nav" style="display: flex; gap: 8px; margin-right: 16px;">
+                    <button class="btn btn-secondary btn-sm active-tab" id="nav-requests-btn">Requests</button>
+                    <button class="btn btn-secondary btn-sm" id="nav-admin-btn">Admin Panel</button>
+                </div>
+                <div class="user-badge">
+                    <span class="indicator"></span>
+                    <span id="header-user-info">admin (Super Admin)</span>
+                </div>
+                <button class="btn btn-secondary btn-sm" id="logout-btn">Logout</button>
+            </div>
+        </header>
+
+        <!-- 2. Auth Screen -->
+        <div id="auth-screen" class="login-wrapper">
+            <div class="card login-card">
+                <div class="login-header">
+                    <h2>eREQUEST 360</h2>
+                    <p>Enter credentials to access card portal</p>
+                </div>
+                
+                <div id="login-error" class="error-message hidden"></div>
+                
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" class="form-control" placeholder="e.g. admin" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Sign In</button>
+                </form>
+
+                <div class="preset-login-container">
+                    <h4>Quick Login Demo Presets</h4>
+                    <div class="preset-grid">
+                        <button class="preset-btn" onclick="applyPreset('admin', 'password123')">
+                            <strong>Super Admin</strong>
+                            <span>admin</span>
+                        </button>
+                        <button class="preset-btn" onclick="applyPreset('submitter1', 'password123')">
+                            <strong>Submitter</strong>
+                            <span>submitter1</span>
+                        </button>
+                        <button class="preset-btn" onclick="applyPreset('authorizer1', 'password123')">
+                            <strong>Authorizer</strong>
+                            <span>authorizer1</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Dashboard Grid (shown only when logged in) -->
+        <div id="dashboard-screen" class="dashboard-grid hidden">
+            <!-- Sidebar: Operations Pane -->
+            <div class="sidebar-panel">
+                <!-- Submitter Actions -->
+                <div id="submitter-actions-card" class="card hidden">
+                    <h3 style="margin-bottom: 16px; font-weight: 600;">Issue Card Request</h3>
+                    <div class="form-group">
+                        <label for="lookup-account">Lookup Account Number</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="lookup-account" class="form-control" placeholder="e.g. 10444555" style="flex-grow: 1;">
+                            <button id="lookup-btn" class="btn btn-primary">Check</button>
+                        </div>
+                    </div>
+                    
+                    <div id="eligibility-results" class="hidden">
+                        <h4 style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; margin-top: 16px;">Eligible Card Programmes</h4>
+                        <div id="program-list" class="program-card-grid"></div>
+                        
+                        <div class="form-group" style="margin-top: 20px;">
+                            <label for="request-brand">Card Brand</label>
+                            <input type="text" id="request-brand" class="form-control" placeholder="e.g. Visa, Mastercard, Verve">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="pickup-branch">Pickup Branch</label>
+                            <select id="pickup-branch" class="form-control">
+                                <option value="001">Apex Main Branch (001)</option>
+                                <option value="002">Apex Lekki Branch (002)</option>
+                            </select>
+                        </div>
+                        
+                        <button id="submit-request-btn" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Submit Request</button>
+                    </div>
+                </div>
+
+                <!-- Settlement Simulator (Always helpful helper panel for testing workflow) -->
+                <div class="card simulator-panel">
+                    <div class="simulator-title">
+                        <span>⚡</span>
+                        <h4>Settlement Simulator</h4>
+                    </div>
+                    <p class="text-sm" style="color: var(--text-muted); margin-bottom: 12px;">
+                        Requests in <strong>PENDING</strong> status are locked until settlement is completed. Use the trigger below to simulate the core banking settlement callback.
+                    </p>
+                    <div id="simulator-list" style="max-height: 250px; overflow-y: auto;">
+                        <p class="text-sm" style="color: var(--text-inactive); font-style: italic; text-align: center; padding: 12px 0;">No requests pending settlement.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Pane: Request Tracker -->
+            <div class="main-panel">
+                <div class="card" style="flex-grow: 1;">
+                    <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 16px;">
+                        <h3 style="font-weight: 600; margin: 0;">Request Management Log</h3>
+                        <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+                            <div id="global-view-container" class="hidden" style="display: flex; align-items: center; gap: 8px;">
+                                <input type="checkbox" id="global-view-checkbox" onchange="toggleGlobalView()" style="cursor: pointer; width: 16px; height: 16px;">
+                                <label for="global-view-checkbox" style="font-size: 0.85rem; cursor: pointer; color: var(--text-muted); font-weight: 500;">Global View</label>
+                            </div>
+                            <div class="table-filters" style="margin: 0;">
+                                <span class="filter-chip active" onclick="setFilter('ALL')">All</span>
+                                <span class="filter-chip" onclick="setFilter('PENDING_APPROVAL')">Approvals</span>
+                                <span class="filter-chip" onclick="setFilter('PENDING_AUTHORIZATION')">Authorized</span>
+                                <span class="filter-chip" onclick="setFilter('APPROVED')">Approved</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="overflow-x: auto;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Req ID</th>
+                                    <th>Account</th>
+                                    <th>Program ID</th>
+                                    <th>Branch</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="request-table-body">
+                                <tr>
+                                    <td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic; padding: 24px;">
+                                        Loading request log...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 4. Admin Screen (shown only when logged in as admin/super_admin) -->
+        <div id="admin-screen" class="dashboard-grid hidden">
+            <!-- Sidebar for Admin Config -->
+            <div class="sidebar-panel">
+                <div class="card">
+                    <h3 style="margin-bottom: 16px; font-weight: 600;">Tenant Settings</h3>
+                    <form id="policy-form">
+                        <div class="form-group">
+                            <label for="policy-select">Card Issuance Policy</label>
+                            <select id="policy-select" class="form-control">
+                                <option value="one_card_per_account">One Card Per Account</option>
+                                <option value="one_card_per_account_per_brand">One Card Per Account Per Brand</option>
+                            </select>
+                        </div>
+                        <div class="form-group-checkbox" style="margin: 16px 0; display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="policy-approval-checkbox" style="cursor: pointer;">
+                            <label for="policy-approval-checkbox" style="font-size: 0.85rem; cursor: pointer; color: var(--text-muted);">Require Approval for Deviation</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Save Policy</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Main Panel for User & Configurations Management -->
+            <div class="main-panel">
+                <!-- Inner Navigation Tab -->
+                <div class="modal-tabs" style="margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
+                    <button class="modal-tab-btn active" id="admin-tab-users-btn" onclick="switchAdminTab('USERS')" style="background: transparent; border: none; font-size: 0.9rem; font-weight: 600; padding: 8px 16px; cursor: pointer; color: var(--text-muted);">User Directory</button>
+                    <button class="modal-tab-btn" id="admin-tab-config-btn" onclick="switchAdminTab('CONFIG')" style="background: transparent; border: none; font-size: 0.9rem; font-weight: 600; padding: 8px 16px; cursor: pointer; color: var(--text-muted);">System Configurations</button>
+                </div>
+
+                <!-- Tab 1: User Directory & registration -->
+                <div id="admin-tab-users-content" class="admin-tab-section">
+                    <!-- User Listing -->
+                    <div class="card" style="margin-bottom: 24px;">
+                        <div class="table-header">
+                            <h3 style="font-weight: 600;">User Account Directory</h3>
+                        </div>
+                        <div style="overflow-x: auto;">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>User ID</th>
+                                        <th>Username</th>
+                                        <th>Email</th>
+                                        <th>Role</th>
+                                        <th>Branch</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="user-table-body">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; color: var(--text-muted); font-style: italic; padding: 24px;">
+                                            Loading user directory...
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Create User Form -->
+                    <div class="card">
+                        <h3 style="margin-bottom: 20px; font-weight: 600;">Register New User</h3>
+                        <form id="create-user-form">
+                            <div class="form-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 20px;">
+                                <div class="form-group">
+                                    <label for="new-user-id">User ID</label>
+                                    <input type="text" id="new-user-id" class="form-control" placeholder="e.g. submitter2" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-username">Username</label>
+                                    <input type="text" id="new-username" class="form-control" placeholder="e.g. John Doe" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-email">Email Address</label>
+                                    <input type="email" id="new-email" class="form-control" placeholder="e.g. john@bank.com" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-password">Password</label>
+                                    <input type="password" id="new-password" class="form-control" placeholder="••••••••" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-role">Role Assignment</label>
+                                    <select id="new-role" class="form-control"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="new-branch">Assigned Branch</label>
+                                    <select id="new-branch" class="form-control"></select>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Create User Account</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Tab 2: System Configurations -->
+                <div id="admin-tab-config-content" class="admin-tab-section hidden" style="display: flex; gap: 20px; min-height: 500px;">
+                    <!-- Nested Sidebar Drawer for Configuration Groups -->
+                    <div style="width: 230px; flex-shrink: 0; background: rgba(255,255,255,0.01); border-right: 1px solid var(--border-color); padding-right: 12px; display: flex; flex-direction: column; gap: 8px;">
+                        <h4 style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 8px 8px;">Categories</h4>
+                        <div class="settings-drawer" style="display: flex; flex-direction: column; gap: 4px;">
+                            <button class="settings-drawer-btn active" id="btn-dom-cards" onclick="selectConfigDomain('DOM_CARDS')">💳 Card Profiles</button>
+                            <button class="settings-drawer-btn" id="btn-dom-segments" onclick="selectConfigDomain('DOM_SEGMENTS')">👥 Segmentation Rules</button>
+                            <button class="settings-drawer-btn" id="btn-dom-charges" onclick="selectConfigDomain('DOM_CHARGES')">💰 Fees & Pricing</button>
+                            <button class="settings-drawer-btn" id="btn-dom-workflow" onclick="selectConfigDomain('DOM_WORKFLOW')">🔄 Status Workflows</button>
+                            <button class="settings-drawer-btn" id="btn-dom-logistics" onclick="selectConfigDomain('DOM_LOGISTICS')">📦 Courier Registry</button>
+                            <button class="settings-drawer-btn" id="btn-dom-instant" onclick="selectConfigDomain('DOM_INSTANT')">⚡ Instant Inventory</button>
+                            <button class="settings-drawer-btn" id="btn-dom-tenant" onclick="selectConfigDomain('DOM_TENANT')">🏢 Tenant Ledgers</button>
+                        </div>
+                    </div>
+
+                    <!-- Active Configurations Panel -->
+                    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 20px;">
+                        <!-- Config Section 1: Card Profiles -->
+                        <div id="config-sec-cards" class="config-section-panel">
+                            <div class="card" style="margin-bottom: 24px;">
+                                <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="font-weight: 600; font-size: 1.1rem; margin: 0;">Card Types</h3>
+                                    <button class="btn btn-secondary" onclick="openConfigFormModal('card_types', null, ['card_type', 'description'])" style="padding: 4px 10px; font-size: 0.75rem;">+ Add Type</button>
+                                </div>
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Card Type</th>
+                                                <th>Description</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="config-card-types-body">
+                                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading card types...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="font-weight: 600; font-size: 1.1rem; margin: 0;">Card Programmes</h3>
+                                    <button class="btn btn-secondary" onclick="openConfigFormModal('card_programmes', null, ['card_programme_code', 'card_programme_name', 'card_type'])" style="padding: 4px 10px; font-size: 0.75rem;">+ Add Programme</button>
+                                </div>
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Programme Code</th>
+                                                <th>Programme Name</th>
+                                                <th>Card Type</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="config-programmes-body">
+                                            <tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading programmes...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Config Section 2: Segmentation & Eligibility -->
+                        <div id="config-sec-segments" class="config-section-panel hidden" style="display: flex; flex-direction: column; gap: 24px;">
+                            
+                            <!-- Master / Detail split row -->
+                            <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+                                
+                                <!-- Left Column: Master segments list -->
+                                <div style="flex: 1; min-width: 320px; display: flex; flex-direction: column;">
+                                    <div class="card" style="height: 100%;">
+                                        <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                            <h3 style="font-weight: 600; font-size: 1.1rem; margin: 0;">Customer Segments (Master)</h3>
+                                            <button class="btn btn-secondary" onclick="openConfigFormModal('card_segments', null, ['card_seg_grp', 'card_seg_name'])" style="padding: 4px 10px; font-size: 0.75rem;">+ Add Segment</button>
+                                        </div>
+                                        <div style="overflow-x: auto; margin-top: 12px;">
+                                            <table style="width: 100%;">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Group ID</th>
+                                                        <th>Segment Name</th>
+                                                        <th>Status</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="config-card-segments-body">
+                                                    <tr><td colspan="4" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading segments...</td></tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Right Column: Detail mappings of selected segment group -->
+                                <div style="flex: 1.5; min-width: 400px; display: flex; flex-direction: column; gap: 20px;">
+                                    <div class="card" style="border: 1px solid var(--primary-glow); background: rgba(59, 130, 246, 0.03);">
+                                        <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: rgba(0, 0, 0, 0.15);">
+                                            <span style="font-size: 0.85rem; font-weight: 700; color: var(--primary);">Active Segment: <span id="active-segment-display" style="color: var(--text-main); font-weight: 600; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 4px; margin-left: 4px;">None Selected</span></span>
+                                        </div>
+
+                                        <div style="padding: 16px; display: flex; flex-direction: column; gap: 20px;">
+                                            
+                                            <!-- Detail List 1: Account Segments (card_segment_members) -->
+                                            <div>
+                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                                    <h4 style="font-size: 0.9rem; font-weight: 600; margin: 0; color: var(--text-main);">👥 Mapped Host Account Segments</h4>
+                                                    <button class="btn btn-secondary btn-xs" id="add-segment-member-btn" disabled onclick="addSegmentMemberForActiveGroup()" style="padding: 2px 8px; font-size: 0.7rem;">+ Link Host Segment</button>
+                                                </div>
+                                                <div style="overflow-x: auto; background: rgba(0,0,0,0.15); border-radius: 6px; border: 1px solid var(--border-color);">
+                                                    <table style="width: 100%;">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Host Account Segment</th>
+                                                                <th>Status</th>
+                                                                <th>Actions</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="config-card-segment-members-body">
+                                                            <tr><td colspan="3" style="text-align: center; color: var(--text-muted); font-style: italic;">Select a segment group on the left to load host mappings.</td></tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            <!-- Detail List 2: Allowed Card Programmes (card_segment_programmes) -->
+                                            <div>
+                                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                                    <h4 style="font-size: 0.9rem; font-weight: 600; margin: 0; color: var(--text-main);">💳 Allowed Card Programmes & Pricing</h4>
+                                                    <button class="btn btn-secondary btn-xs" id="add-segment-programme-btn" disabled onclick="addSegmentProgrammeForActiveGroup()" style="padding: 2px 8px; font-size: 0.7rem;">+ Map Card Programme</button>
+                                                </div>
+                                                <div style="overflow-x: auto; background: rgba(0,0,0,0.15); border-radius: 6px; border: 1px solid var(--border-color);">
+                                                    <table style="width: 100%;">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>Card Programme ID</th>
+                                                                <th>Fee Template ID</th>
+                                                                <th>Status</th>
+                                                                <th>Actions</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody id="config-card-segment-programmes-body">
+                                                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted); font-style: italic;">Select a segment group on the left to load allowed card profiles.</td></tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Product code mapping panel (independent ledger reference) -->
+                            <div class="card">
+                                <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="font-weight: 600; font-size: 1.1rem; margin: 0;">Product Code Eligibility Mappings</h3>
+                                    <button class="btn btn-secondary" onclick="openConfigFormModal('eligible_account_products', null, ['product_code', 'card_programme_id'])" style="padding: 4px 10px; font-size: 0.75rem;">+ Add Product Mapping</button>
+                                </div>
+                                <div style="overflow-x: auto; margin-top: 12px;">
+                                    <table style="width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Product Code</th>
+                                                <th>Card Programme ID</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="config-eligible-products-body">
+                                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading mappings...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Config Section 3: Pricing & Fee Templates -->
+                        <div id="config-sec-charges" class="config-section-panel hidden">
+                            <!-- Master Charges List -->
+                            <div class="card" style="margin-bottom: 24px;">
+                                <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="font-weight: 600; font-size: 1.1rem; margin: 0;">Card Charges Templates (Master)</h3>
+                                    <button class="btn btn-secondary" onclick="openConfigFormModal('card_charges_headers', null, ['charge_name', 'created_by'])" style="padding: 4px 10px; font-size: 0.75rem;">+ Add Template</button>
+                                </div>
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Template Name</th>
+                                                <th>Breakdown (VAT & Fees)</th>
+                                                <th>Status</th>
+                                                <th>Created By</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="config-charges-body">
+                                            <tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading charge templates...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Segment Programme Charges Mappings -->
+                            <div class="card">
+                                <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="font-weight: 600; font-size: 1.1rem; margin: 0;">Fee Mappings (Segment & Programme Pricing)</h3>
+                                </div>
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Segment Group</th>
+                                                <th>Card Programme ID</th>
+                                                <th>Mapped Template ID</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="config-segment-charges-body">
+                                            <tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading fee mappings...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Config Section 4: Workflow & Lifecycle -->
+                        <div id="config-sec-workflow" class="config-section-panel hidden" style="display: flex; flex-direction: column; gap: 20px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="card">
+                                    <div class="table-header"><h3 style="font-weight: 600; font-size: 1rem; margin: 0;">Request Statuses</h3></div>
+                                    <div style="overflow-x: auto;">
+                                        <table style="width: 100%;">
+                                            <thead><tr><th>Status Code</th><th>Status Name</th></tr></thead>
+                                            <tbody id="config-req-statuses-body">
+                                                <tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading statuses...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <div class="table-header"><h3 style="font-weight: 600; font-size: 1rem; margin: 0;">Channels Registry</h3></div>
+                                    <div style="overflow-x: auto;">
+                                        <table style="width: 100%;">
+                                            <thead><tr><th>Channel Code</th><th>Channel Name</th></tr></thead>
+                                            <tbody id="config-req-channels-body">
+                                                <tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading channels...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="card">
+                                <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="font-weight: 600; font-size: 1.1rem; margin: 0;">Status Workflow Transitions</h3>
+                                    <button class="btn btn-secondary" onclick="openConfigFormModal('request_status_transitions', null, ['from_status', 'to_status', 'allowed_role'])" style="padding: 4px 10px; font-size: 0.75rem;">+ Add Transition</button>
+                                </div>
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Transition ID</th>
+                                                <th>From Status</th>
+                                                <th>To Status</th>
+                                                <th>Authorized Roles</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="config-req-transitions-body">
+                                            <tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading transitions...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Config Section 5: Logistics & Shipping -->
+                        <div id="config-sec-logistics" class="config-section-panel hidden" style="display: flex; flex-direction: column; gap: 20px;">
+                            <div class="card" style="margin-bottom: 24px;">
+                                <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="font-weight: 600; font-size: 1.1rem; margin: 0;">Registered Courier Services</h3>
+                                    <button class="btn btn-secondary" onclick="openConfigFormModal('couriers', null, ['courier_name', 'contact_email'])" style="padding: 4px 10px; font-size: 0.75rem;">+ Add Courier</button>
+                                </div>
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Courier ID</th>
+                                                <th>Courier Name</th>
+                                                <th>Contact Email</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="config-couriers-body">
+                                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading couriers...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="card">
+                                    <div class="table-header"><h3 style="font-weight: 600; font-size: 1rem; margin: 0;">Dispatch Types</h3></div>
+                                    <div style="overflow-x: auto;">
+                                        <table style="width: 100%;">
+                                            <thead><tr><th>Type Code</th><th>Description</th></tr></thead>
+                                            <tbody id="config-disp-types-body">
+                                                <tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <div class="table-header"><h3 style="font-weight: 600; font-size: 1rem; margin: 0;">Dispatch Statuses</h3></div>
+                                    <div style="overflow-x: auto;">
+                                        <table style="width: 100%;">
+                                            <thead><tr><th>Status Code</th><th>Description</th></tr></thead>
+                                            <tbody id="config-disp-statuses-body">
+                                                <tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Config Section 6: Instant Card Inventory -->
+                        <div id="config-sec-instant" class="config-section-panel hidden" style="display: flex; flex-direction: column; gap: 20px;">
+                            <div class="card" style="margin-bottom: 24px;">
+                                <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="font-weight: 600; font-size: 1.1rem; margin: 0;">Instant Card Profile Types</h3>
+                                    <button class="btn btn-secondary" onclick="openConfigFormModal('instant_card_types', null, ['type_code', 'description'])" style="padding: 4px 10px; font-size: 0.75rem;">+ Add Profile</button>
+                                </div>
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%;">
+                                        <thead><tr><th>Type Code</th><th>Description</th><th>Status</th><th>Actions</th></tr></thead>
+                                        <tbody id="config-instant-types-body">
+                                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading instant profiles...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                <div class="card">
+                                    <div class="table-header"><h3 style="font-weight: 600; font-size: 1rem; margin: 0;">Instant Card Statuses</h3></div>
+                                    <div style="overflow-x: auto;">
+                                        <table style="width: 100%;">
+                                            <thead><tr><th>Status Code</th><th>Description</th></tr></thead>
+                                            <tbody id="config-instant-statuses-body">
+                                                <tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div class="card">
+                                    <div class="table-header"><h3 style="font-weight: 600; font-size: 1rem; margin: 0;">Stock Movement Types</h3></div>
+                                    <div style="overflow-x: auto;">
+                                        <table style="width: 100%;">
+                                            <thead><tr><th>Movement Code</th><th>Description</th></tr></thead>
+                                            <tbody id="config-instant-movements-body">
+                                                <tr><td colspan="2" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading...</td></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Config Section 7: Tenant & Identity -->
+                        <div id="config-sec-tenant" class="config-section-panel hidden" style="display: flex; flex-direction: column; gap: 20px;">
+                            <div class="card" style="margin-bottom: 24px;">
+                                <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="font-weight: 600; font-size: 1.1rem; margin: 0;">Tenant General Ledger Accounts</h3>
+                                    <button class="btn btn-secondary" onclick="openConfigFormModal('local_accounts', null, ['account_name', 'account_number', 'branch_code'])" style="padding: 4px 10px; font-size: 0.75rem;">+ Add Account</button>
+                                </div>
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Account Name</th>
+                                                <th>Account Number</th>
+                                                <th>Branch Code</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="config-local-accounts-body">
+                                            <tr><td colspan="5" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading GL accounts...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <div class="card">
+                                <div class="table-header" style="display: flex; justify-content: space-between; align-items: center;">
+                                    <h3 style="font-weight: 600; font-size: 1.1rem; margin: 0;">Notification Email Recipients</h3>
+                                    <button class="btn btn-secondary" onclick="openConfigFormModal('local_email_recipients', null, ['recipient_role', 'email_address'])" style="padding: 4px 10px; font-size: 0.75rem;">+ Add Recipient</button>
+                                </div>
+                                <div style="overflow-x: auto;">
+                                    <table style="width: 100%;">
+                                        <thead>
+                                            <tr>
+                                                <th>Recipient Role</th>
+                                                <th>Email Address</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="config-email-recipients-body">
+                                            <tr><td colspan="4" style="text-align: center; color: var(--text-muted); font-style: italic;">Loading recipients...</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Request Details Modal (hidden by default) -->
+    <div id="details-modal" class="modal-overlay hidden" onclick="handleOverlayClick(event)">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3 id="modal-request-title">Request Details #000</h3>
+                <button class="close-modal-btn" onclick="closeDetailsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Request Overview Grid -->
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">Account Number</span>
+                        <span class="detail-value" id="detail-account-number">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Card Programme</span>
+                        <span class="detail-value" id="detail-programme-id">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Brand</span>
+                        <span class="detail-value" id="detail-brand">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Branch</span>
+                        <span class="detail-value" id="detail-branch">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Pickup Branch</span>
+                        <span class="detail-value" id="detail-pickup-branch">-</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Status</span>
+                        <span class="badge" id="detail-status">-</span>
+                    </div>
+                </div>
+
+                <!-- Global Submitter & Authorizer Actions (Hotlist & Link Account) -->
+                <div id="modal-actions-container" class="hidden" style="margin: 16px 0; padding: 16px; border: 1px dashed var(--border-color); border-radius: 8px; background: rgba(255, 255, 255, 0.02); display: flex; flex-direction: column; gap: 12px;">
+                    <h5 style="margin: 0; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Global Card Operations</h5>
+                    <div style="display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap;">
+                        <div class="form-group" style="flex: 1; margin: 0; min-width: 200px;">
+                            <label for="link-account-input" style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 4px;">Link New Account (exactly 10 digits)</label>
+                            <input type="text" id="link-account-input" class="form-control" placeholder="Enter 10-digit account number" style="height: 36px; padding: 8px; font-size: 0.85rem;">
+                        </div>
+                        <button class="btn btn-secondary btn-sm" id="modal-link-btn" onclick="modalLinkAccount()" style="height: 36px; padding: 0 16px;">Link Account</button>
+                        <button class="btn btn-danger btn-sm" id="modal-hotlist-btn" onclick="modalHotlist()" style="height: 36px; padding: 0 16px;">Hotlist Card</button>
+                    </div>
+                </div>
+
+                <!-- Tabs inside Modal -->
+                <div class="modal-tabs">
+                    <button class="modal-tab-btn active" id="tab-timeline-btn" onclick="switchModalTab('TIMELINE')">History Timeline</button>
+                    <button class="modal-tab-btn" id="tab-audit-btn" onclick="switchModalTab('AUDIT')">Audit Logs & Snapshots</button>
+                </div>
+
+                <!-- Timeline Content -->
+                <div id="modal-tab-timeline" class="modal-tab-content">
+                    <div class="timeline" id="timeline-container">
+                        <!-- Dynamically loaded timeline elements -->
+                    </div>
+                </div>
+
+                <!-- Audit Logs Content -->
+                <div id="modal-tab-audit" class="modal-tab-content hidden">
+                    <div class="audit-logs" id="audit-container">
+                        <!-- Dynamically loaded audit events -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Edit / Add Form Modal -->
+    <div id="config-form-modal" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 500px; margin-top: 100px;">
+            <div class="modal-header">
+                <h3 id="config-modal-title">Configure Record</h3>
+                <button class="close-modal-btn" onclick="closeConfigModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-top: 16px;">
+                <form id="config-generic-form" onsubmit="saveConfigRecord(event)">
+                    <div id="config-form-fields-container" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+                        <!-- Fields populated dynamically via JS -->
+                    </div>
+                    <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeConfigModal()" style="height: 38px; padding: 0 16px;">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="config-save-btn" style="height: 38px; padding: 0 16px;">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Controller -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
