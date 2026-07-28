@@ -466,5 +466,43 @@ class WorkItemActionRead(BaseModel):
         from_attributes = True
 
 
+class ApprovalPolicySetRequest(BaseModel):
+    entity_type_code: str
+    operation_code: str
+    approval_required: bool
+
+
+class ApprovalPolicyRead(BaseModel):
+    id: int
+    client_id: int
+    entity_type_code: str
+    operation_code: str
+    approval_required: bool
+    active: bool
+    created_by: str
+    created_date: datetime
+    last_modified_by: Optional[str] = None
+    last_modified_date: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class ApprovalCheckResponse(BaseModel):
+    client_id: int
+    entity_type_code: str
+    operation_code: str
+    approval_required: bool
+
+
+class ConfigExecutionResult(BaseModel):
+    status: str
+    work_item_id: Optional[int] = None
+    work_item_number: Optional[str] = None
+    entity_id: Optional[int] = None
+    message: str
+
+
+
 
 

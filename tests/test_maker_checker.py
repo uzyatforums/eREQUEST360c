@@ -1,11 +1,5 @@
-import os
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from src.app import app
 from src.db import Base, get_db
@@ -16,17 +10,7 @@ from src.db_models import (
     MakerCheckerStatus,
 )
 from src.api.auth import AuthService
-
-
-
-# Create in-memory SQLite database for testing
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+from tests.conftest import test_engine, TestingSessionLocal
 
 
 def override_get_db():
@@ -43,7 +27,7 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def setup_test_db():
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=test_engine)
     db = TestingSessionLocal()
 
     # Seed required Users
@@ -99,7 +83,7 @@ def setup_test_db():
     yield
 
     db.close()
-    Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=test_engine)
 
 
 def get_auth_header(username: str, client_id: int = 1, roles: list = None):
@@ -263,7 +247,6 @@ def test_resubmit_pending_item_fails():
     assert "Only REJECTED items can be target of this action" in resubmit_res.json()["detail"]
 
 
-
 def test_full_lifecycle_reject_resubmit_approve():
     maker_headers = get_auth_header("maker_01", client_id=1)
     checker_headers = get_auth_header("checker_01", client_id=1)
@@ -394,4 +377,3 @@ def test_ignored_audit_fields_in_change_summary():
     assert "Branch Name changed from Old to New" in summary
     assert "Created By" not in summary
     assert "Created Date" not in summary
-

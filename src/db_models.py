@@ -580,5 +580,22 @@ class MakerCheckerWorkItemAction(Base):
     change_summary = Column(String(1000), nullable=True)
 
 
+class ApprovalPolicy(Base):
+    __tablename__ = "approval_policies"
+    __table_args__ = schema_args("config")
+
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    entity_type_code = Column(String(50), ForeignKey(fk_ref("maker_checker.entity_types.entity_type_code")), nullable=False)
+    operation_code = Column(String(30), ForeignKey(fk_ref("maker_checker.operations.operation_code")), nullable=False)
+    approval_required = Column(Boolean, nullable=False, default=True)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(31), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(31), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+
 
 
