@@ -15,13 +15,21 @@ def get_db():
         db.close()
 
 
-def init_db():
-    from src.db_models import Base as ModelsBase
-    from src.seed import seed_data
+from sqlalchemy import text
 
-    ModelsBase.metadata.create_all(bind=engine)
-    db = SessionLocal()
-    try:
-        seed_data(db)
-    finally:
-        db.close()
+def init_db():
+    # Connectivity check
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+
+    # Only run create_all and seed for in-memory / local SQLite
+    if engine.url.drivername.startswith("sqlite"):
+        from src.db_models import Base as ModelsBase
+        from src.seed import seed_data
+        ModelsBase.metadata.create_all(bind=engine)
+        db = SessionLocal()
+        try:
+            seed_data(db)
+        finally:
+            db.close()
+

@@ -151,12 +151,16 @@ class CardSegment(Base):
     __tablename__ = "card_segments"
     __table_args__ = schema_args("config")
 
-    card_seg_grp = Column(String(5), primary_key=True)
-    card_seg_name = Column(String(50), nullable=False)
-    active = Column(Boolean, nullable=False, default=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     client_id = Column(Integer, nullable=True)
+    segment_code = Column(String(20), nullable=False)
+    segment_name = Column(String(100), nullable=False)
+    priority = Column(Integer, nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
     created_by = Column(String(30), nullable=False)
     created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
 
 
 class CardSegmentProgramme(Base):
@@ -164,25 +168,30 @@ class CardSegmentProgramme(Base):
     __table_args__ = schema_args("config")
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    card_seg_grp = Column(String(5), ForeignKey(fk_ref("config.card_segments.card_seg_grp")), nullable=False)
-    card_programme_id = Column(Integer, ForeignKey(fk_ref("config.card_programmes.id")), nullable=False)
-    active = Column(Boolean, nullable=False, default=True)
     client_id = Column(Integer, nullable=False)
-    seq = Column(Integer, nullable=False, default=0)
+    segment_id = Column(Integer, ForeignKey(fk_ref("config.card_segments.id")), nullable=False)
+    card_programme_id = Column(Integer, ForeignKey(fk_ref("config.card_programmes.id")), nullable=False)
+    priority = Column(Integer, nullable=True)
+    description = Column(String(255), nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
     created_by = Column(String(30), nullable=False)
     created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
 
 
 class CardSegmentMember(Base):
     __tablename__ = "card_segment_members"
     __table_args__ = schema_args("config")
 
-    card_seg_grp = Column(String(5), ForeignKey(fk_ref("config.card_segments.card_seg_grp")), primary_key=True)
+    card_seg_grp = Column(String(5), primary_key=True)
     acct_seg = Column(String(10), primary_key=True)
     active = Column(Boolean, nullable=False, default=True)
     client_id = Column(Integer, nullable=True)
     created_by = Column(String(30), nullable=False)
     created_date = Column(DateTime, nullable=False, server_default=func.now())
+
+
 
 
 class RequestStatusHistory(Base):
@@ -347,10 +356,15 @@ class CardSegmentProgrammeCharge(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     client_id = Column(Integer, nullable=False)
-    card_seg_grp = Column(String(5), ForeignKey(fk_ref("config.card_segments.card_seg_grp")), nullable=False)
-    card_programme_id = Column(Integer, ForeignKey(fk_ref("config.card_programmes.id")), nullable=False)
+    card_segment_programme_id = Column(Integer, ForeignKey(fk_ref("config.card_segment_programmes.id")), nullable=False)
     charge_header_id = Column(Integer, ForeignKey(fk_ref("config.card_charges_headers.id")), nullable=False)
+    priority = Column(Integer, nullable=True)
+    processing_mode_code = Column(String(30), nullable=True)
     active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
 
 
 class LocalAccount(Base):
@@ -376,11 +390,12 @@ class RequestStatus(Base):
 
 class RequestChannel(Base):
     __tablename__ = "request_channels"
-    __table_args__ = schema_args("request")
+    __table_args__ = schema_args("config")
 
     channel_code = Column(String(20), primary_key=True)
     channel_name = Column(String(50), nullable=False)
     active = Column(Boolean, nullable=False, default=True)
+
 
 
 class RequestCategory(Base):
