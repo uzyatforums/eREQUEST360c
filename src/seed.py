@@ -1,5 +1,9 @@
 import hashlib
+import json
+import logging
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
+
 from src.db_models import (
     Client,
     Branch,
@@ -7,6 +11,8 @@ from src.db_models import (
     ClientCardPolicy,
     User,
     Role,
+    Permission,
+    RolePermission,
     CardSegment,
     CardSegmentProgramme,
     CardSegmentMember,
@@ -36,8 +42,8 @@ from src.db_models import (
     InstantInventoryMovementType,
     LocalEmailRecipient,
 )
-import json
-from datetime import datetime, timedelta, timezone
+
+logger = logging.getLogger(__name__)
 
 
 def hash_password(password: str) -> str:
@@ -46,6 +52,7 @@ def hash_password(password: str) -> str:
 
 def seed_data(db: Session):
     # 1. Seed Roles
+    logger.info("Seeding roles...")
     roles = [
         {"role_code": "branch_submitter", "role_name": "Branch Submitter", "description": "Branch level request submitter", "is_maker": True, "is_checker": False},
         {"role_code": "branch_authorizer", "role_name": "Branch Authorizer", "description": "Branch level request authorizer", "is_maker": False, "is_checker": True},
@@ -53,42 +60,173 @@ def seed_data(db: Session):
         {"role_code": "operations_admin_checker", "role_name": "Operations Admin Checker", "description": "Operations checker", "is_maker": False, "is_checker": True},
         {"role_code": "super_admin", "role_name": "Super Admin", "description": "Super admin access", "is_maker": True, "is_checker": True},
     ]
+    roles_added = 0
     for r in roles:
-        if not db.query(Role).filter(Role.role_code == r["role_code"]).first():
+        existing = db.query(Role).filter(Role.role_code == r["role_code"]).first()
+        if not existing:
             db.add(Role(**r))
+            roles_added += 1
+        else:
+            for k, v in r.items():
+                setattr(existing, k, v)
+    db.commit()
+    logger.info(f"Roles seeded successfully ({roles_added} new roles added).")
 
     # 2. Seed Clients / Tenants
+    logger.info("Seeding clients...")
     clients = [
         {"tenant_id": 1, "client_name": "System Administrator Tenant", "client_code": "SYSADMIN", "created_by": "system"},
         {"tenant_id": 100, "client_name": "Apex Microfinance Bank", "client_code": "APEX_MFB", "created_by": "system"},
         {"tenant_id": 200, "client_name": "Global Fintech Group", "client_code": "GLOBAL_FT", "created_by": "system"},
     ]
+    clients_added = 0
     for c in clients:
-        if not db.query(Client).filter(Client.tenant_id == c["tenant_id"]).first():
+        existing = db.query(Client).filter(
+            (Client.client_code == c["client_code"]) | (Client.tenant_id == c["tenant_id"])
+        ).first()
+        if not existing:
             db.add(Client(**c))
-
+            clients_added += 1
     db.commit()
+    logger.info(f"Clients seeded successfully ({clients_added} new clients added).")
 
-    # Resolve Client IDs for seeding reference tables
-    sys_client = db.query(Client).filter(Client.tenant_id == 1).first()
-    apex_client = db.query(Client).filter(Client.tenant_id == 100).first()
-    global_client = db.query(Client).filter(Client.tenant_id == 200).first()
+    # Resolve Client tenant_ids dynamically for FK references
+    sys_client = db.query(Client).filter((Client.client_code == "SYSADMIN") | (Client.client_code == "UBN") | (Client.tenant_id == 1)).first()
+    apex_client = db.query(Client).filter((Client.client_code == "APEX_MFB") | (Client.tenant_id == 100) | (Client.tenant_id == 2)).first()
+    global_client = db.query(Client).filter((Client.client_code == "GLOBAL_FT") | (Client.tenant_id == 200) | (Client.tenant_id == 3)).first()
 
-    # 3. Seed Branches
+    sys_tenant_id = sys_client.tenant_id if sys_client else 1
+    apex_tenant_id = apex_client.tenant_id if apex_client else 100
+    global_tenant_id = global_client.tenant_id if global_client else 200
+
+    # 3. Seed Permissions & Role Permissions before users
+    logger.info("Seeding permissions...")
+    permissions = [
+        {"permission_code": "request.create", "module_name": "REQUEST", "permission_name": "Create Card Request", "description": "Can create new card issuance requests"},
+        {"permission_code": "request.authorize", "module_name": "REQUEST", "permission_name": "Authorize Card Request", "description": "Can authorize branch card requests"},
+        {"permission_code": "request.approve", "module_name": "REQUEST", "permission_name": "Approve Card Request", "description": "Can approve policy deviations"},
+        {"permission_code": "request.view", "module_name": "REQUEST", "permission_name": "View Card Requests", "description": "Can view card requests"},
+        {"permission_code": "request.hotlist", "module_name": "REQUEST", "permission_name": "Hotlist Card", "description": "Can hotlist cards"},
+        {"permission_code": "config.view", "module_name": "CONFIG", "permission_name": "View System Configuration", "description": "Can view system configurations"},
+        {"permission_code": "config.manage", "module_name": "CONFIG", "permission_name": "Manage System Configuration", "description": "Can manage system configurations"},
+        {"permission_code": "user.manage", "module_name": "IAM", "permission_name": "Manage Users and Roles", "description": "Can create and modify users and roles"},
+    ]
+    perms_added = 0
+    for p in permissions:
+        existing = db.query(Permission).filter(Permission.permission_code == p["permission_code"]).first()
+        if not existing:
+            db.add(Permission(**p))
+            perms_added += 1
+        else:
+            for k, v in p.items():
+                setattr(existing, k, v)
+    db.commit()
+    logger.info(f"Permissions seeded successfully ({perms_added} new permissions added).")
+
+    logger.info("Seeding role permissions...")
+    role_perms = [
+        # super_admin
+        {"role_code": "super_admin", "permission_code": "request.create"},
+        {"role_code": "super_admin", "permission_code": "request.authorize"},
+        {"role_code": "super_admin", "permission_code": "request.approve"},
+        {"role_code": "super_admin", "permission_code": "request.view"},
+        {"role_code": "super_admin", "permission_code": "request.hotlist"},
+        {"role_code": "super_admin", "permission_code": "config.view"},
+        {"role_code": "super_admin", "permission_code": "config.manage"},
+        {"role_code": "super_admin", "permission_code": "user.manage"},
+        # branch_submitter
+        {"role_code": "branch_submitter", "permission_code": "request.create"},
+        {"role_code": "branch_submitter", "permission_code": "request.view"},
+        # branch_authorizer
+        {"role_code": "branch_authorizer", "permission_code": "request.authorize"},
+        {"role_code": "branch_authorizer", "permission_code": "request.view"},
+        # operations_admin_maker
+        {"role_code": "operations_admin_maker", "permission_code": "request.create"},
+        {"role_code": "operations_admin_maker", "permission_code": "request.view"},
+        {"role_code": "operations_admin_maker", "permission_code": "config.view"},
+        # operations_admin_checker
+        {"role_code": "operations_admin_checker", "permission_code": "request.approve"},
+        {"role_code": "operations_admin_checker", "permission_code": "request.view"},
+        {"role_code": "operations_admin_checker", "permission_code": "config.manage"},
+    ]
+    rp_added = 0
+    for rp in role_perms:
+        existing = db.query(RolePermission).filter(
+            RolePermission.role_code == rp["role_code"],
+            RolePermission.permission_code == rp["permission_code"]
+        ).first()
+        if not existing:
+            db.add(RolePermission(**rp, created_by="system"))
+            rp_added += 1
+    db.commit()
+    logger.info(f"Role permissions seeded successfully ({rp_added} new links added).")
+
+    # 4. Seed Default Users
+    logger.info("Seeding users...")
+    users = [
+        {
+            "user_id": "admin",
+            "client_id": apex_tenant_id,
+            "branch_id": "001",
+            "username": "admin",
+            "email": "admin@apexmfb.com",
+            "password_hash": hash_password("password123"),
+            "role_code": "super_admin",
+            "active": True,
+            "created_by": "system",
+        },
+        {
+            "user_id": "submitter1",
+            "client_id": apex_tenant_id,
+            "branch_id": "001",
+            "username": "submitter1",
+            "email": "sub1@apexmfb.com",
+            "password_hash": hash_password("password123"),
+            "role_code": "branch_submitter",
+            "active": True,
+            "created_by": "system",
+        },
+        {
+            "user_id": "authorizer1",
+            "client_id": apex_tenant_id,
+            "branch_id": "001",
+            "username": "authorizer1",
+            "email": "auth1@apexmfb.com",
+            "password_hash": hash_password("password123"),
+            "role_code": "branch_authorizer",
+            "active": True,
+            "created_by": "system",
+        }
+    ]
+    users_added = 0
+    for u in users:
+        existing = db.query(User).filter((User.user_id == u["user_id"]) | (User.username == u["username"])).first()
+        if not existing:
+            db.add(User(**u))
+            users_added += 1
+        else:
+            for field, val in u.items():
+                setattr(existing, field, val)
+    db.commit()
+    logger.info(f"Users seeded successfully ({users_added} new users added).")
+
+    # 5. Seed Branches
+    logger.info("Seeding branches...")
     branches = [
-        {"branch_code": "001", "branch_name": "Apex Main Branch", "client_id": apex_client.tenant_id, "created_by": "system"},
-        {"branch_code": "002", "branch_name": "Apex Lekki Branch", "client_id": apex_client.tenant_id, "created_by": "system"},
-        {"branch_code": "201", "branch_name": "Global Primary Branch", "client_id": global_client.tenant_id, "created_by": "system"},
+        {"branch_code": "001", "branch_name": "Apex Main Branch", "client_id": apex_tenant_id, "created_by": "system"},
+        {"branch_code": "002", "branch_name": "Apex Lekki Branch", "client_id": apex_tenant_id, "created_by": "system"},
+        {"branch_code": "201", "branch_name": "Global Primary Branch", "client_id": global_tenant_id, "created_by": "system"},
     ]
     for b in branches:
         if not db.query(Branch).filter(Branch.branch_code == b["branch_code"]).first():
             db.add(Branch(**b))
 
-    # Seed Card Types first to satisfy physical Foreign Keys
+    # Seed Card Types
+    logger.info("Seeding card types...")
     card_types = [
-        {"card_type": "VERVE", "description": "Verve Card", "client_id": apex_client.tenant_id, "active": True},
-        {"card_type": "VISA", "description": "Visa Card", "client_id": apex_client.tenant_id, "active": True},
-        {"card_type": "MASTERCARD", "description": "Mastercard Card", "client_id": global_client.tenant_id, "active": True},
+        {"card_type": "VERVE", "description": "Verve Card", "client_id": apex_tenant_id, "active": True},
+        {"card_type": "VISA", "description": "Visa Card", "client_id": apex_tenant_id, "active": True},
+        {"card_type": "MASTERCARD", "description": "Mastercard Card", "client_id": global_tenant_id, "active": True},
     ]
     for ct in card_types:
         if not db.query(CardType).filter(CardType.card_type == ct["card_type"]).first():
@@ -96,53 +234,65 @@ def seed_data(db: Session):
 
     db.commit()
 
-    # 4. Seed Card Programmes
+    # 6. Seed Card Programmes
+    logger.info("Seeding card programmes...")
     programmes = [
-        {"id": 1, "client_id": apex_client.tenant_id, "card_programme_code": "APEX_VERVE_CLASSIC", "card_programme_name": "Apex Verve Classic", "card_type": "VERVE", "created_by": "system"},
-        {"id": 2, "client_id": apex_client.tenant_id, "card_programme_code": "APEX_VISA_GOLD", "card_programme_name": "Apex Visa Gold", "card_type": "VISA", "created_by": "system"},
-        {"id": 3, "client_id": global_client.tenant_id, "card_programme_code": "GLOBAL_MC_PLATINUM", "card_programme_name": "Global Mastercard Platinum", "card_type": "MASTERCARD", "created_by": "system"},
+        {"id": 1, "client_id": apex_tenant_id, "card_programme_code": "APEX_VERVE_CLASSIC", "card_programme_name": "Apex Verve Classic", "card_type": "VERVE", "created_by": "system"},
+        {"id": 2, "client_id": apex_tenant_id, "card_programme_code": "APEX_VISA_GOLD", "card_programme_name": "Apex Visa Gold", "card_type": "VISA", "created_by": "system"},
+        {"id": 3, "client_id": global_tenant_id, "card_programme_code": "GLOBAL_MC_PLATINUM", "card_programme_name": "Global Mastercard Platinum", "card_type": "MASTERCARD", "created_by": "system"},
     ]
     for p in programmes:
-        if not db.query(CardProgramme).filter(CardProgramme.id == p["id"]).first():
+        if not db.query(CardProgramme).filter((CardProgramme.id == p["id"]) | (CardProgramme.card_programme_code == p["card_programme_code"])).first():
             db.add(CardProgramme(**p))
 
-    # 5. Seed Client Card Policies
+    # 7. Seed Client Card Policies
+    logger.info("Seeding client card policies...")
     policies = [
-        {"client_id": apex_client.tenant_id, "card_policy": "one_card_per_account", "requires_approval_for_deviation": True},
-        {"client_id": global_client.tenant_id, "card_policy": "one_card_per_account_per_brand", "requires_approval_for_deviation": True},
+        {"client_id": apex_tenant_id, "card_policy": "one_card_per_account", "requires_approval_for_deviation": True},
+        {"client_id": global_tenant_id, "card_policy": "one_card_per_account_per_brand", "requires_approval_for_deviation": True},
     ]
     for pol in policies:
         if not db.query(ClientCardPolicy).filter(ClientCardPolicy.client_id == pol["client_id"]).first():
             db.add(ClientCardPolicy(**pol))
 
-    # 6. Seed Card Segments
+    # 8. Seed Card Segments
+    logger.info("Seeding card segments...")
     segments = [
-        {"card_seg_grp": "01", "card_seg_name": "Retail Segment", "client_id": apex_client.tenant_id, "created_by": "system"},
-        {"card_seg_grp": "02", "card_seg_name": "HNI Segment", "client_id": apex_client.tenant_id, "created_by": "system"},
+        {"segment_code": "01", "segment_name": "Retail Segment", "client_id": apex_tenant_id, "priority": 1, "created_by": "system"},
+        {"segment_code": "02", "segment_name": "HNI Segment", "client_id": apex_tenant_id, "priority": 2, "created_by": "system"},
     ]
     for seg in segments:
-        if not db.query(CardSegment).filter(CardSegment.card_seg_grp == seg["card_seg_grp"]).first():
+        if not db.query(CardSegment).filter(CardSegment.segment_code == seg["segment_code"]).first():
             db.add(CardSegment(**seg))
 
     db.commit()
 
-    # 7. Seed Card Segment Programmes (linking segments to card programmes)
+    seg1 = db.query(CardSegment).filter(CardSegment.segment_code == "01").first()
+    seg2 = db.query(CardSegment).filter(CardSegment.segment_code == "02").first()
+    seg1_id = seg1.id if seg1 else 1
+    seg2_id = seg2.id if seg2 else 2
+
+    prog1 = db.query(CardProgramme).filter(CardProgramme.card_programme_code == "APEX_VERVE_CLASSIC").first()
+    prog2 = db.query(CardProgramme).filter(CardProgramme.card_programme_code == "APEX_VISA_GOLD").first()
+    prog1_id = prog1.id if prog1 else 1
+    prog2_id = prog2.id if prog2 else 2
+
+    # Card Segment Programmes
     seg_progs = [
-        {"card_seg_grp": "01", "card_programme_id": 1, "client_id": apex_client.tenant_id, "seq": 1, "created_by": "system"},
-        {"card_seg_grp": "02", "card_programme_id": 2, "client_id": apex_client.tenant_id, "seq": 1, "created_by": "system"},
+        {"segment_id": seg1_id, "card_programme_id": prog1_id, "client_id": apex_tenant_id, "priority": 1, "created_by": "system"},
+        {"segment_id": seg2_id, "card_programme_id": prog2_id, "client_id": apex_tenant_id, "priority": 1, "created_by": "system"},
     ]
     for sp in seg_progs:
         if not db.query(CardSegmentProgramme).filter(
-            CardSegmentProgramme.card_seg_grp == sp["card_seg_grp"],
+            CardSegmentProgramme.segment_id == sp["segment_id"],
             CardSegmentProgramme.card_programme_id == sp["card_programme_id"]
         ).first():
             db.add(CardSegmentProgramme(**sp))
 
-    # 8. Seed Card Segment Members (mocking account number segment mapping)
-    # We will map customer account segments for eligibility logic tests
+    # Card Segment Members
     members = [
-        {"card_seg_grp": "01", "acct_seg": "10", "client_id": apex_client.tenant_id, "created_by": "system"}, # segment '10' maps to segment group '01'
-        {"card_seg_grp": "02", "acct_seg": "20", "client_id": apex_client.tenant_id, "created_by": "system"}, # segment '20' maps to segment group '02'
+        {"card_seg_grp": "01", "acct_seg": "10", "client_id": apex_tenant_id, "created_by": "system"},
+        {"card_seg_grp": "02", "acct_seg": "20", "client_id": apex_tenant_id, "created_by": "system"},
     ]
     for m in members:
         if not db.query(CardSegmentMember).filter(
@@ -151,46 +301,41 @@ def seed_data(db: Session):
         ).first():
             db.add(CardSegmentMember(**m))
 
-
-    # 8.6. Seed Card Charges headers and entries
+    # 9. Seed Card Charges headers and entries
+    logger.info("Seeding card charges...")
     if not db.query(CardChargesHeader).first():
-        # Verve Classic Charges
-        h1 = CardChargesHeader(client_id=apex_client.tenant_id, charge_name="Verve Classic Card Charges", created_by="system")
+        h1 = CardChargesHeader(client_id=apex_tenant_id, charge_name="Verve Classic Card Charges", created_by="system")
         db.add(h1)
         db.flush()
         db.add(CardChargeEntry(header_id=h1.id, charge_type="ISSUANCE_FEE", amount=1000.00, currency="NGN"))
         db.add(CardChargeEntry(header_id=h1.id, charge_type="VAT", amount=75.00, currency="NGN"))
 
-        # Visa Gold Charges
-        h2 = CardChargesHeader(client_id=apex_client.tenant_id, charge_name="Visa Gold Card Charges", created_by="system")
+        h2 = CardChargesHeader(client_id=apex_tenant_id, charge_name="Visa Gold Card Charges", created_by="system")
         db.add(h2)
         db.flush()
         db.add(CardChargeEntry(header_id=h2.id, charge_type="ISSUANCE_FEE", amount=1500.00, currency="NGN"))
         db.add(CardChargeEntry(header_id=h2.id, charge_type="VAT", amount=112.50, currency="NGN"))
 
-        # Mastercard Platinum Charges
-        h3 = CardChargesHeader(client_id=global_client.tenant_id, charge_name="Mastercard Platinum Card Charges", created_by="system")
+        h3 = CardChargesHeader(client_id=global_tenant_id, charge_name="Mastercard Platinum Card Charges", created_by="system")
         db.add(h3)
         db.flush()
         db.add(CardChargeEntry(header_id=h3.id, charge_type="ISSUANCE_FEE", amount=2500.00, currency="NGN"))
         db.add(CardChargeEntry(header_id=h3.id, charge_type="VAT", amount=187.50, currency="NGN"))
 
-        # Map Card Segment Programme Charges
-        db.add(CardSegmentProgrammeCharge(client_id=apex_client.tenant_id, card_seg_grp="01", card_programme_id=1, charge_header_id=h1.id))
-        db.add(CardSegmentProgrammeCharge(client_id=apex_client.tenant_id, card_seg_grp="02", card_programme_id=2, charge_header_id=h2.id))
-        db.add(CardSegmentProgrammeCharge(client_id=global_client.tenant_id, card_seg_grp="02", card_programme_id=3, charge_header_id=h3.id))
+        db.add(CardSegmentProgrammeCharge(client_id=apex_tenant_id, card_seg_grp="01", card_programme_id=prog1_id, charge_header_id=h1.id))
+        db.add(CardSegmentProgrammeCharge(client_id=apex_tenant_id, card_seg_grp="02", card_programme_id=prog2_id, charge_header_id=h2.id))
+        db.add(CardSegmentProgrammeCharge(client_id=global_tenant_id, card_seg_grp="02", card_programme_id=3, charge_header_id=h3.id))
 
-    # 8.7. Seed Lookup and Mapping Tables
-    # 1. Local Accounts
+    # 10. Seed Lookup and Mapping Tables
+    logger.info("Seeding reference and lookup tables...")
     local_accounts = [
-        {"client_id": apex_client.tenant_id, "account_number": "1000000001", "account_name": "Apex Card Operations GL", "branch_code": "001"},
-        {"client_id": global_client.tenant_id, "account_number": "2000000002", "account_name": "Global Card Settlements GL", "branch_code": "201"},
+        {"client_id": apex_tenant_id, "account_number": "1000000001", "account_name": "Apex Card Operations GL", "branch_code": "001"},
+        {"client_id": global_tenant_id, "account_number": "2000000002", "account_name": "Global Card Settlements GL", "branch_code": "201"},
     ]
     for la in local_accounts:
         if not db.query(LocalAccount).filter(LocalAccount.account_number == la["account_number"]).first():
             db.add(LocalAccount(**la))
 
-    # 2. Request Statuses
     req_statuses = [
         {"status_code": "PENDING", "status_name": "Pending Settlement"},
         {"status_code": "PENDING_APPROVAL", "status_name": "Pending Approval"},
@@ -205,7 +350,6 @@ def seed_data(db: Session):
         if not db.query(RequestStatus).filter(RequestStatus.status_code == rs["status_code"]).first():
             db.add(RequestStatus(**rs))
 
-    # 3. Request Channels
     req_channels = [
         {"channel_code": "PORTAL", "channel_name": "Staff Portal"},
         {"channel_code": "MOBILE", "channel_name": "Mobile Banking App"},
@@ -215,7 +359,6 @@ def seed_data(db: Session):
         if not db.query(RequestChannel).filter(RequestChannel.channel_code == rc["channel_code"]).first():
             db.add(RequestChannel(**rc))
 
-    # 4. Request Categories
     req_categories = [
         {"category_code": "ISSUANCE", "category_name": "New Card Issuance"},
         {"category_code": "REISSUE", "category_name": "Card Reissue"},
@@ -225,7 +368,6 @@ def seed_data(db: Session):
         if not db.query(RequestCategory).filter(RequestCategory.category_code == rcat["category_code"]).first():
             db.add(RequestCategory(**rcat))
 
-    # 5. Request Status Transitions
     transitions = [
         {"from_status": "PENDING", "to_status": "PENDING_AUTHORIZATION", "allowed_role": "system"},
         {"from_status": "PENDING", "to_status": "PENDING_APPROVAL", "allowed_role": "system"},
@@ -239,7 +381,6 @@ def seed_data(db: Session):
         ).first():
             db.add(RequestStatusTransition(**t))
 
-    # 6. Dispatch Statuses
     disp_statuses = [
         {"status_code": "PREPARED", "description": "Package prepared"},
         {"status_code": "IN_TRANSIT", "description": "Package in transit"},
@@ -249,7 +390,6 @@ def seed_data(db: Session):
         if not db.query(DispatchStatus).filter(DispatchStatus.status_code == ds["status_code"]).first():
             db.add(DispatchStatus(**ds))
 
-    # 7. Dispatch Types
     disp_types = [
         {"type_code": "BRANCH_PICKUP", "description": "Collect at branch office"},
         {"type_code": "COURIER", "description": "Direct home/office delivery"},
@@ -258,19 +398,17 @@ def seed_data(db: Session):
         if not db.query(DispatchType).filter(DispatchType.type_code == dt["type_code"]).first():
             db.add(DispatchType(**dt))
 
-    # 8. Couriers
     couriers = [
-        {"client_id": apex_client.tenant_id, "courier_name": "DHL Express Nigeria", "contact_email": "dhl-ops@dhl.com.ng"},
-        {"client_id": apex_client.tenant_id, "courier_name": "FedEx Nigeria", "contact_email": "fedex-ops@fedex.com.ng"},
+        {"client_id": apex_tenant_id, "courier_name": "DHL Express Nigeria", "contact_email": "dhl-ops@dhl.com.ng"},
+        {"client_id": apex_tenant_id, "courier_name": "FedEx Nigeria", "contact_email": "fedex-ops@fedex.com.ng"},
     ]
     for c in couriers:
         if not db.query(Courier).filter(Courier.courier_name == c["courier_name"]).first():
             db.add(Courier(**c))
 
-    # 9. Eligible Account Products
     elig_prods = [
-        {"client_id": apex_client.tenant_id, "product_code": "SAVINGS_10", "card_programme_id": 1},
-        {"client_id": apex_client.tenant_id, "product_code": "CURRENT_20", "card_programme_id": 2},
+        {"client_id": apex_tenant_id, "product_code": "SAVINGS_10", "card_programme_id": prog1_id},
+        {"client_id": apex_tenant_id, "product_code": "CURRENT_20", "card_programme_id": prog2_id},
     ]
     for ep in elig_prods:
         if not db.query(EligibleAccountProduct).filter(
@@ -279,23 +417,20 @@ def seed_data(db: Session):
         ).first():
             db.add(EligibleAccountProduct(**ep))
 
-    # 10. No Charge Account Products
     nc_prods = [
-        {"client_id": apex_client.tenant_id, "product_code": "STAFF_SAVINGS"},
+        {"client_id": apex_tenant_id, "product_code": "STAFF_SAVINGS"},
     ]
     for ncp in nc_prods:
         if not db.query(NochargeAccountProduct).filter(NochargeAccountProduct.product_code == ncp["product_code"]).first():
             db.add(NochargeAccountProduct(**ncp))
 
-    # 11. No Charge Programme IDs
     nc_progs = [
-        {"client_id": apex_client.tenant_id, "card_programme_id": 1},
+        {"client_id": apex_tenant_id, "card_programme_id": prog1_id},
     ]
     for ncpr in nc_progs:
         if not db.query(NochargeProgrammeId).filter(NochargeProgrammeId.card_programme_id == ncpr["card_programme_id"]).first():
             db.add(NochargeProgrammeId(**ncpr))
 
-    # 12. Instant Card Statuses
     inst_statuses = [
         {"status_code": "UNASSIGNED", "description": "Card in stock"},
         {"status_code": "ASSIGNED", "description": "Card linked to account"},
@@ -305,7 +440,6 @@ def seed_data(db: Session):
         if not db.query(InstantCardStatus).filter(InstantCardStatus.status_code == ics["status_code"]).first():
             db.add(InstantCardStatus(**ics))
 
-    # 13. Instant Card Types
     inst_types = [
         {"type_code": "INSTANT_VERVE", "description": "Verve Instant Card Batch"},
         {"type_code": "INSTANT_VISA", "description": "Visa Instant Card Batch"},
@@ -314,7 +448,6 @@ def seed_data(db: Session):
         if not db.query(InstantCardType).filter(InstantCardType.type_code == ict["type_code"]).first():
             db.add(InstantCardType(**ict))
 
-    # 14. Instant Inventory Movement Types
     move_types = [
         {"movement_code": "RECEIPT", "description": "Stock received from vendor"},
         {"movement_code": "BRANCH_TRANSFER", "description": "Stock transferred to branch office"},
@@ -323,10 +456,9 @@ def seed_data(db: Session):
         if not db.query(InstantInventoryMovementType).filter(InstantInventoryMovementType.movement_code == mt["movement_code"]).first():
             db.add(InstantInventoryMovementType(**mt))
 
-    # 15. Local Email Recipients
     recipients = [
-        {"client_id": apex_client.tenant_id, "recipient_role": "internal_control_maker", "email_address": "control-maker@apexmfb.com"},
-        {"client_id": apex_client.tenant_id, "recipient_role": "operations_admin_maker", "email_address": "ops-maker@apexmfb.com"},
+        {"client_id": apex_tenant_id, "recipient_role": "internal_control_maker", "email_address": "control-maker@apexmfb.com"},
+        {"client_id": apex_tenant_id, "recipient_role": "operations_admin_maker", "email_address": "ops-maker@apexmfb.com"},
     ]
     for er in recipients:
         if not db.query(LocalEmailRecipient).filter(
@@ -337,59 +469,14 @@ def seed_data(db: Session):
 
     db.commit()
 
-    # 9. Seed Default Users
-    # Seed our standard "admin" user to match existing test suite credentials (user: admin, pass: password123)
-    users = [
-        {
-            "user_id": "admin",
-            "client_id": apex_client.tenant_id,
-            "branch_id": "001",
-            "username": "admin",
-            "email": "admin@apexmfb.com",
-            "password_hash": hash_password("password123"),
-            "role_code": "super_admin",
-            "active": True,
-            "created_by": "system",
-        },
-        {
-            "user_id": "submitter1",
-            "client_id": apex_client.tenant_id,
-            "branch_id": "001",
-            "username": "submitter1",
-            "email": "sub1@apexmfb.com",
-            "password_hash": hash_password("password123"),
-            "role_code": "branch_submitter",
-            "active": True,
-            "created_by": "system",
-        },
-        {
-            "user_id": "authorizer1",
-            "client_id": apex_client.tenant_id,
-            "branch_id": "001",
-            "username": "authorizer1",
-            "email": "auth1@apexmfb.com",
-            "password_hash": hash_password("password123"),
-            "role_code": "branch_authorizer",
-            "active": True,
-            "created_by": "system",
-        }
-    ]
-    for u in users:
-        if not db.query(User).filter(User.user_id == u["user_id"]).first():
-            db.add(User(**u))
-
-    db.commit()
-
-    # 10. Seed Mock Card Requests, Status History and Audit Trails for UI demonstration
+    # 11. Seed Mock Card Requests for UI demonstration if none exist
+    logger.info("Seeding mock card requests...")
     if not db.query(Request).first():
-        # Setup base times
         base_time = datetime.now(timezone.utc) - timedelta(days=2)
-        
-        # Request 1: PENDING (ready for settlement callback)
         req1 = Request(
-            client_id=apex_client.tenant_id,
+            client_id=apex_tenant_id,
             account_number="1011122200",
-            programme_id=1,
+            programme_id=prog1_id,
             request_status="PENDING",
             request_branch="001",
             pickup_branch="001",
@@ -397,12 +484,14 @@ def seed_data(db: Session):
             brand="Verve",
             created_date=base_time,
             status_last_updated=base_time,
-            active=True
+            active=True,
+            processing_mode_code="NORMAL",
+            request_type_code="ISSUANCE",
+
         )
         db.add(req1)
         db.flush()
         
-        # History for Req 1
         db.add(RequestStatusHistory(
             request_id=req1.request_id,
             from_status=None,
@@ -413,7 +502,6 @@ def seed_data(db: Session):
             remarks="Request submitted and active policy verified."
         ))
         
-        # Audit for Req 1
         ae1 = AuditEvent(
             entity_type="request",
             entity_id=req1.request_id,
@@ -444,13 +532,12 @@ def seed_data(db: Session):
             event_id=ae1.event_id
         ))
 
-        # Request 2: PENDING_AUTHORIZATION (settled, awaiting authorizer approval)
         time2_create = base_time + timedelta(hours=1)
         time2_settle = base_time + timedelta(hours=2)
         req2 = Request(
-            client_id=apex_client.tenant_id,
+            client_id=apex_tenant_id,
             account_number="1033344400",
-            programme_id=1,
+            programme_id=prog1_id,
             request_status="PENDING_AUTHORIZATION",
             request_branch="001",
             pickup_branch="001",
@@ -458,12 +545,14 @@ def seed_data(db: Session):
             brand="Verve",
             created_date=time2_create,
             status_last_updated=time2_settle,
-            active=True
+            active=True,
+            processing_mode_code="NORMAL",
+            request_type_code="ISSUANCE",
+
         )
         db.add(req2)
         db.flush()
         
-        # History for Req 2
         db.add(RequestStatusHistory(
             request_id=req2.request_id,
             from_status=None,
@@ -483,7 +572,6 @@ def seed_data(db: Session):
             remarks="Settlement status: SUCCESS"
         ))
         
-        # ChargePostingAttempt for Req 2
         db.add(ChargePostingAttempt(
             request_id=req2.request_id,
             payment_ref="PAY-SIM-SEEDED22",
@@ -496,7 +584,6 @@ def seed_data(db: Session):
             last_modified_date=time2_settle
         ))
         
-        # Audit for Req 2
         ae2_create = AuditEvent(
             entity_type="request",
             entity_id=req2.request_id,
@@ -547,14 +634,13 @@ def seed_data(db: Session):
             event_id=ae2_settle.event_id
         ))
 
-        # Request 3: APPROVED (fully settled and authorized)
         time3_create = base_time + timedelta(hours=3)
         time3_settle = base_time + timedelta(hours=4)
         time3_approve = base_time + timedelta(hours=5)
         req3 = Request(
-            client_id=apex_client.tenant_id,
+            client_id=apex_tenant_id,
             account_number="1055566600",
-            programme_id=2,
+            programme_id=prog2_id,
             request_status="APPROVED",
             request_branch="001",
             pickup_branch="002",
@@ -562,12 +648,14 @@ def seed_data(db: Session):
             brand="Visa",
             created_date=time3_create,
             status_last_updated=time3_approve,
-            active=True
+            active=True,
+            processing_mode_code="NORMAL",
+            request_type_code="ISSUANCE",
+
         )
         db.add(req3)
         db.flush()
         
-        # History for Req 3
         db.add(RequestStatusHistory(
             request_id=req3.request_id,
             from_status=None,
@@ -596,7 +684,6 @@ def seed_data(db: Session):
             remarks="Final branch authorization completed"
         ))
         
-        # Audit for Req 3
         ae3_create = AuditEvent(
             entity_type="request",
             entity_id=req3.request_id,
@@ -647,12 +734,11 @@ def seed_data(db: Session):
             event_id=ae3_approve.event_id
         ))
 
-        # Request 4: PENDING_APPROVAL (awaiting policy deviation approval)
         time4_create = base_time + timedelta(hours=6)
         req4 = Request(
-            client_id=apex_client.tenant_id,
+            client_id=apex_tenant_id,
             account_number="1077788800",
-            programme_id=2,
+            programme_id=prog2_id,
             request_status="PENDING_APPROVAL",
             request_branch="001",
             pickup_branch="001",
@@ -660,12 +746,15 @@ def seed_data(db: Session):
             brand="Visa",
             created_date=time4_create,
             status_last_updated=time4_create,
-            active=True
+            active=True,
+            processing_mode_code="NORMAL",
+            request_type_code="ISSUANCE",
+
         )
+
         db.add(req4)
         db.flush()
         
-        # History for Req 4
         db.add(RequestStatusHistory(
             request_id=req4.request_id,
             from_status=None,
@@ -676,7 +765,6 @@ def seed_data(db: Session):
             remarks="Request created - requires approval for policy deviation."
         ))
         
-        # Audit for Req 4
         ae4_create = AuditEvent(
             entity_type="request",
             entity_id=req4.request_id,
@@ -708,3 +796,27 @@ def seed_data(db: Session):
         ))
 
     db.commit()
+    logger.info("Database seeding process finished successfully.")
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    logger.info("=== Starting eREQUEST 360 Database Seeding Process ===")
+    from src.db import engine, SessionLocal
+    from src.db_models import Base
+
+    logger.info(f"Target Database: {engine.url.database} (driver: {engine.url.drivername})")
+
+    # Ensure missing tables exist
+    Base.metadata.create_all(bind=engine)
+
+    session = SessionLocal()
+    try:
+        seed_data(session)
+        logger.info("=== Database Seeding Completed Successfully ===")
+    except Exception as e:
+        logger.error(f"Seeding failed with error: {e}", exc_info=True)
+        session.rollback()
+        raise
+    finally:
+        session.close()

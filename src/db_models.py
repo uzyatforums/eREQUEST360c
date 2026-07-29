@@ -50,6 +50,10 @@ class Request(Base):
     source_reference = Column(BigInteger, nullable=True)
     brand = Column(String(50), nullable=True)
     active = Column(Boolean, nullable=False, default=True)
+    processing_mode_code = Column(String(30), nullable=True, default="NORMAL")
+    request_type_code = Column(String(30), nullable=True, default="ISSUANCE")
+
+
 
 
 class User(Base):
@@ -81,6 +85,35 @@ class Role(Base):
     is_maker = Column(Boolean, nullable=False, default=False)
     is_checker = Column(Boolean, nullable=False, default=False)
     active = Column(Boolean, nullable=False, default=True)
+
+
+class Permission(Base):
+    __tablename__ = "permissions"
+    __table_args__ = schema_args("iam")
+
+    permission_code = Column(String(100), primary_key=True)
+    module_name = Column(String(50), nullable=True)
+    permission_name = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=True)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class RolePermission(Base):
+    __tablename__ = "role_permissions"
+    __table_args__ = schema_args("iam")
+
+    role_code = Column(String(50), primary_key=True)
+    permission_code = Column(String(100), primary_key=True)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=True)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
 
 
 class Client(Base):

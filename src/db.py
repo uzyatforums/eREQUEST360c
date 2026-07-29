@@ -22,14 +22,15 @@ def init_db():
     with engine.connect() as conn:
         conn.execute(text("SELECT 1"))
 
-    # Only run create_all and seed for in-memory / local SQLite
+    from src.db_models import Base as ModelsBase
+    ModelsBase.metadata.create_all(bind=engine)
+
     if engine.url.drivername.startswith("sqlite"):
-        from src.db_models import Base as ModelsBase
         from src.seed import seed_data
-        ModelsBase.metadata.create_all(bind=engine)
         db = SessionLocal()
         try:
             seed_data(db)
         finally:
             db.close()
+
 
