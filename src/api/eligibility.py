@@ -11,7 +11,6 @@ from src.models import (
 )
 from src.db_models import (
     CardProgramme,
-    CardSegmentMember,
     CardSegmentProgramme,
     Request as RequestModel,
     ClientCardPolicy,
@@ -31,30 +30,20 @@ def get_account_eligibility(
     # Parse first 2 digits as acct_seg (e.g. '10' or '20')
     acct_seg = account_number[:2]
     
-    # Resolve the customer's segment membership
-    member = db.query(CardSegmentMember).filter(
-        CardSegmentMember.acct_seg == acct_seg,
-        CardSegmentMember.client_id == current_user.client_id,
-        CardSegmentMember.active == True
-    ).first()
-    
-    if not member:
-        # Fallback: if no specific segment group is mapped, return all active programs for the client
-        return db.query(CardProgramme).filter(
-            CardProgramme.client_id == current_user.client_id,
-            CardProgramme.active == True
-        ).all()
-        
-    # Get all active card programmes mapped to this segment group
+    # Get active card programmes mapped to this segment group directly
     segment_progs = db.query(CardSegmentProgramme).filter(
-        CardSegmentProgramme.card_seg_grp == member.card_seg_grp,
+        CardSegmentProgramme.card_seg_grp == acct_seg,
         CardSegmentProgramme.client_id == current_user.client_id,
         CardSegmentProgramme.active == True
     ).order_by(CardSegmentProgramme.seq).all()
     
     prog_ids = [sp.card_programme_id for sp in segment_progs]
     if not prog_ids:
-        return []
+        # Fallback: if no specific segment mapping, return all active programs for the client
+        return db.query(CardProgramme).filter(
+            CardProgramme.client_id == current_user.client_id,
+            CardProgramme.active == True
+        ).all()
         
     return db.query(CardProgramme).filter(
         CardProgramme.id.in_(prog_ids),

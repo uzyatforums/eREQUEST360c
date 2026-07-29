@@ -8,31 +8,34 @@
 
 ## 1. Site Map & Module Structure
 
-eREQUEST360 organizes enterprise functionality into 6 primary operational domains:
+eREQUEST360 organizes enterprise functionality into 6 primary operational domains. All screens map to Screen Codes registered in `docs/ui/screen_registry.md`. Relationship tables are embedded as child tabs within their parent master screens.
 
 ```
 eREQUEST360 Portal
-├── 📊 Executive & Operations Dashboard (/dashboard)
+├── 📊 Executive & Operations Dashboard (SCR-002, /dashboard)
 ├── 💳 Card Requests (/requests)
-│   ├── 📝 New Card Request (/requests/new)
+│   ├── 📝 New Card Request (SCR-007, /requests/new)
 │   ├── 📋 My Requests (/requests/my-requests)
-│   ├── ⏳ Pending Authorization (/requests/pending-authorization)
-│   └── 🗃️ All Requests Catalog (/requests/all)
-├── 🛡️ Maker-Checker Work Queue (/maker-checker)
+│   ├── ⏳ Pending Authorization (SCR-010, /requests/pending-authorization)
+│   └── 🗃️ All Requests Catalog (SCR-008, /requests/all)
+├── 🛡️ Maker-Checker Work Queue (SCR-011, /maker-checker)
 │   ├── 📥 Pending Approval Queue (/maker-checker/pending)
 │   └── 📜 Authorization History (/maker-checker/history)
 ├── 🎛️ Card & System Configuration (/config)
-│   ├── 💳 Card Programmes & Types (/config/card-programmes)
-│   ├── 📐 Card Segments & Eligibility (/config/segments)
-│   ├── 💰 Charge Headers & Pricing (/config/charges)
-│   ├── 🏛️ Branch Directory (/config/branches)
-│   └── ⚙️ System Lookup Tables (/config/lookups)
+│   ├── 💳 Card Programmes Master (SCR-003, /config/card-programmes) [Reference Implementation]
+│   ├── 📐 Card Segments Master (SCR-012, /config/segments)
+│   │   ├── 🔹 Tab 1: General Info
+│   │   ├── 🔹 Tab 2: Eligibility Rules (SCR-012A)
+│   │   ├── 🔹 Tab 3: Card Programmes & Charges (SCR-012B)
+│   │   └── 🔹 Tab 4: Audit History (SCR-012C)
+│   ├── 💰 Charge Headers & Pricing (SCR-013, /config/charges)
+│   └── 🏛️ Branch Directory (SCR-006, /config/branches)
 ├── 👥 User & Access Management (/iam)
-│   ├── 👤 User Accounts (/iam/users)
-│   └── 🔐 Roles & Permissions (/iam/roles)
+│   ├── 👤 User Accounts (SCR-004, /iam/users)
+│   └── 🔐 Roles & Permissions (SCR-005, /iam/roles)
 └── 📊 Audit & Operational Reports (/reports)
-    ├── 📜 Enterprise Audit Inspector (/reports/audit)
-    └── 📈 Operational SLA & Production Reports (/reports/operational)
+    ├── 📜 Enterprise Audit Inspector (SCR-014, /reports/audit)
+    └── 📈 Operational SLA & Production Reports (SCR-015, /reports/operational)
 ```
 
 ---
@@ -62,24 +65,23 @@ The sidebar automatically filters menu items based on the authenticated user's a
 
 ### 3.1 Role Navigation Matrix
 
-| Navigation Item | Path / Route | Required Role(s) | Required Permission |
-|-----------------|--------------|------------------|---------------------|
-| **Dashboard** | `/dashboard` | All Roles | `request.view` |
-| **New Request** | `/requests/new` | `branch_submitter`, `operations_admin_maker`, `super_admin` | `request.create` |
-| **My Requests** | `/requests/my-requests` | `branch_submitter`, `operations_admin_maker`, `super_admin` | `request.view` |
-| **Pending Authorization** | `/requests/pending-authorization` | `branch_authorizer`, `super_admin` | `request.authorize` |
-| **All Requests Catalog** | `/requests/all` | All Roles | `request.view` |
-| **Maker-Checker Queue** | `/maker-checker/pending` | `operations_admin_checker`, `super_admin` | `request.approve` |
-| **Maker-Checker History**| `/maker-checker/history` | `operations_admin_checker`, `super_admin` | `request.view` |
-| **Card Programmes** | `/config/card-programmes` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
-| **Card Segments** | `/config/segments` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
-| **Charge Headers** | `/config/charges` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
-| **Branch Directory** | `/config/branches` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
-| **System Lookups** | `/config/lookups` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
-| **User Accounts** | `/iam/users` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `user.manage` |
-| **Roles & Permissions** | `/iam/roles` | `super_admin` | `user.manage` |
-| **Audit Inspector** | `/reports/audit` | `operations_admin_checker`, `super_admin` | `request.view` |
-| **Operational Reports** | `/reports/operational` | All Roles | `request.view` |
+| Screen Code | Navigation Item | Path / Route | Required Role(s) | Required Permission |
+|-------------|-----------------|--------------|------------------|---------------------|
+| `SCR-002` | **Dashboard** | `/dashboard` | All Roles | `request.view` |
+| `SCR-007` | **New Request** | `/requests/new` | `branch_submitter`, `operations_admin_maker`, `super_admin` | `request.create` |
+| `SCR-008` | **My Requests** | `/requests/my-requests` | `branch_submitter`, `operations_admin_maker`, `super_admin` | `request.view` |
+| `SCR-010` | **Pending Authorization** | `/requests/pending-authorization` | `branch_authorizer`, `super_admin` | `request.authorize` |
+| `SCR-008` | **All Requests Catalog** | `/requests/all` | All Roles | `request.view` |
+| `SCR-011` | **Maker-Checker Queue** | `/maker-checker/pending` | `operations_admin_checker`, `super_admin` | `request.approve` |
+| `SCR-011` | **Maker-Checker History**| `/maker-checker/history` | `operations_admin_checker`, `super_admin` | `request.view` |
+| `SCR-003` | **Card Programmes** | `/config/card-programmes` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
+| `SCR-012` | **Card Segments** | `/config/segments` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
+| `SCR-013` | **Charge Headers** | `/config/charges` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
+| `SCR-006` | **Branch Directory** | `/config/branches` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
+| `SCR-004` | **User Accounts** | `/iam/users` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `user.manage` |
+| `SCR-005` | **Roles & Permissions** | `/iam/roles` | `super_admin` | `user.manage` |
+| `SCR-014` | **Audit Inspector** | `/reports/audit` | `operations_admin_checker`, `super_admin` | `request.view` |
+| `SCR-015` | **Operational Reports** | `/reports/operational` | All Roles | `request.view` |
 
 ---
 
@@ -92,10 +94,10 @@ Pressing `Ctrl+K` or `Cmd+K` anywhere in the application opens a floating search
 | 🔍 Type a command or search request / account...                        |
 +-------------------------------------------------------------------------+
 | Quick Navigation                                                        |
-|   📝 Submit New Card Request                                            |
-|   ⏳ Review Pending Approvals (2 items)                                 |
-|   💳 Manage Card Programmes                                             |
-|   👥 User Management                                                    |
+|   📝 Submit New Card Request (SCR-007)                                  |
+|   ⏳ Review Pending Approvals (SCR-011)                                 |
+|   💳 Manage Card Programmes (SCR-003)                                   |
+|   👥 User Management (SCR-004)                                          |
 |                                                                         |
 | Recent Requests                                                         |
 |   REQ-2026-004 - 1055566600 (Approved)                                  |

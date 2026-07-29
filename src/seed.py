@@ -15,7 +15,6 @@ from src.db_models import (
     RolePermission,
     CardSegment,
     CardSegmentProgramme,
-    CardSegmentMember,
     Request,
     RequestStatusHistory,
     AuditEvent,
@@ -288,18 +287,6 @@ def seed_data(db: Session):
             CardSegmentProgramme.card_programme_id == sp["card_programme_id"]
         ).first():
             db.add(CardSegmentProgramme(**sp))
-
-    # Card Segment Members
-    members = [
-        {"card_seg_grp": "01", "acct_seg": "10", "client_id": apex_tenant_id, "created_by": "system"},
-        {"card_seg_grp": "02", "acct_seg": "20", "client_id": apex_tenant_id, "created_by": "system"},
-    ]
-    for m in members:
-        if not db.query(CardSegmentMember).filter(
-            CardSegmentMember.card_seg_grp == m["card_seg_grp"],
-            CardSegmentMember.acct_seg == m["acct_seg"]
-        ).first():
-            db.add(CardSegmentMember(**m))
 
     # 9. Seed Card Charges headers and entries
     logger.info("Seeding card charges...")

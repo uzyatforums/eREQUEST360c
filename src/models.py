@@ -382,16 +382,7 @@ class LocalEmailRecipientRead(BaseModel):
         from_attributes = True
 
 
-class CardSegmentMemberRead(BaseModel):
-    card_seg_grp: str
-    acct_seg: str
-    active: bool
-    client_id: int
-    created_by: str
-    created_date: datetime
 
-    class Config:
-        from_attributes = True
 
 
 class MakerCheckerSubmitRequest(BaseModel):

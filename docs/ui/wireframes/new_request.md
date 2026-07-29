@@ -1,6 +1,6 @@
 # Wireframe: New Card Request Wizard
 
-**Screen ID:** `SCR-007`  
+**Screen Code:** `SCR-007`  
 **Module:** `Requests`  
 **URL Path:** `/requests/new`  
 **Target Roles:** `branch_submitter`, `operations_admin_maker`, `super_admin`  
@@ -28,7 +28,7 @@
 |                    | | Account Name:     Victor Uzoma Nwosu                                    | |
 |                    | | Client Tenant:    Apex Microfinance Bank (100)                           | |
 |                    | | Branch:           Apex Main Branch (001)                                 | |
-|                    | | Customer Segment: Retail Segment (Acct Seg: 10 -> Seg Grp: 01)            | |
+|                    | | Customer Segment: Retail Segment (Acct Seg: 10)                           | |
 |                    | | Eligibility Status: [ PASS - 2 Programmes Available ]                    | |
 |                    | +--------------------------------------------------------------------------+ |
 |                    |                                                                              |
@@ -58,7 +58,6 @@
    - User inputs 10-digit NUBAN account number.
    - Clicking `[Validate Eligibility]` triggers backend evaluation:
      - Derives `acct_seg` from first 2 digits (e.g. `'10'`).
-     - Maps to `CardSegmentMember` (`card_seg_grp = '01'`).
      - Resolves eligible `CardProgramme` records.
      - Performs duplicate request check (`POST /eligibility/duplicate-check`).
 2. **Eligibility Results Banner:**
@@ -68,7 +67,7 @@
 4. **Duplicate & Policy Override Alert (if applicable):**
    - If account violates active card policy (`one_card_per_account`), an Amber notice appears: `⚠️ Duplicate Card Policy Triggered. Request will be routed for Branch Authorizer Approval (PENDING_APPROVAL).`
 5. **Submission Action:**
-   - `[Submit Card Request]` posts to `POST /requests/`, creates request in `PENDING` state, logs initial history, and redirects to Request Details screen.
+   - `[Submit Card Request]` posts to `POST /requests/`, creates request in `PENDING` state, logs initial history, and redirects to Request Details screen (`SCR-009`).
 
 ---
 

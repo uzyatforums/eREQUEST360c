@@ -28,7 +28,6 @@ from src.models import (
     InstantCardTypeRead,
     InstantInventoryMovementTypeRead,
     LocalEmailRecipientRead,
-    CardSegmentMemberRead,
 )
 from src.db_models import (
     Client,
@@ -55,7 +54,6 @@ from src.db_models import (
     InstantCardType,
     InstantInventoryMovementType,
     LocalEmailRecipient,
-    CardSegmentMember,
 )
 from src.api.auth import get_current_user
 
@@ -294,13 +292,6 @@ def get_local_email_recipients(db: Session = Depends(get_db), current_user: User
     if "super_admin" in current_user.roles:
         return db.query(LocalEmailRecipient).all()
     return db.query(LocalEmailRecipient).filter(LocalEmailRecipient.client_id == current_user.client_id).all()
-
-
-@router.get("/card-segment-members", response_model=list[CardSegmentMemberRead])
-def get_card_segment_members(db: Session = Depends(get_db), current_user: UserInfo = Depends(get_current_user)):
-    if "super_admin" in current_user.roles:
-        return db.query(CardSegmentMember).all()
-    return db.query(CardSegmentMember).filter(CardSegmentMember.client_id == current_user.client_id).all()
 
 
 from sqlalchemy import inspect

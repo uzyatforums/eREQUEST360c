@@ -213,16 +213,7 @@ class CardSegmentProgramme(Base):
     last_modified_date = Column(DateTime, nullable=True)
 
 
-class CardSegmentMember(Base):
-    __tablename__ = "card_segment_members"
-    __table_args__ = schema_args("config")
 
-    card_seg_grp = Column(String(5), primary_key=True)
-    acct_seg = Column(String(10), primary_key=True)
-    active = Column(Boolean, nullable=False, default=True)
-    client_id = Column(Integer, nullable=True)
-    created_by = Column(String(30), nullable=False)
-    created_date = Column(DateTime, nullable=False, server_default=func.now())
 
 
 

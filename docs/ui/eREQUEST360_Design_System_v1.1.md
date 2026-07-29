@@ -16,6 +16,7 @@ eREQUEST360 is a mission-critical, enterprise-grade banking application used con
 - **Enterprise Trust:** Clean typography, precise data density, and clear visual hierarchy communicate security and precision.
 - **Speed to Task:** Common operations (submitting requests, branch authorization, policy deviation reviews) require <= 3 clicks.
 - **Dual-Control Awareness:** Clear visual demarcation of Maker vs. Checker actions, pending items counters, and mandatory audit trail logging.
+- **Screen Code Registry Standard:** Every screen is assigned an immutable Screen Code (`SCR-001` through `SCR-015`) registered in `docs/ui/screen_registry.md`.
 
 ---
 
@@ -32,6 +33,7 @@ Design System v1.1 builds upon the initial v1.0 foundation to introduce critical
 | 5 | **Standardized Master-Detail Drawers (Sheet UI)** | Mandated slide-over right-side drawers for record creation/editing rather than navigating away or launching blocking popups. | Keeps user context intact, reduces page loads, and provides smooth multi-tasking on high-resolution workstation monitors. |
 | 6 | **Explicit Action Confirmation Dialogs** | Defined mandatory double-check confirmation dialogs with required remarks fields for sensitive operations (Approve, Reject, Hotlist, Link Account). | Prevents catastrophic operational errors on financial card accounts (#3.5 Security). |
 | 7 | **Responsive Column Priority Grid** | Formulated column hide/show priorities (`priority-1` to `priority-4`) for data tables across wide, desktop, and tablet breakpoints. | Guarantees dense financial grids remain readable on varying branch workstation display sizes without horizontal overflow breaks. |
+| 8 | **Screen Registry Architecture** | Enforced unique Screen Codes (`SCR-001` - `SCR-015`) and master-child tab hierarchy for relationship tables. | Establishes strict traceability across UI routes, backend tables, and permissions. |
 
 ---
 
@@ -180,6 +182,7 @@ System font stack prioritizes native performance and legibility: `Inter, -apple-
 
 A UI component or screen design is compliant with Design System v1.1 when:
 
+- [x] Assigned a unique Screen Code (`SCR-XXX`) registered in `docs/ui/screen_registry.md`.
 - [x] Uses standard HSL design tokens from Section 4.
 - [x] Adheres to WCAG 2.1 AA color contrast standards.
 - [x] Includes standard Page Header, Toolbar, Content Container, and Breadcrumbs.
