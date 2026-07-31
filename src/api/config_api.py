@@ -5,6 +5,8 @@ from src.models import (
     ClientRead,
     BranchRead,
     CardProgrammeRead,
+    CardProgrammeCreate,
+    CardProgrammeUpdate,
     CardSegmentRead,
     UserInfo,
     ClientCardPolicyRead,
@@ -91,6 +93,117 @@ def get_card_programmes(
     if "super_admin" in current_user.roles:
         return db.query(CardProgramme).all()
     return db.query(CardProgramme).filter(CardProgramme.client_id == current_user.client_id).all()
+
+
+@router.post("/card-programmes", response_model=CardProgrammeRead, status_code=status.HTTP_201_CREATED)
+def create_card_programme(
+    payload: CardProgrammeCreate,
+    db: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    # Permission check
+    is_admin = "super_admin" in current_user.roles or any(
+        r in current_user.roles
+        for r in ["operations_admin_maker", "operations_admin_checker", "internal_control_maker", "internal_control_checker"]
+    )
+    if not is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied to create card programmes")
+
+    target_client_id = payload.client_id if ("super_admin" in current_user.roles and payload.client_id) else current_user.client_id
+
+    # Check for duplicate code within client
+    existing = db.query(CardProgramme).filter(
+        CardProgramme.client_id == target_client_id,
+        CardProgramme.card_programme_code == payload.card_programme_code.upper()
+    ).first()
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Card programme code '{payload.card_programme_code}' already exists for this tenant."
+        )
+
+    if payload.card_type:
+        valid_card_type = db.query(CardType).filter(CardType.card_type == payload.card_type).first()
+        if not valid_card_type:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid card type brand code '{payload.card_type}'."
+            )
+
+    obj = CardProgramme(
+        client_id=target_client_id,
+        card_programme_code=payload.card_programme_code.upper(),
+        card_programme_name=payload.card_programme_name,
+        card_type=payload.card_type,
+        active=payload.active,
+        created_by=current_user.username,
+    )
+    db.add(obj)
+
+    from sqlalchemy.exc import IntegrityError
+    try:
+        db.commit()
+        db.refresh(obj)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Database constraint violation while creating card programme."
+        ) from exc
+    return obj
+
+
+@router.put("/card-programmes/{id}", response_model=CardProgrammeRead)
+def update_card_programme(
+    id: int,
+    payload: CardProgrammeUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    is_admin = "super_admin" in current_user.roles or any(
+        r in current_user.roles
+        for r in ["operations_admin_maker", "operations_admin_checker", "internal_control_maker", "internal_control_checker"]
+    )
+    if not is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied to update card programmes")
+
+    query = db.query(CardProgramme).filter(CardProgramme.id == id)
+    if "super_admin" not in current_user.roles:
+        query = query.filter(CardProgramme.client_id == current_user.client_id)
+
+    obj = query.first()
+    if not obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card programme record not found")
+
+    if payload.card_programme_name is not None:
+        obj.card_programme_name = payload.card_programme_name
+    if payload.card_type is not None:
+        valid_card_type = db.query(CardType).filter(CardType.card_type == payload.card_type).first()
+        if not valid_card_type:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid card type brand code '{payload.card_type}'."
+            )
+        obj.card_type = payload.card_type
+    if payload.active is not None:
+        obj.active = payload.active
+
+    from datetime import datetime
+    from sqlalchemy.exc import IntegrityError
+
+    obj.last_modified_by = current_user.username
+    obj.last_modified_date = datetime.now()
+
+    try:
+        db.commit()
+        db.refresh(obj)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Database constraint violation while saving card programme."
+        ) from exc
+    return obj
 
 
 @router.get("/card-segments", response_model=list[CardSegmentRead])

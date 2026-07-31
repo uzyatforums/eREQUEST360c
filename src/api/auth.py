@@ -8,9 +8,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from src.db import get_db
-from src.models import LoginRequest, TokenResponse, UserInfo, UserCreate, UserRead, RoleRead, UserUpdate
+from src.models import LoginRequest, TokenResponse, UserInfo, UserCreate, UserRead, RoleRead, UserUpdate, IAMRoleRead, IAMPermissionRead
 from src.config import settings
-from src.db_models import User, Role
+from src.db_models import User, Role, Permission, RolePermission
 
 
 
@@ -92,6 +92,29 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserInfo)
 def me(current_user: UserInfo = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/roles", response_model=list[IAMRoleRead])
+def get_iam_roles(db: Session = Depends(get_db)):
+    return db.query(Role).filter(Role.active == True).all()
+
+
+@router.get("/permissions", response_model=list[IAMPermissionRead])
+def get_iam_permissions(
+    db: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    if "super_admin" in current_user.roles:
+        return db.query(Permission).filter(Permission.active == True).all()
+
+    # Join role_permissions for user's assigned roles
+    permission_codes = (
+        db.query(RolePermission.permission_code)
+        .filter(RolePermission.role_code.in_(current_user.roles), RolePermission.active == True)
+        .all()
+    )
+    codes = [p[0] for p in permission_codes]
+    return db.query(Permission).filter(Permission.permission_code.in_(codes), Permission.active == True).all()
 
 
 users_router = APIRouter(prefix="/users", tags=["users"])

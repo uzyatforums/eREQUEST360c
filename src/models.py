@@ -21,6 +21,29 @@ class UserInfo(BaseModel):
     roles: list[str]
 
 
+class IAMRoleRead(BaseModel):
+    role_code: str
+    role_name: str
+    description: Optional[str] = None
+    is_maker: bool = False
+    is_checker: bool = False
+    active: bool = True
+
+    class Config:
+        from_attributes = True
+
+
+class IAMPermissionRead(BaseModel):
+    permission_code: str
+    module_name: Optional[str] = None
+    permission_name: str
+    description: Optional[str] = None
+    active: bool = True
+
+    class Config:
+        from_attributes = True
+
+
 class HealthCheckResponse(BaseModel):
     status: str
     message: str
@@ -72,6 +95,20 @@ class BranchRead(BaseModel):
         from_attributes = True
 
 
+class CardProgrammeCreate(BaseModel):
+    card_programme_code: str = Field(..., max_length=35)
+    card_programme_name: str = Field(..., max_length=100)
+    card_type: str = Field(..., max_length=20)
+    active: bool = True
+    client_id: Optional[int] = None
+
+
+class CardProgrammeUpdate(BaseModel):
+    card_programme_name: Optional[str] = Field(None, max_length=100)
+    card_type: Optional[str] = Field(None, max_length=20)
+    active: Optional[bool] = None
+
+
 class CardProgrammeRead(BaseModel):
     id: int
     client_id: int
@@ -79,6 +116,10 @@ class CardProgrammeRead(BaseModel):
     card_programme_name: str
     card_type: str
     active: bool
+    created_by: Optional[str] = None
+    created_date: Optional[datetime] = None
+    last_modified_by: Optional[str] = None
+    last_modified_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True

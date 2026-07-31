@@ -21,13 +21,15 @@ eREQUEST360 Portal
 ├── 🛡️ Maker-Checker Work Queue (SCR-011, /maker-checker)
 │   ├── 📥 Pending Approval Queue (/maker-checker/pending)
 │   └── 📜 Authorization History (/maker-checker/history)
-├── 🎛️ Card & System Configuration (/config)
-│   ├── 💳 Card Programmes Master (SCR-003, /config/card-programmes) [Reference Implementation]
-│   ├── 📐 Card Segments Master (SCR-012, /config/segments)
-│   │   ├── 🔹 Tab 1: General Info
-│   │   ├── 🔹 Tab 2: Eligibility Rules (SCR-012A)
-│   │   ├── 🔹 Tab 3: Card Programmes & Charges (SCR-012B)
-│   │   └── 🔹 Tab 4: Audit History (SCR-012C)
+├── 🎛️ Card & System Configuration
+│   ├── 💳 Card Programmes Master (SCR-003, /card-programmes) [React Router True Navigation]
+│   │   ├── 📝 New Programme (/card-programmes/new)
+│   │   ├── 📄 Details (/card-programmes/:id)
+│   │   ├── ✏️ Edit (/card-programmes/:id/edit)
+│   │   ├── 👥 Segments (/card-programmes/:id/segments)
+│   │   ├── 💰 Charges (/card-programmes/:id/charges)
+│   │   ├── 🔗 References (/card-programmes/:id/references)
+│   │   └── 📜 Audit (/card-programmes/:id/audit)
 │   ├── 💰 Charge Headers & Pricing (SCR-013, /config/charges)
 │   └── 🏛️ Branch Directory (SCR-006, /config/branches)
 ├── 👥 User & Access Management (/iam)
@@ -44,7 +46,7 @@ eREQUEST360 Portal
 
 The Top Header Bar (`h-14`, sticky top) provides universal context controls across all pages:
 
-1. **Brand & App Title:** `eREQUEST360` logo linked to `/dashboard`.
+1. **Brand & App Title:** `eREQUEST360` logo linked to `/card-programmes`.
 2. **Tenant Switcher (Multi-Tenant Indicator):**
    - Displays active tenant `[Apex Microfinance Bank (100)]`.
    - Accessible to `super_admin` role to switch operational scope between tenants.
@@ -74,7 +76,7 @@ The sidebar automatically filters menu items based on the authenticated user's a
 | `SCR-008` | **All Requests Catalog** | `/requests/all` | All Roles | `request.view` |
 | `SCR-011` | **Maker-Checker Queue** | `/maker-checker/pending` | `operations_admin_checker`, `super_admin` | `request.approve` |
 | `SCR-011` | **Maker-Checker History**| `/maker-checker/history` | `operations_admin_checker`, `super_admin` | `request.view` |
-| `SCR-003` | **Card Programmes** | `/config/card-programmes` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
+| `SCR-003` | **Card Programmes** | `/card-programmes` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
 | `SCR-012` | **Card Segments** | `/config/segments` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
 | `SCR-013` | **Charge Headers** | `/config/charges` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |
 | `SCR-006` | **Branch Directory** | `/config/branches` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | `config.view` |

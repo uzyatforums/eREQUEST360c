@@ -1,6 +1,6 @@
 # eREQUEST360 Component Library Specification
 
-**Version:** 1.1  
+**Version:** 1.1 (Updated with Master-Detail Layout Pattern)  
 **Status:** Approved  
 **Framework Target:** React + Vite + TypeScript + Tailwind CSS + shadcn/ui + Lucide Icons  
 
@@ -12,9 +12,46 @@ This document specifies the standard component primitives and composite UI modul
 
 ---
 
-## 2. Core UI Primitives
+## 2. Master → Detail Composite Navigation Pattern
 
-### 2.1 Button (`components/ui/button.tsx`)
+Used for aggregate configuration workspaces (`SCR-003`, and reusable for `SCR-012`, `SCR-013`, `SCR-006`, `SCR-004`). Replaces split-screen layout with full-width master management grids and dedicated detail and child workspace sub-routes.
+
+### 2.1 Parent Summary Banner (`components/card-programmes/parent-summary-banner.tsx`)
+Displayed at the top of all child entity management pages (`Segments`, `Charges`, `References`, `Audit`) to maintain context orientation. Displays Programme Code, Name, Card Brand, BIN, Active Status, and an "Edit Parent" action trigger.
+
+### 2.2 Accessible Tooltip (`components/ui/tooltip.tsx`)
+Provides hover/focus label overlays for icon-only buttons (Edit, Delete, Clone, Refresh, Assign, Back, View) across data tables and action bars.
+
+### 2.3 Breadcrumb Bar (`components/ui/breadcrumb.tsx`)
+Standardized breadcrumb navigation path (e.g., `Configuration > Card Programmes > AG-CL-NGN > Charges`) ensuring predictable hierarchical navigation.
+
+```typescript
+interface MasterDetailLayoutProps<T> {
+  // Master list props
+  items: T[];
+  selectedItem: T | null;
+  onSelectItem: (item: T) => void;
+  renderMasterItem: (item: T, isSelected: boolean) => React.ReactNode;
+  masterSearchPlaceholder?: string;
+  onMasterCreate?: () => void;
+  isLoading?: boolean;
+  
+  // Detail workspace props
+  detailHeader?: React.ReactNode;
+  tabs: {
+    id: 'general' | 'segments' | 'charges' | 'audit' | 'usage';
+    label: string;
+    icon?: React.ReactNode;
+    content: React.ReactNode;
+  }[];
+}
+```
+
+---
+
+## 3. Core UI Primitives
+
+### 3.1 Button (`components/ui/button.tsx`)
 
 | Variant | Tailwind Classes | Usage / Guidelines |
 |---------|------------------|--------------------|
@@ -24,20 +61,9 @@ This document specifies the standard component primitives and composite UI modul
 | `ghost` | `hover:bg-accent hover:text-accent-foreground` | Table row action menus, breadcrumb links, icon-only buttons. |
 | `outline` | `border border-primary text-primary hover:bg-primary/10` | Secondary primary-equivalent actions ("Export Excel", "Download PDF"). |
 
-**Props Contract:**
-```typescript
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'destructive' | 'ghost' | 'outline';
-  size?: 'sm' | 'md' | 'lg' | 'icon';
-  isLoading?: boolean;
-  leftIcon?: React.ReactNode;
-  rightIcon?: React.ReactNode;
-}
-```
-
 ---
 
-### 2.2 Status Badge (`components/ui/status-badge.tsx`)
+### 3.2 Status Badge (`components/ui/status-badge.tsx`)
 
 Used across tables, detail pages, and dashboards to present request and entity state consistently.
 
@@ -48,7 +74,7 @@ export type StatusType =
   | 'SETTLEMENT_FAILED' | 'ACTIVE' | 'INACTIVE';
 
 interface StatusBadgeProps {
-  status: StatusType;
+  status: StatusType | boolean;
   label?: string;
   showIcon?: boolean;
   className?: string;
@@ -57,136 +83,29 @@ interface StatusBadgeProps {
 
 ---
 
-### 2.3 Form Input Controls (`components/ui/input.tsx`, `select.tsx`, `form.tsx`)
+### 3.3 Form Input & Select Controls (`components/ui/input.tsx`, `select.tsx`)
 
 Form fields use React Hook Form + Zod schema validation.
 
+- **Accessibility:** Includes `aria-invalid={!!error}` and `aria-describedby` helper IDs.
+- **Length Limit Support:** `maxLength={35}` with `0/35` character counter.
 - **Required Field Marker:** Red asterisk `<span className="text-destructive">*</span>`
-- **Inline Error:** Form field helper text `<p className="text-xs text-destructive mt-1">{error.message}</p>`
 - **Focus State:** `focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`
 
 ---
 
-## 3. Composite UI Components
+### 3.4 Action Confirmation Dialog (`components/ui/dialog.tsx`)
 
-### 3.1 Data Table (`components/shared/data-table.tsx`)
-
-Built on `TanStack Table v8`. Standard grid container for all tabular domain data.
-
-```typescript
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[];
-  data: TData[];
-  searchColumn?: string;
-  searchPlaceholder?: string;
-  filterOptions?: {
-    columnId: string;
-    title: string;
-    options: { label: string; value: string }[];
-  }[];
-  onExportExcel?: () => void;
-  isLoading?: boolean;
-}
-```
-
-**Features:**
-- Integrated search input with 300ms debounce
-- Multi-column filtering (e.g. Filter by Status, Branch, Client)
-- Sorting on click of column headers
-- Page size switcher (`[25, 50, 100]` rows per page)
-- Sticky header with shadow on scroll
-- Empty state fallback displaying `Lucide.Inbox` icon and custom empty text.
+Explicit modal dialog for confirming sensitive operations (e.g. Deactivating a Card Programme). Supports mandatory remarks for Maker users.
 
 ---
 
-### 3.2 Page Header (`components/shared/page-header.tsx`)
+### 3.5 Row Action Dropdown Menu (`components/ui/dropdown-menu.tsx`)
 
-Standard top header section for all application pages.
-
-```typescript
-interface PageHeaderProps {
-  title: string;
-  description?: string;
-  breadcrumbs?: { label: string; href?: string }[];
-  actions?: React.ReactNode;
-  makerCheckerPendingCount?: number;
-}
-```
-
----
-
-### 3.3 Metric / KPI Card (`components/shared/kpi-card.tsx`)
-
-Used on Executive and Operational dashboards to display real-time counters.
-
-```typescript
-interface KpiCardProps {
-  title: string;
-  value: string | number;
-  change?: string;
-  trend?: 'up' | 'down' | 'neutral';
-  icon: React.ComponentType<{ className?: string }>;
-  description?: string;
-  variant?: 'default' | 'warning' | 'destructive' | 'success';
-}
-```
-
----
-
-### 3.4 Form Drawer Sheet (`components/shared/form-sheet.tsx`)
-
-Slide-over right panel for creating/editing records without leaving grid context.
-
-```typescript
-interface FormSheetProps {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  footerActions?: React.ReactNode;
-}
-```
-
----
-
-### 3.5 Maker-Checker Work Item Panel (`components/shared/maker-checker-panel.tsx`)
-
-Dedicated component for reviewing pending Maker-Checker actions. Shows original payload vs updated payload diffs.
-
-```typescript
-interface MakerCheckerPanelProps {
-  workItemId: number;
-  entityType: string;
-  operation: 'CREATE' | 'UPDATE' | 'DELETE' | 'SPECIAL_APPROVAL';
-  makerUser: string;
-  submittedAt: string;
-  payloadSummary: Record<string, any>;
-  onApprove: (remarks?: string) => void;
-  onReject: (remarks: string) => void;
-}
-```
-
----
-
-### 3.6 Audit Timeline View (`components/shared/audit-timeline.tsx`)
-
-Chronological activity feed displaying audit trail entries.
-
-```typescript
-interface AuditEntry {
-  id: number;
-  eventTime: string;
-  performedBy: string;
-  action: string;
-  details?: { column: string; oldValue: string; newValue: string }[];
-  remarks?: string;
-}
-
-interface AuditTimelineProps {
-  entries: AuditEntry[];
-}
-```
+Standard popup dropdown for table row actions:
+- `Edit Programme`
+- `Toggle Status (Activate / Deactivate)`
+- `View Audit Logs`
 
 ---
 
@@ -198,13 +117,60 @@ Global notifications triggered via `useToast()` hook (`shadcn/ui` toast):
 toast({
   title: "Request Approved Successfully",
   description: "Request #REQ-2026-004 has been sent for settlement.",
-  variant: "default", // default, destructive, success
+  variant: "success", // default, destructive, success, warning, info
 });
 ```
 
-- **Duration:** 4000ms default.
-- **Position:** Bottom-right viewport overlay.
-
 ---
+
+
+## Master-Detail Layout
+
+Purpose:
+Reusable layout for all configuration modules.
+
+Components:
+
+- Filter Bar
+- Master List
+- Detail Panel
+- Entity Header
+- Tab Strip
+- Child Grid
+- Pagination
+- Empty State
+- Loading State
+
+Used By:
+
+- Card Programmes
+- Card Segments
+- Card Charges
+- Branches
+- Users
+- Roles
+- Permissions
+
+## Assignment Dialog
+
+Purpose:
+
+Assign child entities to a parent.
+
+Examples:
+
+- Programme → Segments
+- Programme → Charges
+- User → Roles
+- Role → Permissions
+
+Functions:
+
+- Search
+- Multi-select
+- Priority
+- Default selection
+- Save
+- Cancel
 
 **End of Component Library Specification**

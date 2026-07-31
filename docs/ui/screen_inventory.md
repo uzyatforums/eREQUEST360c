@@ -25,7 +25,7 @@ The eREQUEST360 screen inventory categorizes all system user interfaces into log
 |-------------|-------------|--------|----------|----------------|--------------|------------------------|---------------|
 | `SCR-001` | **Login Screen** | `IAM / Auth` | `/login` | Public / All | Single-Sign-On login, credentials authentication, session handling. | `POST /auth/login` | `wireframes/users.md` |
 | `SCR-002` | **Executive & Ops Dashboard** | `Dashboard` | `/dashboard` | All Roles | Real-time KPI metrics, pending approval alerts, request pipeline, recent activity. | `GET /requests/`, `GET /maker-checker/work-items` | `wireframes/dashboard.md` |
-| `SCR-003` | **Card Programmes Master** | `Config` | `/config/card-programmes` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | **Reference Implementation:** Master list of card programmes, brand mapping, programme creation/edit sheet. | `GET /config/card-programmes`, `POST /config/table/card_programmes` | `wireframes/card_programmes.md` |
+| `SCR-003` | **Card Programmes Master** | `Config` | `/card-programmes` (Sub-routes: `/new`, `/:id`, `/:id/edit`, `/:id/segments`, `/:id/charges`, `/:id/references`, `/:id/audit`) | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | **Reference Implementation:** Dedicated Master → Detail React Router true navigation pattern with aggregate parent details page, dedicated edit page, dynamic card types, and full-width management child workspaces (Segments, Charges, References, Audit). | `GET /config/card-programmes`, `POST /config/card-programmes`, `PUT /config/card-programmes/{id}`, `GET /config/card-types` | `wireframes/card_programmes.md` |
 | `SCR-004` | **User Accounts Directory** | `IAM` | `/iam/users` | `operations_admin_maker`, `operations_admin_checker`, `super_admin` | User accounts table, tenant/branch filtering, user create/edit drawer, password reset. | `GET /users/`, `POST /users/`, `PUT /users/{id}` | `wireframes/users.md` |
 | `SCR-005` | **Roles & Permissions Matrix** | `IAM` | `/iam/roles` | `super_admin` | Role listing, permission mapping matrix, Maker/Checker role flags. | `GET /roles/`, `POST /config/table/roles` | `wireframes/roles.md` |
 | `SCR-006` | **Branch Directory** | `Config` | `/config/branches` | All Admin Roles | Branch directory, client mapping, branch creation sheet. | `GET /branches/`, `POST /branches/` | `wireframes/card_programmes.md` |
@@ -54,5 +54,9 @@ The eREQUEST360 screen inventory categorizes all system user interfaces into log
 | `SCR-015` | **Operational Reports** | `Reports` | `/reports/operational` | All Roles | Card issuance volume report, charge settlement summary, SLA turnaround report, export. | `GET /requests/`, `GET /reports/operational` | `wireframes/reports.md` |
 
 ---
+
+| Screen | UI | CRUD | Child CRUD | Audit | Complete |
+|---------|----|------|------------|-------|----------|
+| SCR-003 | ✓ | ✓ | 20% | ✓ | 40% |
 
 **End of Master Screen Inventory**

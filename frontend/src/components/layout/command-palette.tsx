@@ -1,13 +1,15 @@
 import * as React from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Search, CreditCard, Users, Settings, X, ChevronRight } from 'lucide-react'
 
 interface CommandPaletteProps {
   isOpen: boolean
   onClose: () => void
-  onNavigate: (route: string) => void
+  onNavigate?: (route: string) => void
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose, onNavigate }) => {
+  const navigate = useNavigate()
   const [query, setQuery] = React.useState('')
 
   React.useEffect(() => {
@@ -27,7 +29,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
   if (!isOpen) return null
 
   const items = [
-    { title: 'Card Programmes', subtitle: 'Configuration / Card Programmes', route: '/config/card-programmes', icon: Settings },
+    { title: 'Card Programmes', subtitle: 'Configuration / Card Programmes', route: '/card-programmes', icon: Settings },
     { title: 'New Card Request', subtitle: 'Submit new card request', route: '/requests/new', icon: CreditCard },
     { title: 'Pending Authorization', subtitle: 'Branch approval queue', route: '/maker-checker', icon: CreditCard },
     { title: 'User Management', subtitle: 'IAM / User Directory', route: '/iam/users', icon: Users },
@@ -70,7 +72,8 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
                 <button
                   key={item.route}
                   onClick={() => {
-                    onNavigate(item.route)
+                    if (onNavigate) onNavigate(item.route)
+                    navigate(item.route)
                     onClose()
                   }}
                   className="w-full flex items-center justify-between p-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-left group"
@@ -96,3 +99,4 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ isOpen, onClose,
     </div>
   )
 }
+

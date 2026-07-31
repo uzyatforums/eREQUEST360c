@@ -22,6 +22,14 @@ export default defineConfig({
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
+      '/maker-checker': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
+      '/reports': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+      },
       '/requests': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,

@@ -1,13 +1,50 @@
 import * as React from 'react'
-import { UserInfo } from '../../types'
-import { Bell, Search, Shield, ChevronDown, User } from 'lucide-react'
+import { IAMRole } from '../../types'
+import { apiService } from '../../services/api'
+import { useAuth } from '../../context/auth-context'
+import { UserProfileMenu } from './user-profile-menu'
+import { Bell, Search, Shield, ChevronDown } from 'lucide-react'
 
 interface HeaderProps {
-  user: UserInfo
   onOpenCommandPalette: () => void
 }
 
-export const Header: React.FC<HeaderProps> = ({ user, onOpenCommandPalette }) => {
+// Privilege ranking for highest role selection
+const ROLE_PRIVILEGE_RANK: Record<string, number> = {
+  super_admin: 100,
+  operations_admin_checker: 80,
+  operations_admin_maker: 70,
+  internal_control_checker: 65,
+  internal_control_maker: 60,
+  branch_authorizer: 50,
+  branch_submitter: 30,
+}
+
+export const Header: React.FC<HeaderProps> = ({ onOpenCommandPalette }) => {
+  const { currentUser, roles, tenant, branch, logout } = useAuth()
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = React.useState(false)
+  const [iamRoles, setIamRoles] = React.useState<IAMRole[]>([])
+
+  // Fetch IAM Roles on mount to resolve official IAM role names dynamically
+  React.useEffect(() => {
+    apiService.getIAMRoles().then(setIamRoles).catch(() => {})
+  }, [])
+
+  if (!currentUser) return null
+
+  // Determine highest privilege role from IAM system
+  const sortedRoles = [...roles].sort(
+    (a, b) => (ROLE_PRIVILEGE_RANK[b] || 0) - (ROLE_PRIVILEGE_RANK[a] || 0)
+  )
+  const highestRoleCode = sortedRoles[0] || 'user'
+  const highestIamRole = iamRoles.find((r) => r.role_code === highestRoleCode)
+
+  const primaryRoleLabel =
+    highestIamRole?.role_name ||
+    highestRoleCode.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+
+  const additionalRolesCount = roles.length - 1
+
   return (
     <header className="h-14 border-b border-slate-200 bg-white px-4 flex items-center justify-between sticky top-0 z-30 dark:bg-slate-900 dark:border-slate-800">
       {/* Brand & Context Identifiers */}
@@ -27,14 +64,14 @@ export const Header: React.FC<HeaderProps> = ({ user, onOpenCommandPalette }) =>
         <div className="flex items-center gap-1.5 text-xs bg-slate-50 border border-slate-200 rounded-md px-2.5 py-1 text-slate-700 dark:bg-slate-950 dark:border-slate-800 dark:text-slate-300">
           <Shield className="h-3.5 w-3.5 text-blue-600" />
           <span className="font-semibold">Tenant:</span>
-          <span>Apex MFB (100)</span>
+          <span>Apex MFB ({tenant || 100})</span>
           <ChevronDown className="h-3 w-3 text-slate-400" />
         </div>
 
         {/* Branch Context Indicator */}
         <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500">
           <span className="font-semibold text-slate-700">Branch:</span>
-          <span>Main Branch ({user.branch_code || '001'})</span>
+          <span>Main Branch ({branch || '001'})</span>
         </div>
       </div>
 
@@ -72,20 +109,38 @@ export const Header: React.FC<HeaderProps> = ({ user, onOpenCommandPalette }) =>
 
         <div className="h-4 w-px bg-slate-200 dark:bg-slate-800" />
 
-        {/* User Profile */}
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700">
-            <User className="h-4 w-4" />
+        {/* User Profile Button with Multi-Role Display & Interactive Dropdown */}
+        <button
+          onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+          className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-blue-600"
+          aria-label="User Profile Menu"
+        >
+          <div className="h-8 w-8 rounded-full bg-blue-100 border border-blue-200 text-blue-700 flex items-center justify-center font-bold text-xs">
+            {currentUser.username.substring(0, 2).toUpperCase()}
           </div>
-          <div className="hidden sm:block text-left">
-            <div className="text-xs font-semibold text-slate-900 dark:text-slate-100 leading-none">
-              {user.username}
+          <div className="hidden sm:block">
+            <div className="text-xs font-bold text-slate-900 dark:text-slate-100 leading-none">
+              {currentUser.username}
             </div>
-            <div className="text-[10px] text-slate-500 capitalize leading-tight mt-0.5">
-              {user.roles[0]?.replace('_', ' ') || 'User'}
+            <div className="text-[10px] text-slate-500 leading-tight mt-0.5 flex items-center gap-1">
+              <span className="font-semibold text-blue-700 dark:text-blue-400">{primaryRoleLabel}</span>
+              {additionalRolesCount > 0 && (
+                <span className="px-1 py-0.2 rounded bg-slate-200 text-slate-700 font-mono text-[9px] font-bold">
+                  +{additionalRolesCount}
+                </span>
+              )}
             </div>
           </div>
-        </div>
+          <ChevronDown className="h-3.5 w-3.5 text-slate-400 hidden sm:block" />
+        </button>
+
+        {/* User Profile Menu Modal */}
+        <UserProfileMenu
+          user={currentUser}
+          isOpen={isProfileMenuOpen}
+          onClose={() => setIsProfileMenuOpen(false)}
+          onSignOut={logout}
+        />
       </div>
     </header>
   )

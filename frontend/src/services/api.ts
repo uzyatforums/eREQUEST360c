@@ -1,147 +1,256 @@
-import { CardProgramme, CardProgrammeFormData, UserInfo } from '../types'
+import {
+  CardProgramme,
+  CardProgrammeFormData,
+  CardProgrammeSegment,
+  ProgrammeChargeHeader,
+  AuditLogItem,
+  ProgrammeReferenceItem,
+  CardType,
+  UserInfo,
+  IAMRole,
+  IAMPermission,
+} from '../types'
+import { apiClient } from './apiClient'
+import { authService, LoginResponse } from './auth'
 
-// Default Mock Data in case backend is loading or standalone
-const MOCK_CARD_PROGRAMMES: CardProgramme[] = [
-  {
-    id: 1,
-    client_id: 100,
-    card_programme_code: 'APEX_VERVE_CLASSIC',
-    card_programme_name: 'Apex Verve Classic',
-    card_type: 'VERVE',
-    active: true,
-    created_by: 'system',
-    created_date: '2026-07-25T10:00:00Z',
-    assigned_segment_group: 'Retail Segment (01)',
-    charge_header_name: 'Verve Classic Fee (NGN 1,000 + VAT)',
-  },
-  {
-    id: 2,
-    client_id: 100,
-    card_programme_code: 'APEX_VISA_GOLD',
-    card_programme_name: 'Apex Visa Gold',
-    card_type: 'VISA',
-    active: true,
-    created_by: 'system',
-    created_date: '2026-07-25T11:30:00Z',
-    assigned_segment_group: 'HNI Segment (02)',
-    charge_header_name: 'Visa Gold Fee (NGN 1,500 + VAT)',
-  },
-  {
-    id: 3,
-    client_id: 200,
-    card_programme_code: 'GLOBAL_MC_PLATINUM',
-    card_programme_name: 'Global Mastercard Platinum',
-    card_type: 'MASTERCARD',
-    active: true,
-    created_by: 'system',
-    created_date: '2026-07-26T09:15:00Z',
-    assigned_segment_group: 'HNI Segment (02)',
-    charge_header_name: 'Mastercard Platinum Fee (NGN 2,500 + VAT)',
-  },
-]
+// Mock Data for Master Detail Sub-Tabs (Segments, Charges, Audit Logs, References)
+const MOCK_SEGMENTS: Record<number, CardProgrammeSegment[]> = {
+  1: [
+    { id: 101, segment_code: 'SEG_RETAIL', segment_name: 'Retail Banking Segment', priority: 1, is_default: true, active: true, charge_profile_name: 'Standard Retail Fee' },
+    { id: 102, segment_code: 'SEG_YOUTH', segment_name: 'Youth & Student Account', priority: 2, is_default: false, active: true, charge_profile_name: 'Discounted Youth Fee' },
+  ],
+  2: [
+    { id: 103, segment_code: 'SEG_HNI', segment_name: 'High Net Worth Individuals', priority: 1, is_default: true, active: true, charge_profile_name: 'Premium HNI Fee' },
+  ],
+  3: [
+    { id: 104, segment_code: 'SEG_CORP', segment_name: 'Corporate Executive Segment', priority: 1, is_default: true, active: true, charge_profile_name: 'Corporate Waiver Fee' },
+  ],
+}
 
-let inMemoryProgrammes: CardProgramme[] = [...MOCK_CARD_PROGRAMMES]
+const MOCK_CHARGES: Record<number, ProgrammeChargeHeader[]> = {
+  1: [
+    {
+      id: 201,
+      header_name: 'Verve Classic Issuance Charges',
+      category: 'Issuance',
+      description: 'Standard debit card issuance fee and VAT for new requests.',
+      entries: [
+        { id: 1, charge_type: 'ISSUANCE_FEE', amount: 1000.0, currency: 'NGN' },
+        { id: 2, charge_type: 'VAT_TAX', amount: 75.0, currency: 'NGN' },
+      ],
+    },
+    {
+      id: 202,
+      header_name: 'Verve Classic Replacement Charges',
+      category: 'Replacement',
+      description: 'Card replacement fee for damaged or lost cards.',
+      entries: [
+        { id: 3, charge_type: 'REPLACEMENT_FEE', amount: 1000.0, currency: 'NGN' },
+        { id: 4, charge_type: 'VAT_TAX', amount: 75.0, currency: 'NGN' },
+      ],
+    },
+  ],
+}
+
+const MOCK_AUDIT_LOGS: Record<number, AuditLogItem[]> = {
+  1: [
+    {
+      id: 501,
+      event_time: '2026-07-29T14:15:00Z',
+      performed_by: 'admin',
+      action: 'UPDATE',
+      source: 'SCR-003 Master Screen',
+      remarks: 'Updated programme active status to Active.',
+      details: [{ field: 'active', old_val: 'false', new_val: 'true' }],
+    },
+    {
+      id: 500,
+      event_time: '2026-07-25T10:00:00Z',
+      performed_by: 'system',
+      action: 'CREATE',
+      source: 'System Migration',
+      remarks: 'Initial card programme record created.',
+    },
+  ],
+}
+
+const MOCK_REFERENCES: Record<number, ProgrammeReferenceItem[]> = {
+  1: [
+    { id: 'R-1', category: 'Request Types', reference_name: 'Standard Card Issuance', reference_code: 'REQ_NEW_CARD', status: 'Active' },
+    { id: 'R-2', category: 'Eligibility Rules', reference_name: 'Retail Minimum Balance Check (NGN 1,000)', reference_code: 'RULE_MIN_BAL', status: 'Active' },
+    { id: 'R-3', category: 'Card Requests', reference_name: 'Active Customer Requests Linked', reference_code: 'REQ_COUNT', status: 'Linked', item_count: 1420 },
+    { id: 'R-4', category: 'Templates', reference_name: 'Verve Card Production Notification', reference_code: 'TPL_SMS_VERVE', status: 'Active' },
+    { id: 'R-5', category: 'Branches', reference_name: 'Main Branch (001), Ikeja Branch (002)', reference_code: 'BRANCH_ALL', status: 'Enabled', item_count: 12 },
+  ],
+}
 
 export const apiService = {
-  // Fetch Current Auth User
+  /**
+   * Authenticates user against FastAPI /auth/login and stores JWT token.
+   */
+  async login(username: string, password: string): Promise<LoginResponse> {
+    const res = await apiClient<LoginResponse>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    })
+    if (res && res.access_token) {
+      authService.setToken(res.access_token)
+    }
+    return res
+  },
+
+  /**
+   * Fetches current authenticated user details from /auth/me.
+   */
   async getCurrentUser(): Promise<UserInfo> {
-    try {
-      const res = await fetch('/auth/me')
-      if (res.ok) {
-        return await res.json()
-      }
-    } catch {
-      // Fallback
-    }
-    return {
-      user_id: 'admin',
-      username: 'admin',
-      client_id: 100,
-      branch_code: '001',
-      roles: ['branch_submitter', 'branch_authorizer', 'super_admin'],
-    }
+    return apiClient<UserInfo>('/auth/me')
   },
 
-  // Fetch Card Programmes
+  /**
+   * Fetches active IAM roles from /auth/roles.
+   */
+  async getIAMRoles(): Promise<IAMRole[]> {
+    return apiClient<IAMRole[]>('/auth/roles')
+  },
+
+  /**
+   * Fetches card types from /config/card-types.
+   */
+  async getCardTypes(): Promise<CardType[]> {
+    return apiClient<CardType[]>('/config/card-types')
+  },
+
+  /**
+   * Fetches card programmes from FastAPI endpoint /config/card-programmes.
+   */
   async getCardProgrammes(): Promise<CardProgramme[]> {
-    try {
-      const res = await fetch('/config/card-programmes')
-      if (res.ok) {
-        const data = await res.json()
-        if (Array.isArray(data) && data.length > 0) {
-          return data.map((item: any) => ({
-            ...item,
-            assigned_segment_group: item.assigned_segment_group || 'Retail Segment (01)',
-            charge_header_name: item.charge_header_name || `${item.card_type} Fee (NGN 1,000 + VAT)`,
-          }))
-        }
-      }
-    } catch {
-      // Fallback to mock memory
+    const data = await apiClient<any[]>('/config/card-programmes')
+    if (Array.isArray(data)) {
+      return data.map((item: any) => ({
+        ...item,
+        bin: item.bin || (item.card_type === 'VISA' ? '412345' : item.card_type === 'MCARD' ? '512345' : '506118'),
+        platform_indicator: item.platform_indicator || 'POSTILION_V2',
+        pan_length: item.pan_length || 16,
+        sequence: item.sequence || item.id,
+        min_random_number: item.min_random_number || 100000,
+        max_random_number: item.max_random_number || 999999,
+        output_path: item.output_path || '/var/erequest/card_files/',
+        table_prefix: item.table_prefix || 'TBL_CP_',
+        fep_programme_id: item.fep_programme_id || `FEP_${item.card_programme_code}`,
+        instant_card_type: item.instant_card_type || 'INSTANT_STANDARD',
+        payment_ref_prefix: item.payment_ref_prefix || 'PAY_REF_',
+        assigned_segment_group: item.assigned_segment_group || 'Retail Segment (01)',
+        pp_bin: item.pp_bin || '901234',
+        segment_count: item.segment_count || (item.id % 2 === 0 ? 3 : 2),
+        charge_header_count: item.charge_header_count || (item.id % 3 === 0 ? 2 : 1),
+        charge_header_name: item.charge_header_name || `${item.card_type} Standard Fee Profile`,
+      }))
     }
-    return [...inMemoryProgrammes]
+    return []
   },
 
-  // Create Card Programme
+  /**
+   * Fetches programme segment mappings.
+   */
+  async getCardProgrammeSegments(programmeId: number): Promise<CardProgrammeSegment[]> {
+    return MOCK_SEGMENTS[programmeId] || [
+      { id: 99, segment_code: 'SEG_GENERIC', segment_name: 'General Account Segment', priority: 1, is_default: true, active: true, charge_profile_name: 'Standard Fee Profile' },
+    ]
+  },
+
+  /**
+   * Fetches programme charge headers.
+   */
+  async getCardProgrammeCharges(programmeId: number): Promise<ProgrammeChargeHeader[]> {
+    return MOCK_CHARGES[programmeId] || [
+      {
+        id: 999,
+        header_name: 'Standard Programme Issuance Fee',
+        category: 'Issuance',
+        description: 'Default card issuance charge structure.',
+        entries: [
+          { id: 91, charge_type: 'ISSUANCE_FEE', amount: 1000.0, currency: 'NGN' },
+          { id: 92, charge_type: 'VAT_TAX', amount: 75.0, currency: 'NGN' },
+        ],
+      },
+    ]
+  },
+
+  /**
+   * Fetches programme audit log timeline.
+   */
+  async getCardProgrammeAuditLogs(programmeId: number): Promise<AuditLogItem[]> {
+    return MOCK_AUDIT_LOGS[programmeId] || [
+      {
+        id: 9001,
+        event_time: new Date().toISOString(),
+        performed_by: 'system',
+        action: 'CREATE',
+        source: 'System Initialization',
+        remarks: 'System initialized record.',
+      },
+    ]
+  },
+
+  /**
+   * Fetches programme entity references.
+   */
+  async getCardProgrammeReferences(programmeId: number): Promise<ProgrammeReferenceItem[]> {
+    return MOCK_REFERENCES[programmeId] || [
+      { id: 'REF-1', category: 'Request Types', reference_name: 'Card Issuance Request', reference_code: 'REQ_CARD', status: 'Active' },
+      { id: 'REF-2', category: 'Card Requests', reference_name: 'Linked Card Requests', reference_code: 'REQ_COUNT', status: 'Linked', item_count: 50 },
+    ]
+  },
+
+  /**
+   * Creates a card programme via POST /config/card-programmes.
+   */
   async createCardProgramme(payload: CardProgrammeFormData, tenantId: number): Promise<CardProgramme> {
-    try {
-      const res = await fetch('/config/table/card_programmes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          client_id: tenantId,
-          ...payload,
-          created_by: 'admin',
-        }),
-      })
-      if (res.ok) {
-        return await res.json()
-      }
-    } catch {
-      // Fallback
-    }
-
-    const newProgramme: CardProgramme = {
-      id: Math.max(...inMemoryProgrammes.map((p) => p.id), 0) + 1,
-      client_id: tenantId,
-      card_programme_code: payload.card_programme_code,
-      card_programme_name: payload.card_programme_name,
-      card_type: payload.card_type,
-      active: payload.active,
-      created_by: 'admin',
-      created_date: new Date().toISOString(),
-      assigned_segment_group: 'Retail Segment (01)',
-      charge_header_name: `${payload.card_type} Default Charges`,
-    }
-    inMemoryProgrammes.push(newProgramme)
-    return newProgramme
+    return apiClient<CardProgramme>('/config/card-programmes', {
+      method: 'POST',
+      body: JSON.stringify({
+        client_id: tenantId,
+        ...payload,
+      }),
+    })
   },
 
-  // Update Card Programme
+  /**
+   * Updates a card programme via PUT /config/card-programmes/{id}.
+   */
   async updateCardProgramme(id: number, payload: CardProgrammeFormData): Promise<CardProgramme> {
-    try {
-      const res = await fetch(`/config/table/card_programmes/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (res.ok) {
-        return await res.json()
-      }
-    } catch {
-      // Fallback
-    }
+    return apiClient<CardProgramme>(`/config/card-programmes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+  },
 
-    const index = inMemoryProgrammes.findIndex((p) => p.id === id)
-    if (index !== -1) {
-      inMemoryProgrammes[index] = {
-        ...inMemoryProgrammes[index],
-        ...payload,
-        last_modified_by: 'admin',
-        last_modified_date: new Date().toISOString(),
-      }
-      return inMemoryProgrammes[index]
+  /**
+   * Toggles card programme active status.
+   */
+  async toggleCardProgrammeStatus(id: number, active: boolean, currentItem?: CardProgramme): Promise<CardProgramme> {
+    const payload: CardProgrammeFormData = {
+      card_programme_code: currentItem?.card_programme_code || '',
+      card_programme_name: currentItem?.card_programme_name || '',
+      card_type: currentItem?.card_type || 'VERVE',
+      active,
     }
-    throw new Error('Card Programme not found')
+    return this.updateCardProgramme(id, payload)
+  },
+
+  /**
+   * Submits a work item to Maker-Checker queue via POST /maker-checker/work-items.
+   */
+  async submitMakerCheckerWorkItem(workPayload: {
+    entity_type: string
+    entity_id?: string | number
+    operation: 'CREATE' | 'UPDATE' | 'DELETE'
+    maker_remarks?: string
+    payload: Record<string, any>
+  }): Promise<{ work_item_id: number; status: string }> {
+    return apiClient<{ work_item_id: number; status: string }>('/maker-checker/work-items', {
+      method: 'POST',
+      body: JSON.stringify(workPayload),
+    })
   },
 }

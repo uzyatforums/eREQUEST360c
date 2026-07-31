@@ -1,6 +1,6 @@
 # eREQUEST360 UI Design System v1.1
 
-**Version:** 1.1  
+**Version:** 1.1 (Updated for Master-Detail Configuration Standard)  
 **Status:** Approved Specification  
 **Author:** PN SYSTEMS LTD & eREQUEST360 Architecture Team  
 **Project:** eREQUEST360 – Enterprise Multi-Tenant Card Request & Lifecycle Management Platform  
@@ -20,43 +20,40 @@ eREQUEST360 is a mission-critical, enterprise-grade banking application used con
 
 ---
 
-## 2. Version 1.1 Improvements & Justifications
+## 2. Master–Detail Configuration Architecture Standard
 
-Design System v1.1 builds upon the initial v1.0 foundation to introduce critical enterprise banking enhancements:
+All master configuration modules (e.g. Card Programmes `SCR-003`, Card Segments `SCR-012`, Card Charges `SCR-013`) follow the standard **2-Column Master-Detail Layout**:
 
-| # | Improvement | Description | Reasoning & Architectural Justification |
-|---|-------------|-------------|------------------------------------------|
-| 1 | **Dual-Control (Maker-Checker) UX Semantics** | Added dedicated visual badges, work-item queue counters, and side-by-side payload diff viewers for pending maker-checker actions. | Aligns UI with `docs/architecture/025-032` Maker-Checker engine. Prevents accidental self-approval by Makers and provides explicit audit context for Checkers. |
-| 2 | **Tenant & Branch Context Switcher** | Header component displaying active Tenant (`client_id`) and Branch (`branch_code`) with multi-tenant indicator. | Supports multi-tenant backend architecture (`docs/architecture/eREQUEST360_Architecture_v1.0.md` Section 5.1). Guarantees user awareness of operating client scope. |
-| 3 | **Command Palette (`Ctrl+K` / `Cmd+K`)** | Global quick-action overlay allowing keyboard navigation to any screen or searching requests by ID/Account number. | Enhances power-user speed (Target < 1s lookup), fulfilling the operational speed principle (#3.4). |
-| 4 | **Expanded Design Tokens & Color Palette** | Standardized HSL color variables with defined WCAG 2.1 AA contrast ratios for light/dark themes and 10 state badges. | Ensures accessibility compliance (#24) and guarantees consistent badge coloring across table rows, status history, and dashboards. |
-| 5 | **Standardized Master-Detail Drawers (Sheet UI)** | Mandated slide-over right-side drawers for record creation/editing rather than navigating away or launching blocking popups. | Keeps user context intact, reduces page loads, and provides smooth multi-tasking on high-resolution workstation monitors. |
-| 6 | **Explicit Action Confirmation Dialogs** | Defined mandatory double-check confirmation dialogs with required remarks fields for sensitive operations (Approve, Reject, Hotlist, Link Account). | Prevents catastrophic operational errors on financial card accounts (#3.5 Security). |
-| 7 | **Responsive Column Priority Grid** | Formulated column hide/show priorities (`priority-1` to `priority-4`) for data tables across wide, desktop, and tablet breakpoints. | Guarantees dense financial grids remain readable on varying branch workstation display sizes without horizontal overflow breaks. |
-| 8 | **Screen Registry Architecture** | Enforced unique Screen Codes (`SCR-001` - `SCR-015`) and master-child tab hierarchy for relationship tables. | Establishes strict traceability across UI routes, backend tables, and permissions. |
+```
++---------------------------------------------------------------------------------------------------+
+| PAGE HEADER: Title, Description, Breadcrumbs, Global Actions [+ New Entity]                      |
++--------------------------------------------------+------------------------------------------------+
+| MASTER SELECTOR PANEL (LEFT: 380px / 35%)        | DETAIL WORKSPACE PANEL (RIGHT: FLEX-1 / 65%)   |
+| - Integrated Search Bar                          | - Active Entity Header & Metadata Bar          |
+| - Compact Master List Rows                       | - Action Dropdown [...]                        |
+| - Active Selection Highlight                     | - Sub-Tab Navigation Bar:                      |
+| - Status Badges                                  |   [General] [Segments] [Charges] [Audit] [Usage]|
+| - Pagination Controls                            | - Tab Workspace Content Area                   |
++--------------------------------------------------+------------------------------------------------+
+```
 
----
-
-## 3. Design Principles & Guidelines
-
-### 3.1 Consistency
-All pages follow identical 3-tier layout hierarchy: **Page Header -> Filter & Action Bar -> Data Grid / Workspace**. Button colors, icon choices, and notification patterns remain uniform across all 15+ sub-modules.
-
-### 3.2 Information Density & Spatial Rhythm
-Bank operators process large volumes of requests daily. Interface density uses compact 36px table row heights, 8px base spacing grid, and standard 14px body typography to display complete record context without unnecessary whitespace padding.
-
-### 3.3 Defensive Banking UX
-- **No Silent Failures:** Every API call produces clear visual feedback (Toast notification, inline error banner, or skeleton loader).
-- **Destructive Action Safety:** Critical operations (Hotlisting, Policy Deviation Overrides, User Deactivation) use red solid primary buttons and require confirmation text or remarks.
-- **Unsaved Changes Guard:** Leaving a modified form drawer prompts an unsaved changes alert modal.
+### Key Principles of Master–Detail Layout
+1. **Single-Click Selection:** Single-clicking any row in the left Master Selector sets it as active (`border-l-4 border-l-blue-600 bg-blue-50/50`) and populates the right Detail Workspace without a full page reload.
+2. **Contextual Sub-Tabs:** Detail workspaces present 5 standard tabs:
+   - **`[General]`**: Core database parameters mapping the master table.
+   - **`[Segments]`**: Mapped customer segment groups and eligibility associations.
+   - **`[Charges]`**: Fee headers, entries, GL accounting rules, and pricing structure.
+   - **`[Audit]`**: Embedded audit log timeline from `audit.audit_events` filtered by entity ID.
+   - **`[Usage]`**: Operational metrics, total card volume, and linked request history.
+3. **Drawer Editing:** Creating and editing master entities continues to use the slide-over Sheet drawer (`480px` width) to preserve context.
 
 ---
 
-## 4. Color System & Tokens
+## 3. Design Tokens & Color Palette
 
 eREQUEST360 uses a curated HSL color palette engineered for high contrast (WCAG 2.1 AA compliant > 4.5:1 for normal text).
 
-### 4.1 Primary & Functional Palette
+### 3.1 Primary & Functional Palette
 
 ```css
 :root {
@@ -85,7 +82,7 @@ eREQUEST360 uses a curated HSL color palette engineered for high contrast (WCAG 
 }
 ```
 
-### 4.2 Status Color Mapping Table
+### 3.2 Status Color Mapping Table
 
 | Status Code | Display Label | Badge Background | Text Color | Border Color | Icon (Lucide) |
 |-------------|---------------|------------------|------------|--------------|---------------|
@@ -102,7 +99,7 @@ eREQUEST360 uses a curated HSL color palette engineered for high contrast (WCAG 
 
 ---
 
-## 5. Typography
+## 4. Typography
 
 System font stack prioritizes native performance and legibility: `Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`. Monospaced data (Request IDs, Account Numbers, Card PAN hashes) uses `ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace`.
 
@@ -118,79 +115,29 @@ System font stack prioritizes native performance and legibility: `Inter, -apple-
 
 ---
 
-## 6. Layout Specification
+## 5. Standard Component Patterns
 
-### 6.1 Header (Top Navigation Bar)
-- **Height:** 56px (`h-14`)
-- **Tenant Context Indicator:** Displays current Tenant Name & ID with multi-tenant switcher dropdown (Super Admin only).
-- **Branch Context Indicator:** Displays current user's active branch code.
-- **Global Command Search:** Input trigger launching `Ctrl+K` palette.
-- **Notifications Trigger:** Bell icon with live badge counter for pending approvals or failed settlements.
-- **User Profile Menu:** Displays avatar, user ID, role badge, and Logout trigger.
-
-### 6.2 Collapsible Sidebar
-- **Width:** 240px expanded (`w-60`), 64px collapsed (`w-16`).
-- **Grouping:** Logically segmented into **Core Workflows**, **Dual-Control Queue**, **System Management**, and **Analytics**.
-- **Badge Indicators:** Displays real-time pending counters (e.g., Maker-Checker queue pending count).
-
-### 6.3 Status Bar (Footer)
-- **Height:** 28px (`h-7`)
-- **Metadata:** Shows DB connection status, target DB name (`erequest360c`), API version, environment flag (`DEVELOPMENT` / `STAGING` / `PRODUCTION`), and security session inactivity countdown timer.
-
----
-
-## 7. Standard Component Patterns
-
-### 7.1 Data Tables (`TanStack Table` + `shadcn/ui`)
+### 5.1 Data Tables & Master Selector Grids
 - **Row Density:** 36px row height with alternating row hover highlight (`hover:bg-muted/50`).
-- **Sticky Header:** Top header remains fixed during vertical scroll.
-- **Toolbar:** Integrated Search Input (instant debounced filter), Status Filter dropdown, Branch Filter, Date Picker, Export (CSV/Excel) button, and Column Visibility toggle.
-- **Pagination:** Bottom right displaying `Showing 1-25 of 142 items` with Page Size Selector `[25, 50, 100]` and Next/Prev controls.
+- **Active Selection Highlight:** `border-l-4 border-l-blue-600 bg-blue-50/50`.
+- **Pagination:** Bottom right displaying `Showing 1-25 of 142 items` with Page Size Selector `[10, 25, 50]` and Next/Prev controls.
 
-### 7.2 Form Drawers (`Sheet Component`)
+### 5.2 Form Drawers (`Sheet Component`)
 - **Position:** Slides in from the right edge, occupying 480px width (Desktop) or 100% (Mobile).
 - **Header:** Sticky top header with title, close icon `X`, and description.
-- **Body:** Scrollable form controls grouped into distinct card sections with standard 16px gaps.
+- **Body:** Scrollable form controls with length limits (`maxLength={35}`) and character counters (`0/35`).
 - **Footer:** Fixed bottom bar with `Cancel` (Secondary Outline) on left and `Save Changes` (Primary Solid) on right.
 
-### 7.3 Modal Dialogs
-- **Width:** 450px to 600px centered overlay with backdrop blur.
-- **Usage:** Confirmation for critical actions, password resets, hotlisting confirmation, or approval rejection comments.
+### 5.3 Action Confirmation Dialogs
+- **Usage:** Explicit double-check confirmation dialogs with required remarks for status changes (`Activate` / `Deactivate`).
 
 ---
 
-## 8. Accessibility & Responsive Standards
+## 6. Accessibility & Responsive Standards
 
-### 8.1 Accessibility (WCAG 2.1 AA)
-- **Keyboard Navigation:** Full support for `Tab`, `Shift+Tab`, `Enter`, `Space`, and `Escape` key handlers on all interactive elements.
-- **Focus Rings:** Visible high-contrast focus rings (`focus-visible:ring-2 focus-visible:ring-primary`).
-- **Screen Reader Labels:** All icons have corresponding `aria-label` or hidden screen-reader text (`sr-only`).
-- **Target Sizes:** Touch/click targets minimum 44px x 44px or 36px with padding buffer.
-
-### 8.2 Responsive Layout Breakpoints
-
-| Breakpoint | Screen Width | Sidebar State | Form Layout | Table Columns Displayed |
-|------------|--------------|---------------|-------------|-------------------------|
-| `xl / 2xl` | >= 1280px | Expanded (240px) | 2-Column Grid | All Columns (Priority 1 - 4) |
-| `lg` | 1024px - 1279px | Expanded (240px) | 2-Column Grid | Priority 1, 2, 3 Columns |
-| `md` | 768px - 1023px | Collapsed (64px) | Single Column | Priority 1, 2 Columns |
-| `sm / mobile` | < 768px | Hidden (Drawer toggle) | Single Column | Priority 1 Columns + Expandable Row |
-
----
-
-## 9. Design System Completion Checklist
-
-A UI component or screen design is compliant with Design System v1.1 when:
-
-- [x] Assigned a unique Screen Code (`SCR-XXX`) registered in `docs/ui/screen_registry.md`.
-- [x] Uses standard HSL design tokens from Section 4.
-- [x] Adheres to WCAG 2.1 AA color contrast standards.
-- [x] Includes standard Page Header, Toolbar, Content Container, and Breadcrumbs.
-- [x] Form fields include inline validation messages and mandatory `*` indicators.
-- [x] All status tags map to official status badges defined in Section 4.2.
-- [x] Integrates Maker-Checker dual control indicators where applicable.
-- [x] All actions provide immediate visual feedback (toast / loader).
-- [x] Responsive layout collapses gracefully down to tablet/mobile viewports.
+### 6.1 Accessibility (WCAG 2.1 AA)
+- **Form Controls:** Include `aria-invalid` and `aria-describedby` helper IDs.
+- **Keyboard Navigation:** Full support for `Tab`, `Enter`, `Space`, and `Escape` key handlers on all interactive elements.
 
 ---
 

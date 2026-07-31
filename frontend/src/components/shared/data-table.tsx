@@ -42,7 +42,16 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [searchInput, setSearchInput] = React.useState('')
   const [globalFilter, setGlobalFilter] = React.useState('')
+
+  // 300ms Debounce search input
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      setGlobalFilter(searchInput)
+    }, 300)
+    return () => clearTimeout(handler)
+  }, [searchInput])
 
   const table = useReactTable({
     data,
@@ -75,8 +84,8 @@ export function DataTable<TData, TValue>({
           <div className="w-full sm:w-64">
             <Input
               placeholder={searchPlaceholder}
-              value={globalFilter ?? ''}
-              onChange={(e) => setGlobalFilter(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               leftIcon={<Search className="h-3.5 w-3.5" />}
               className="h-8 text-xs"
             />

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   CreditCard,
@@ -15,12 +16,30 @@ import {
 import { cn } from '../../lib/utils'
 
 interface SidebarProps {
-  activeRoute: string
-  onNavigate: (route: string) => void
+  activeRoute?: string
+  onNavigate?: (route: string) => void
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [configOpen, setConfigOpen] = React.useState(true)
+
+  const currentPath = location.pathname || activeRoute || '/card-programmes'
+
+  const handleNav = (route: string) => {
+    if (onNavigate) {
+      onNavigate(route)
+    }
+    navigate(route)
+  }
+
+  const isRouteActive = (route: string) => {
+    if (route === '/card-programmes') {
+      return currentPath.startsWith('/card-programmes')
+    }
+    return currentPath === route
+  }
 
   const navItems = [
     { label: 'Dashboard', route: '/dashboard', icon: LayoutDashboard },
@@ -34,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
   ]
 
   const configItems = [
-    { label: 'Card Programmes', route: '/config/card-programmes', icon: Layers },
+    { label: 'Card Programmes', route: '/card-programmes', icon: Layers },
     { label: 'Card Segments', route: '/config/segments', icon: Settings },
     { label: 'Card Charges', route: '/config/charges', icon: CircleDollarSign },
     { label: 'Branch Directory', route: '/config/branches', icon: Building2 },
@@ -57,11 +76,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
           <nav className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon
-              const isActive = activeRoute === item.route
+              const isActive = isRouteActive(item.route)
               return (
                 <button
                   key={item.route}
-                  onClick={() => onNavigate(item.route)}
+                  onClick={() => handleNav(item.route)}
                   className={cn(
                     'w-full flex items-center justify-between px-3 py-2 text-xs font-medium rounded-md transition-colors text-slate-700 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-800',
                     isActive && 'bg-blue-50 text-blue-700 font-semibold dark:bg-blue-950/50 dark:text-blue-400'
@@ -95,11 +114,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
             <nav className="space-y-1 pl-1">
               {configItems.map((item) => {
                 const Icon = item.icon
-                const isActive = activeRoute === item.route
+                const isActive = isRouteActive(item.route)
                 return (
                   <button
                     key={item.route}
-                    onClick={() => onNavigate(item.route)}
+                    onClick={() => handleNav(item.route)}
                     className={cn(
                       'w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md transition-colors text-slate-700 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-800',
                       isActive && 'bg-blue-50 text-blue-700 font-semibold dark:bg-blue-950/50 dark:text-blue-400'
@@ -122,11 +141,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
           <nav className="space-y-1">
             {adminItems.map((item) => {
               const Icon = item.icon
-              const isActive = activeRoute === item.route
+              const isActive = isRouteActive(item.route)
               return (
                 <button
                   key={item.route}
-                  onClick={() => onNavigate(item.route)}
+                  onClick={() => handleNav(item.route)}
                   className={cn(
                     'w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md transition-colors text-slate-700 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-800',
                     isActive && 'bg-blue-50 text-blue-700 font-semibold dark:bg-blue-950/50 dark:text-blue-400'
@@ -148,3 +167,4 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
     </aside>
   )
 }
+
