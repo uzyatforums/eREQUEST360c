@@ -1,10 +1,7 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Link2,
   Search,
-  Plus,
-  Trash2,
   RefreshCw,
   ExternalLink,
 } from 'lucide-react'
@@ -13,9 +10,11 @@ import { apiService } from '../../services/api'
 import { ParentSummaryBanner } from '../../components/card-programmes/parent-summary-banner'
 import { Breadcrumb } from '../../components/ui/breadcrumb'
 import { StatusBadge } from '../../components/ui/status-badge'
-import { Button } from '../../components/ui/button'
 import { Tooltip } from '../../components/ui/tooltip'
 import { useToast } from '../../components/ui/toast'
+import { Checkbox } from '../../components/ui/checkbox'
+import { SelectionToolbar } from '../../components/ui/selection-toolbar'
+import { useRowSelection } from '../../hooks/use-row-selection'
 
 export interface CardProgrammeReferencesProps {
   programme: CardProgramme
@@ -82,6 +81,20 @@ export const CardProgrammeReferences: React.FC<CardProgrammeReferencesProps> = (
     )
   }, [references, searchQuery])
 
+  // Selection Hook
+  const {
+    selectedCount,
+    isSelected,
+    toggleRow,
+    clearSelection,
+    isAllSelected,
+    isSomeSelected,
+    toggleSelectAll,
+  } = useRowSelection<ProgrammeReferenceItem>({
+    items: filteredReferences,
+    getKey: (r) => r.id,
+  })
+
   return (
     <div className="space-y-6">
       {/* Breadcrumbs */}
@@ -102,7 +115,6 @@ export const CardProgrammeReferences: React.FC<CardProgrammeReferencesProps> = (
         onBackToList={handleBackToList}
         currentChildName="Reference Data Mappings"
       />
-
 
       {/* Toolbar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -129,12 +141,27 @@ export const CardProgrammeReferences: React.FC<CardProgrammeReferencesProps> = (
         </div>
       </div>
 
+      {/* Selection Status Bar */}
+      <SelectionToolbar
+        selectedCount={selectedCount}
+        totalCount={filteredReferences.length}
+        onClearSelection={clearSelection}
+      />
+
       {/* Full-Width Grid Table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
               <tr>
+                <th className="py-3 px-4 w-10 text-center">
+                  <Checkbox
+                    indeterminate={isSomeSelected}
+                    checked={isAllSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all references"
+                  />
+                </th>
                 <th className="py-3 px-4">Reference Code</th>
                 <th className="py-3 px-4">Reference Description</th>
                 <th className="py-3 px-4 text-center">Mapped Items</th>
@@ -145,52 +172,71 @@ export const CardProgrammeReferences: React.FC<CardProgrammeReferencesProps> = (
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
                     <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-blue-500" />
                     Loading Reference Data Mappings...
                   </td>
                 </tr>
               ) : filteredReferences.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-slate-400">
                     No reference data mappings configured for this programme.
                   </td>
                 </tr>
               ) : (
-                filteredReferences.map((ref) => (
-                  <tr key={ref.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                    {/* Reference Code */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-slate-100">
-                      {ref.reference_code}
-                    </td>
+                filteredReferences.map((ref) => {
+                  const selected = isSelected(ref.id)
+                  return (
+                    <tr
+                      key={ref.id}
+                      className={`transition-colors ${
+                        selected
+                          ? 'bg-blue-50/60 dark:bg-blue-950/30'
+                          : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-4 text-center">
+                        <Checkbox
+                          checked={selected}
+                          onChange={() => toggleRow(ref.id)}
+                          aria-label={`Select reference ${ref.reference_code}`}
+                        />
+                      </td>
 
-                    {/* Reference Name */}
-                    <td className="py-3.5 px-4 font-medium">
-                      {ref.reference_name}
-                    </td>
+                      {/* Reference Code */}
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-slate-100">
+                        {ref.reference_code}
+                      </td>
 
-                    {/* Mapped Items */}
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="px-2 py-0.5 font-semibold text-[11px] bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-800">
-                        {ref.item_count || 2} Items Mapped
-                      </span>
-                    </td>
+                      {/* Reference Name */}
+                      <td className="py-3.5 px-4 font-medium">
+                        {ref.reference_name}
+                      </td>
 
-                    {/* Status */}
-                    <td className="py-3.5 px-4 text-center">
-                      <StatusBadge status={ref.status === 'ACTIVE' || ref.status === 'Active'} />
-                    </td>
+                      {/* Mapped Items */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="px-2 py-0.5 font-semibold text-[11px] bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-800">
+                          {ref.item_count || 2} Items Mapped
+                        </span>
+                      </td>
 
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-right">
-                      <Tooltip content="View Reference Details">
-                        <button className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors">
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </button>
-                      </Tooltip>
-                    </td>
-                  </tr>
-                ))
+                      {/* Status */}
+                      <td className="py-3.5 px-4 text-center">
+                        <StatusBadge status={ref.status === 'ACTIVE' || ref.status === 'Active'} />
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        <Tooltip content="View Reference Details">
+                          <button className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                          </button>
+                        </Tooltip>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>

@@ -6,23 +6,17 @@ import {
   RefreshCw,
   Eye,
   Edit2,
-  Trash2,
   Filter,
-  CreditCard,
-  Layers,
-  ShieldCheck,
-  ChevronRight,
 } from 'lucide-react'
 import { CardProgramme, UserInfo, CardType } from '../../types'
-import { apiService } from '../../services/api'
 import { PageHeader } from '../../components/shared/page-header'
 import { StatusBadge } from '../../components/ui/status-badge'
 import { Button } from '../../components/ui/button'
-import { Input } from '../../components/ui/input'
-import { Select } from '../../components/ui/select'
 import { Tooltip } from '../../components/ui/tooltip'
 import { Breadcrumb } from '../../components/ui/breadcrumb'
-import { useToast } from '../../components/ui/toast'
+import { Checkbox } from '../../components/ui/checkbox'
+import { SelectionToolbar } from '../../components/ui/selection-toolbar'
+import { useRowSelection } from '../../hooks/use-row-selection'
 
 export interface CardProgrammesListProps {
   currentUser: UserInfo
@@ -83,6 +77,20 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
       return matchesSearch && matchesBrand && matchesStatus
     })
   }, [cardProgrammes, searchQuery, brandFilter, statusFilter])
+
+  // Reusable Row Selection Hook
+  const {
+    selectedCount,
+    isSelected,
+    toggleRow,
+    clearSelection,
+    isAllSelected,
+    isSomeSelected,
+    toggleSelectAll,
+  } = useRowSelection<CardProgramme>({
+    items: filteredProgrammes,
+    getKey: (p) => p.id,
+  })
 
   const canManage = currentUser.roles.some((r) =>
     ['super_admin', 'operations_admin_maker', 'operations_admin_checker'].includes(r)
@@ -165,12 +173,27 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
         </div>
       </div>
 
+      {/* Selection Status Bar */}
+      <SelectionToolbar
+        selectedCount={selectedCount}
+        totalCount={filteredProgrammes.length}
+        onClearSelection={clearSelection}
+      />
+
       {/* Full-Width Grid Table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
               <tr>
+                <th className="py-3 px-4 w-10 text-center">
+                  <Checkbox
+                    indeterminate={isSomeSelected}
+                    checked={isAllSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all card programmes"
+                  />
+                </th>
                 <th className="py-3 px-4">Programme Code</th>
                 <th className="py-3 px-4">Programme Name</th>
                 <th className="py-3 px-4">Brand</th>
@@ -189,116 +212,132 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={13} className="py-12 text-center text-slate-400">
+                  <td colSpan={14} className="py-12 text-center text-slate-400">
                     <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-blue-500" />
                     Loading Card Programmes...
                   </td>
                 </tr>
               ) : filteredProgrammes.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="py-12 text-center text-slate-400">
+                  <td colSpan={14} className="py-12 text-center text-slate-400">
                     No Card Programmes match your filter criteria.
                   </td>
                 </tr>
               ) : (
-                filteredProgrammes.map((prog) => (
-                  <tr
-                    key={prog.id}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors group cursor-pointer"
-                    onClick={() => handleViewDetails(prog.id)}
-                  >
-                    {/* Programme Code */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                      {prog.card_programme_code}
-                    </td>
+                filteredProgrammes.map((prog) => {
+                  const selected = isSelected(prog.id)
+                  return (
+                    <tr
+                      key={prog.id}
+                      className={`transition-colors group cursor-pointer ${
+                        selected
+                          ? 'bg-blue-50/60 dark:bg-blue-950/30'
+                          : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+                      }`}
+                      onClick={() => handleViewDetails(prog.id)}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selected}
+                          onChange={() => toggleRow(prog.id)}
+                          aria-label={`Select programme ${prog.card_programme_code}`}
+                        />
+                      </td>
 
-                    {/* Programme Name */}
-                    <td className="py-3.5 px-4 font-semibold max-w-[200px] truncate">
-                      {prog.card_programme_name}
-                    </td>
+                      {/* Programme Code */}
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                        {prog.card_programme_code}
+                      </td>
 
-                    {/* Brand */}
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700">
-                        {prog.card_type}
-                      </span>
-                    </td>
+                      {/* Programme Name */}
+                      <td className="py-3.5 px-4 font-semibold max-w-[200px] truncate">
+                        {prog.card_programme_name}
+                      </td>
 
-                    {/* BIN */}
-                    <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-400">
-                      {prog.bin || '506118'}
-                    </td>
+                      {/* Brand */}
+                      <td className="py-3.5 px-4">
+                        <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded border border-slate-200 dark:border-slate-700">
+                          {prog.card_type}
+                        </span>
+                      </td>
 
-                    {/* Platform Indicator */}
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
-                      {prog.platform_indicator || 'POSTILION_V2'}
-                    </td>
+                      {/* BIN */}
+                      <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-400">
+                        {prog.bin || '506118'}
+                      </td>
 
-                    {/* PAN Length */}
-                    <td className="py-3.5 px-4 text-center font-mono">
-                      {prog.pan_length || 16}
-                    </td>
+                      {/* Platform Indicator */}
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
+                        {prog.platform_indicator || 'POSTILION_V2'}
+                      </td>
 
-                    {/* Sequence */}
-                    <td className="py-3.5 px-4 text-center font-mono text-slate-500">
-                      #{prog.sequence || prog.id}
-                    </td>
+                      {/* PAN Length */}
+                      <td className="py-3.5 px-4 text-center font-mono">
+                        {prog.pan_length || 16}
+                      </td>
 
-                    {/* Status */}
-                    <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                      <StatusBadge status={prog.active} />
-                    </td>
+                      {/* Sequence */}
+                      <td className="py-3.5 px-4 text-center font-mono text-slate-500">
+                        #{prog.sequence || prog.id}
+                      </td>
 
-                    {/* Segments Count */}
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold text-[11px]">
-                        {prog.segment_count || 2}
-                      </span>
-                    </td>
+                      {/* Status */}
+                      <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <StatusBadge status={prog.active} />
+                      </td>
 
-                    {/* Charges Count */}
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold text-[11px]">
-                        {prog.charge_header_count || 1}
-                      </span>
-                    </td>
+                      {/* Segments Count */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 font-semibold text-[11px]">
+                          {prog.segment_count || 2}
+                        </span>
+                      </td>
 
-                    {/* Created Date */}
-                    <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
-                      {prog.created_date ? new Date(prog.created_date).toLocaleDateString() : 'N/A'}
-                    </td>
+                      {/* Charges Count */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 font-semibold text-[11px]">
+                          {prog.charge_header_count || 1}
+                        </span>
+                      </td>
 
-                    {/* Last Modified */}
-                    <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
-                      {prog.last_modified_date ? new Date(prog.last_modified_date).toLocaleDateString() : 'N/A'}
-                    </td>
+                      {/* Created Date */}
+                      <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
+                        {prog.created_date ? new Date(prog.created_date).toLocaleDateString() : 'N/A'}
+                      </td>
 
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
-                        <Tooltip content="View Programme Details">
-                          <button
-                            onClick={() => handleViewDetails(prog.id)}
-                            className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </button>
-                        </Tooltip>
+                      {/* Last Modified */}
+                      <td className="py-3.5 px-4 text-slate-500 whitespace-nowrap">
+                        {prog.last_modified_date ? new Date(prog.last_modified_date).toLocaleDateString() : 'N/A'}
+                      </td>
 
-                        {canManage && (
-                          <Tooltip content="Edit Card Programme">
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <Tooltip content="View Programme Details">
                             <button
-                              onClick={() => handleEdit(prog)}
-                              className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/60 text-blue-600 dark:text-blue-400 transition-colors"
+                              onClick={() => handleViewDetails(prog.id)}
+                              className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
                             >
-                              <Edit2 className="h-3.5 w-3.5" />
+                              <Eye className="h-3.5 w-3.5" />
                             </button>
                           </Tooltip>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+
+                          {canManage && (
+                            <Tooltip content="Edit Card Programme">
+                              <button
+                                onClick={() => handleEdit(prog)}
+                                className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/60 text-blue-600 dark:text-blue-400 transition-colors"
+                              >
+                                <Edit2 className="h-3.5 w-3.5" />
+                              </button>
+                            </Tooltip>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>
@@ -307,4 +346,3 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
     </div>
   )
 }
-

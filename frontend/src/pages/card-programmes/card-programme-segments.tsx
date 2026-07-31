@@ -1,12 +1,9 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  Layers,
   Plus,
   Search,
   Trash2,
-  Edit2,
-  CheckCircle2,
   Star,
   RefreshCw,
 } from 'lucide-react'
@@ -20,6 +17,9 @@ import { Tooltip } from '../../components/ui/tooltip'
 import { Sheet } from '../../components/ui/sheet'
 import { Input } from '../../components/ui/input'
 import { useToast } from '../../components/ui/toast'
+import { Checkbox } from '../../components/ui/checkbox'
+import { SelectionToolbar } from '../../components/ui/selection-toolbar'
+import { useRowSelection } from '../../hooks/use-row-selection'
 
 export interface CardProgrammeSegmentsProps {
   programme: CardProgramme
@@ -92,6 +92,20 @@ export const CardProgrammeSegments: React.FC<CardProgrammeSegmentsProps> = ({
     )
   }, [segments, searchQuery])
 
+  // Selection Hook
+  const {
+    selectedCount,
+    isSelected,
+    toggleRow,
+    clearSelection,
+    isAllSelected,
+    isSomeSelected,
+    toggleSelectAll,
+  } = useRowSelection<CardProgrammeSegment>({
+    items: filteredSegments,
+    getKey: (s) => s.id,
+  })
+
   const canManage = currentUser.roles.some((r) =>
     ['super_admin', 'operations_admin_maker', 'operations_admin_checker'].includes(r)
   )
@@ -146,7 +160,6 @@ export const CardProgrammeSegments: React.FC<CardProgrammeSegmentsProps> = ({
         currentChildName="Customer Segment Eligibility"
       />
 
-
       {/* Toolbar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="relative flex-1 max-w-md">
@@ -179,12 +192,27 @@ export const CardProgrammeSegments: React.FC<CardProgrammeSegmentsProps> = ({
         </div>
       </div>
 
+      {/* Selection Status Bar */}
+      <SelectionToolbar
+        selectedCount={selectedCount}
+        totalCount={filteredSegments.length}
+        onClearSelection={clearSelection}
+      />
+
       {/* Full-Width Grid Table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
               <tr>
+                <th className="py-3 px-4 w-10 text-center">
+                  <Checkbox
+                    indeterminate={isSomeSelected}
+                    checked={isAllSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all segments"
+                  />
+                </th>
                 <th className="py-3 px-4 text-center">Priority</th>
                 <th className="py-3 px-4">Segment Code</th>
                 <th className="py-3 px-4">Segment Name</th>
@@ -197,76 +225,95 @@ export const CardProgrammeSegments: React.FC<CardProgrammeSegmentsProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-blue-500" />
                     Loading Customer Segments...
                   </td>
                 </tr>
               ) : filteredSegments.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
+                  <td colSpan={8} className="py-12 text-center text-slate-400">
                     No customer segments assigned to this programme.
                   </td>
                 </tr>
               ) : (
-                filteredSegments.map((seg) => (
-                  <tr key={seg.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                    {/* Priority */}
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="px-2 py-0.5 font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded text-xs">
-                        P{seg.priority}
-                      </span>
-                    </td>
+                filteredSegments.map((seg) => {
+                  const selected = isSelected(seg.id)
+                  return (
+                    <tr
+                      key={seg.id}
+                      className={`transition-colors ${
+                        selected
+                          ? 'bg-blue-50/60 dark:bg-blue-950/30'
+                          : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-4 text-center">
+                        <Checkbox
+                          checked={selected}
+                          onChange={() => toggleRow(seg.id)}
+                          aria-label={`Select segment ${seg.segment_code}`}
+                        />
+                      </td>
 
-                    {/* Segment Code */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-slate-100">
-                      {seg.segment_code}
-                    </td>
-
-                    {/* Segment Name */}
-                    <td className="py-3.5 px-4 font-medium">
-                      {seg.segment_name}
-                    </td>
-
-                    {/* Default Flag */}
-                    <td className="py-3.5 px-4 text-center">
-                      {seg.is_default ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 rounded-md border border-amber-200 dark:border-amber-800">
-                          <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
-                          Default
+                      {/* Priority */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="px-2 py-0.5 font-mono font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded text-xs">
+                          P{seg.priority}
                         </span>
-                      ) : (
-                        <span className="text-slate-400 text-[11px]">—</span>
-                      )}
-                    </td>
+                      </td>
 
-                    {/* Charge Profile */}
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
-                      {seg.charge_profile_name}
-                    </td>
+                      {/* Segment Code */}
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-slate-100">
+                        {seg.segment_code}
+                      </td>
 
-                    {/* Status */}
-                    <td className="py-3.5 px-4 text-center">
-                      <StatusBadge status={seg.active} />
-                    </td>
+                      {/* Segment Name */}
+                      <td className="py-3.5 px-4 font-medium">
+                        {seg.segment_name}
+                      </td>
 
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-right">
-                      {canManage && (
-                        <div className="flex items-center justify-end gap-1">
-                          <Tooltip content="Remove Segment Binding">
-                            <button
-                              onClick={() => handleRemoveSegment(seg.id, seg.segment_name)}
-                              className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 transition-colors"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </Tooltip>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      {/* Default Flag */}
+                      <td className="py-3.5 px-4 text-center">
+                        {seg.is_default ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 rounded-md border border-amber-200 dark:border-amber-800">
+                            <Star className="h-3 w-3 fill-amber-500 text-amber-500" />
+                            Default
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">—</span>
+                        )}
+                      </td>
+
+                      {/* Charge Profile */}
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
+                        {seg.charge_profile_name}
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3.5 px-4 text-center">
+                        <StatusBadge status={seg.active} />
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        {canManage && (
+                          <div className="flex items-center justify-end gap-1">
+                            <Tooltip content="Remove Segment Binding">
+                              <button
+                                onClick={() => handleRemoveSegment(seg.id, seg.segment_name)}
+                                className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 transition-colors"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </Tooltip>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>

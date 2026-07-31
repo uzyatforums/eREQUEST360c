@@ -19,6 +19,39 @@ Dedicated **Master → Detail Navigation Architecture** (React Router True Route
 - `PUT /config/card-programmes/{id}`
 - `DELETE /config/card-programmes/{id}`
 
+### Route Separation Standard
+
+The eREQUEST360 frontend uses React Router with clean business-oriented URLs.
+
+Frontend routes **must never** reuse backend REST API paths.
+
+Reserved backend API prefixes include:
+
+- `/auth`
+- `/config`
+- `/iam`
+- `/maker-checker`
+- `/eligibility`
+- `/request`
+- `/audit`
+
+Examples:
+
+| Frontend | Backend API |
+|----------|-------------|
+| `/card-programmes` | `/config/card-programmes` |
+| `/branches` | `/config/branches` |
+| `/card-types` | `/config/card-types` |
+| `/users` | `/iam/users` |
+| `/roles` | `/iam/roles` |
+
+This separation ensures:
+
+- Browser Refresh (F5) works.
+- Deep linking and bookmarks work.
+- Browser Back/Forward navigation works.
+- React Router never conflicts with FastAPI REST endpoints.
+
 ### Child Operations
 
 **Segments (`/card-programmes/:id/segments`)**

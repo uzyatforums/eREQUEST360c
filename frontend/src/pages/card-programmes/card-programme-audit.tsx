@@ -1,21 +1,18 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  History,
   Search,
   RefreshCw,
-  UserCheck,
-  ShieldCheck,
-  Clock,
-  ArrowRight,
 } from 'lucide-react'
 import { CardProgramme, AuditLogItem, UserInfo } from '../../types'
 import { apiService } from '../../services/api'
 import { ParentSummaryBanner } from '../../components/card-programmes/parent-summary-banner'
 import { Breadcrumb } from '../../components/ui/breadcrumb'
-import { Button } from '../../components/ui/button'
 import { Tooltip } from '../../components/ui/tooltip'
 import { useToast } from '../../components/ui/toast'
+import { Checkbox } from '../../components/ui/checkbox'
+import { SelectionToolbar } from '../../components/ui/selection-toolbar'
+import { useRowSelection } from '../../hooks/use-row-selection'
 
 export interface CardProgrammeAuditProps {
   programme: CardProgramme
@@ -83,6 +80,20 @@ export const CardProgrammeAudit: React.FC<CardProgrammeAuditProps> = ({
     )
   }, [logs, searchQuery])
 
+  // Selection Hook
+  const {
+    selectedCount,
+    isSelected,
+    toggleRow,
+    clearSelection,
+    isAllSelected,
+    isSomeSelected,
+    toggleSelectAll,
+  } = useRowSelection<AuditLogItem>({
+    items: filteredLogs,
+    getKey: (l) => l.id,
+  })
+
   return (
     <div className="space-y-6">
       {/* Breadcrumbs */}
@@ -103,7 +114,6 @@ export const CardProgrammeAudit: React.FC<CardProgrammeAuditProps> = ({
         onBackToList={handleBackToList}
         currentChildName="Change Audit Trail & Maker-Checker History"
       />
-
 
       {/* Toolbar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -130,12 +140,27 @@ export const CardProgrammeAudit: React.FC<CardProgrammeAuditProps> = ({
         </div>
       </div>
 
+      {/* Selection Status Bar */}
+      <SelectionToolbar
+        selectedCount={selectedCount}
+        totalCount={filteredLogs.length}
+        onClearSelection={clearSelection}
+      />
+
       {/* Full-Width Grid Table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
               <tr>
+                <th className="py-3 px-4 w-10 text-center">
+                  <Checkbox
+                    indeterminate={isSomeSelected}
+                    checked={isAllSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all audit log entries"
+                  />
+                </th>
                 <th className="py-3 px-4">Date & Time</th>
                 <th className="py-3 px-4">Initiating User</th>
                 <th className="py-3 px-4">Action</th>
@@ -149,61 +174,80 @@ export const CardProgrammeAudit: React.FC<CardProgrammeAuditProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={9} className="py-12 text-center text-slate-400">
                     <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-blue-500" />
                     Loading Audit Logs...
                   </td>
                 </tr>
               ) : filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-slate-400">
+                  <td colSpan={9} className="py-12 text-center text-slate-400">
                     No change audit history recorded for this card programme.
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                    {/* Timestamp */}
-                    <td className="py-3.5 px-4 font-mono text-slate-500 whitespace-nowrap">
-                      {log.timestamp}
-                    </td>
+                filteredLogs.map((log) => {
+                  const selected = isSelected(log.id)
+                  return (
+                    <tr
+                      key={log.id}
+                      className={`transition-colors ${
+                        selected
+                          ? 'bg-blue-50/60 dark:bg-blue-950/30'
+                          : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-4 text-center">
+                        <Checkbox
+                          checked={selected}
+                          onChange={() => toggleRow(log.id)}
+                          aria-label={`Select audit log ${log.id}`}
+                        />
+                      </td>
 
-                    {/* User */}
-                    <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">
-                      {log.user}
-                    </td>
+                      {/* Timestamp */}
+                      <td className="py-3.5 px-4 font-mono text-slate-500 whitespace-nowrap">
+                        {log.timestamp}
+                      </td>
 
-                    {/* Action */}
-                    <td className="py-3.5 px-4 font-semibold text-blue-600 dark:text-blue-400">
-                      {log.action}
-                    </td>
+                      {/* User */}
+                      <td className="py-3.5 px-4 font-bold text-slate-900 dark:text-slate-100">
+                        {log.user}
+                      </td>
 
-                    {/* Field */}
-                    <td className="py-3.5 px-4 font-medium">
-                      {log.field}
-                    </td>
+                      {/* Action */}
+                      <td className="py-3.5 px-4 font-semibold text-blue-600 dark:text-blue-400">
+                        {log.action}
+                      </td>
 
-                    {/* Old Value */}
-                    <td className="py-3.5 px-4 text-rose-600 dark:text-rose-400 font-mono">
-                      {log.oldValue || '—'}
-                    </td>
+                      {/* Field */}
+                      <td className="py-3.5 px-4 font-medium">
+                        {log.field}
+                      </td>
 
-                    {/* New Value */}
-                    <td className="py-3.5 px-4 text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
-                      {log.newValue}
-                    </td>
+                      {/* Old Value */}
+                      <td className="py-3.5 px-4 text-rose-600 dark:text-rose-400 font-mono">
+                        {log.oldValue || '—'}
+                      </td>
 
-                    {/* Maker */}
-                    <td className="py-3.5 px-4 text-center font-mono text-slate-600 dark:text-slate-400">
-                      {log.maker || log.user}
-                    </td>
+                      {/* New Value */}
+                      <td className="py-3.5 px-4 text-emerald-600 dark:text-emerald-400 font-mono font-semibold">
+                        {log.newValue}
+                      </td>
 
-                    {/* Checker */}
-                    <td className="py-3.5 px-4 text-center font-mono text-slate-600 dark:text-slate-400">
-                      {log.checker || 'AUTO_APPROVED'}
-                    </td>
-                  </tr>
-                ))
+                      {/* Maker */}
+                      <td className="py-3.5 px-4 text-center font-mono text-slate-600 dark:text-slate-400">
+                        {log.maker || log.user}
+                      </td>
+
+                      {/* Checker */}
+                      <td className="py-3.5 px-4 text-center font-mono text-slate-600 dark:text-slate-400">
+                        {log.checker || 'AUTO_APPROVED'}
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>

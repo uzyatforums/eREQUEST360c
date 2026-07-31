@@ -6,6 +6,50 @@
 
 ---
 
+## Frontend Route Naming Convention
+
+### Purpose
+
+To avoid conflicts between React Router frontend routes and FastAPI backend API endpoints.
+
+### Rule
+
+Frontend routes shall never reuse backend API paths.
+
+The following prefixes are reserved exclusively for backend REST APIs:
+
+- /auth
+- /config
+- /iam
+- /maker-checker
+- /eligibility
+- /request
+- /workflow
+- /audit
+
+Frontend pages shall use clean business-oriented URLs.
+
+### Examples
+
+| Frontend Route | Backend API |
+|----------------|-------------|
+| /card-programmes | /config/card-programmes |
+| /branches | /config/branches |
+| /card-types | /config/card-types |
+| /customers | /customers |
+| /users | /iam/users |
+| /roles | /iam/roles |
+| /maker-checker | /maker-checker/work-items |
+
+### Benefits
+
+- Browser Refresh (F5) works correctly.
+- Deep linking works.
+- Bookmarks work.
+- Browser Back/Forward navigation works.
+- Frontend URLs remain independent of backend API implementation.
+- Eliminates routing collisions between React Router and FastAPI.
+
 ## 1. Site Map & Module Structure
 
 eREQUEST360 organizes enterprise functionality into 6 primary operational domains. All screens map to Screen Codes registered in `docs/ui/screen_registry.md`. Relationship tables are embedded as child tabs within their parent master screens.
@@ -118,5 +162,6 @@ Every internal screen presents hierarchical breadcrumbs:
 All modal or drawer views mirror their primary ID in URL query parameters (e.g. `/requests/all?details=101`) to support direct bookmarking and link sharing among bank staff.
 
 ---
+
 
 **End of Navigation Specification**

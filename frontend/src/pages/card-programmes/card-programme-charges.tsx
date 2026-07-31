@@ -1,17 +1,13 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  CircleDollarSign,
   Plus,
   Search,
   Trash2,
-  Edit2,
-  RefreshCw,
   ArrowUpRight,
   ArrowDownLeft,
 } from 'lucide-react'
-import { CardProgramme, ProgrammeChargeHeader, UserInfo } from '../../types'
-import { apiService } from '../../services/api'
+import { CardProgramme, UserInfo } from '../../types'
 import { ParentSummaryBanner } from '../../components/card-programmes/parent-summary-banner'
 import { Breadcrumb } from '../../components/ui/breadcrumb'
 import { StatusBadge } from '../../components/ui/status-badge'
@@ -21,6 +17,9 @@ import { Sheet } from '../../components/ui/sheet'
 import { Input } from '../../components/ui/input'
 import { Select } from '../../components/ui/select'
 import { useToast } from '../../components/ui/toast'
+import { Checkbox } from '../../components/ui/checkbox'
+import { SelectionToolbar } from '../../components/ui/selection-toolbar'
+import { useRowSelection } from '../../hooks/use-row-selection'
 
 export interface CardProgrammeChargesProps {
   programme: CardProgramme
@@ -70,7 +69,6 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
     navigate(`/card-programmes/${programme.id}/edit`)
   }
 
-  const [isLoading, setIsLoading] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState('')
   const [isAddSheetOpen, setIsAddSheetOpen] = React.useState(false)
 
@@ -126,6 +124,20 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
         c.account_number.toLowerCase().includes(searchQuery.toLowerCase())
     )
   }, [chargeEntries, searchQuery])
+
+  // Selection Hook
+  const {
+    selectedCount,
+    isSelected,
+    toggleRow,
+    clearSelection,
+    isAllSelected,
+    isSomeSelected,
+    toggleSelectAll,
+  } = useRowSelection<DetailedChargeEntry>({
+    items: filteredEntries,
+    getKey: (c) => c.id,
+  })
 
   const handleAddChargeEntry = (e: React.FormEvent) => {
     e.preventDefault()
@@ -205,12 +217,27 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
         </div>
       </div>
 
+      {/* Selection Status Bar */}
+      <SelectionToolbar
+        selectedCount={selectedCount}
+        totalCount={filteredEntries.length}
+        onClearSelection={clearSelection}
+      />
+
       {/* Full-Width Grid Table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
               <tr>
+                <th className="py-3 px-4 w-10 text-center">
+                  <Checkbox
+                    indeterminate={isSomeSelected}
+                    checked={isAllSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all fee entries"
+                  />
+                </th>
                 <th className="py-3 px-4 text-center">Seq</th>
                 <th className="py-3 px-4">Posting Account Type</th>
                 <th className="py-3 px-4 text-center">DR/CR</th>
@@ -228,94 +255,113 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-200">
               {filteredEntries.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-slate-400">
+                  <td colSpan={13} className="py-12 text-center text-slate-400">
                     No charge entries configured for this card programme.
                   </td>
                 </tr>
               ) : (
-                filteredEntries.map((entry) => (
-                  <tr key={entry.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                    {/* Seq */}
-                    <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-500">
-                      #{entry.sequence}
-                    </td>
+                filteredEntries.map((entry) => {
+                  const selected = isSelected(entry.id)
+                  return (
+                    <tr
+                      key={entry.id}
+                      className={`transition-colors ${
+                        selected
+                          ? 'bg-blue-50/60 dark:bg-blue-950/30'
+                          : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/40'
+                      }`}
+                    >
+                      {/* Checkbox */}
+                      <td className="py-3.5 px-4 text-center">
+                        <Checkbox
+                          checked={selected}
+                          onChange={() => toggleRow(entry.id)}
+                          aria-label={`Select fee entry ${entry.narration}`}
+                        />
+                      </td>
 
-                    {/* Posting Account Type */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-slate-100">
-                      {entry.posting_account_type}
-                    </td>
+                      {/* Seq */}
+                      <td className="py-3.5 px-4 text-center font-mono font-bold text-slate-500">
+                        #{entry.sequence}
+                      </td>
 
-                    {/* DR/CR */}
-                    <td className="py-3.5 px-4 text-center">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-md ${
-                          entry.debit_credit === 'DEBIT'
-                            ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
-                            : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                        }`}
-                      >
-                        {entry.debit_credit === 'DEBIT' ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownLeft className="h-3 w-3" />}
-                        {entry.debit_credit}
-                      </span>
-                    </td>
+                      {/* Posting Account Type */}
+                      <td className="py-3.5 px-4 font-mono font-bold text-slate-900 dark:text-slate-100">
+                        {entry.posting_account_type}
+                      </td>
 
-                    {/* Entry Type */}
-                    <td className="py-3.5 px-4 text-center">
-                      <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded">
-                        {entry.entry_type}
-                      </span>
-                    </td>
+                      {/* DR/CR */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-md ${
+                            entry.debit_credit === 'DEBIT'
+                              ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                              : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                          }`}
+                        >
+                          {entry.debit_credit === 'DEBIT' ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownLeft className="h-3 w-3" />}
+                          {entry.debit_credit}
+                        </span>
+                      </td>
 
-                    {/* Narration */}
-                    <td className="py-3.5 px-4 font-medium max-w-[220px] truncate">
-                      {entry.narration}
-                    </td>
+                      {/* Entry Type */}
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="px-2 py-0.5 text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded">
+                          {entry.entry_type}
+                        </span>
+                      </td>
 
-                    {/* GL Account */}
-                    <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-400">
-                      {entry.account_number}
-                    </td>
+                      {/* Narration */}
+                      <td className="py-3.5 px-4 font-medium max-w-[220px] truncate">
+                        {entry.narration}
+                      </td>
 
-                    {/* Branch Type */}
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
-                      {entry.branch_type}
-                    </td>
+                      {/* GL Account */}
+                      <td className="py-3.5 px-4 font-mono text-slate-600 dark:text-slate-400">
+                        {entry.account_number}
+                      </td>
 
-                    {/* Amount */}
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
-                      {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                    </td>
+                      {/* Branch Type */}
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
+                        {entry.branch_type}
+                      </td>
 
-                    {/* Currency */}
-                    <td className="py-3.5 px-4 text-center font-mono font-semibold text-slate-600 dark:text-slate-400">
-                      {entry.currency}
-                    </td>
+                      {/* Amount */}
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
+                        {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </td>
 
-                    {/* Charge Profile */}
-                    <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
-                      {entry.charge_profile_name}
-                    </td>
+                      {/* Currency */}
+                      <td className="py-3.5 px-4 text-center font-mono font-semibold text-slate-600 dark:text-slate-400">
+                        {entry.currency}
+                      </td>
 
-                    {/* Status */}
-                    <td className="py-3.5 px-4 text-center">
-                      <StatusBadge status={entry.active} />
-                    </td>
+                      {/* Charge Profile */}
+                      <td className="py-3.5 px-4 text-slate-600 dark:text-slate-400">
+                        {entry.charge_profile_name}
+                      </td>
 
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-right">
-                      {canManage && (
-                        <Tooltip content="Delete Fee Entry">
-                          <button
-                            onClick={() => handleDeleteEntry(entry.id)}
-                            className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 transition-colors"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </Tooltip>
-                      )}
-                    </td>
-                  </tr>
-                ))
+                      {/* Status */}
+                      <td className="py-3.5 px-4 text-center">
+                        <StatusBadge status={entry.active} />
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-right">
+                        {canManage && (
+                          <Tooltip content="Delete Fee Entry">
+                            <button
+                              onClick={() => handleDeleteEntry(entry.id)}
+                              className="p-1.5 rounded-md hover:bg-rose-50 dark:hover:bg-rose-950/60 text-rose-600 dark:text-rose-400 transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </Tooltip>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>

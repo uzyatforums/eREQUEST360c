@@ -47,6 +47,24 @@ interface MasterDetailLayoutProps<T> {
 }
 ```
 
+### 2.4 DataGrid Selection Framework
+
+A reusable row selection architecture for configuration and operational data tables.
+
+#### Components & Primitives
+1. **`useRowSelection<T>` Hook (`hooks/use-row-selection.ts`)**: Reusable state management for grid selection.
+   - Provides `selectedIds`, `selectedCount`, `selectedItems`, `isSelected()`, `toggleRow()`, `selectAll()`, `clearSelection()`, `toggleSelectAll()`, `isAllSelected`, `isSomeSelected`, `isNoneSelected`.
+2. **`Checkbox` Primitive (`components/ui/checkbox.tsx`)**: Form control supporting standard HTML props and `indeterminate` state (`ref.current.indeterminate = true`).
+3. **`SelectionToolbar` Component (`components/ui/selection-toolbar.tsx`)**: Sticky or embedded status toolbar displaying:
+   - Selection count badge (e.g. `"3 selected"` or `"No items selected"`)
+   - `[Clear Selection]` trigger button
+   - `[Bulk Actions]` disabled trigger button with tooltip (*"Bulk actions will be enabled in a future release."*)
+
+#### Behavior Rules
+- **Select All Checkbox**: Header checkbox in column 1. Selects all currently filtered/displayed rows when clicked; clears all when clicked again.
+- **Indeterminate State**: Displays a dash icon (`indeterminate = true`) when 1 or more rows are selected, but fewer than the total visible row count.
+- **Event Isolation**: Row checkbox clicks must execute `e.stopPropagation()` to prevent unwanted navigation into detail inspectors.
+
 ---
 
 ## 3. Core UI Primitives

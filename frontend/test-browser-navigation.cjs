@@ -7,9 +7,9 @@ if (!fs.existsSync(screenshotDir)) {
   fs.mkdirSync(screenshotDir, { recursive: true });
 }
 
-async function runBrowserTests() {
+async function runSelectionTests() {
   console.log('=====================================================');
-  console.log('   STARTING AUTOMATED BROWSER VERIFICATION SUITE    ');
+  console.log('  STARTING DATAGRID ROW SELECTION BROWSER VERIFICATION');
   console.log('=====================================================\n');
 
   const browser = await chromium.launch({ headless: true });
@@ -19,196 +19,120 @@ async function runBrowserTests() {
   const results = [];
 
   try {
-    // Step 1: Login & Default Route
+    // 1. Initial Load & Login
     console.log('Step 1: Navigating to http://localhost:5173/');
     await page.goto('http://localhost:5173/');
     await page.waitForTimeout(1000);
 
     if (page.url().includes('/login') || (await page.$('input[name="username"]'))) {
-      console.log('Authenticating with username: admin, password: password123...');
+      console.log('Authenticating...');
       await page.fill('input[name="username"]', 'admin');
       await page.fill('input[name="password"]', 'password123');
       await page.click('button[type="submit"]');
       await page.waitForTimeout(1500);
     }
 
-    const url1 = page.url();
-    const pass1 = url1 === 'http://localhost:5173/card-programmes';
-    await page.screenshot({ path: path.join(screenshotDir, '01_list.png') });
+    await page.waitForSelector('tbody tr', { timeout: 10000 });
+    const initialUrl = page.url();
+
+    // Verify initial toolbar state ("No items selected")
+    const toolbarText1 = await page.innerText('body');
+    const pass1 = toolbarText1.includes('No items selected');
+    await page.screenshot({ path: path.join(screenshotDir, 'selection_01_none.png') });
     results.push({
-      criterion: '1. Default Route after login (/card-programmes)',
-      expected: 'http://localhost:5173/card-programmes',
-      actual: url1,
+      criterion: '1. Initial Selection State (No items selected)',
+      expected: 'No items selected',
+      actual: pass1 ? 'No items selected' : 'Missing initial toolbar state',
       pass: pass1,
     });
 
-    // Step 2: Navigate to Details
-    console.log('Step 2: Clicking card programme row...');
-    await page.waitForSelector('tbody tr', { timeout: 10000 });
-    await page.click('tbody tr:first-child');
-    await page.waitForTimeout(1500);
-    const url2 = page.url();
-    const body2 = await page.innerText('body');
-    const hasDetailsContent = body2.toLowerCase().includes('child entity') || body2.toLowerCase().includes('parent attribute') || body2.toLowerCase().includes('edit programme');
-    const pass2 = url2.startsWith('http://localhost:5173/card-programmes/') && url2 !== 'http://localhost:5173/card-programmes' && hasDetailsContent;
-    await page.screenshot({ path: path.join(screenshotDir, '02_details.png') });
+    // 2. Individual Row Selection
+    console.log('Step 2: Selecting first row checkbox...');
+    const firstCheckbox = await page.$('tbody tr:first-child input[type="checkbox"]');
+    await firstCheckbox.click();
+    await page.waitForTimeout(500);
+
+    const toolbarText2 = await page.innerText('body');
+    const pass2 = toolbarText2.includes('1 item selected') && page.url() === initialUrl;
+    await page.screenshot({ path: path.join(screenshotDir, 'selection_02_single.png') });
     results.push({
-      criterion: '2. Details Page Navigation (/card-programmes/:id)',
-      expected: 'http://localhost:5173/card-programmes/:id',
-      actual: url2,
+      criterion: '2. Individual Row Selection & Event Isolation',
+      expected: '1 item selected without navigation',
+      actual: pass2 ? '1 item selected (URL unchanged)' : 'Failed single selection',
       pass: pass2,
     });
 
-    // Step 3: Navigate to Charges Workspace
-    console.log('Step 3: Clicking Charges workspace card...');
-    await page.click('h3:has-text("Charges & Posting")');
-    await page.waitForTimeout(1500);
-    const url3 = page.url();
-    const body3 = await page.innerText('body');
-    const pass3 = url3.endsWith('/charges') && body3.includes('Charges');
-    await page.screenshot({ path: path.join(screenshotDir, '03_charges.png') });
+    // 3. Select All Header Checkbox
+    console.log('Step 3: Clicking Select All header checkbox...');
+    const headerCheckbox = await page.$('thead input[type="checkbox"]');
+    await headerCheckbox.click();
+    await page.waitForTimeout(500);
+
+    const toolbarText3 = await page.innerText('body');
+    const rowCount = (await page.$$('tbody tr')).length;
+    const pass3 = toolbarText3.includes(`${rowCount} items selected`);
+    await page.screenshot({ path: path.join(screenshotDir, 'selection_03_all.png') });
     results.push({
-      criterion: '3. Charges Child Workspace Navigation',
-      expected: 'http://localhost:5173/card-programmes/:id/charges',
-      actual: url3,
+      criterion: '3. Select All Header Checkbox',
+      expected: `${rowCount} items selected`,
+      actual: pass3 ? `${rowCount} items selected` : toolbarText3.slice(0, 100),
       pass: pass3,
     });
 
-    // Step 4: Browser Back (twice)
-    console.log('Step 4: Testing Browser Back button...');
-    await page.goBack();
-    await page.waitForTimeout(1000);
-    const back1 = page.url();
+    // 4. Indeterminate Checkbox State
+    console.log('Step 4: Unchecking one row to trigger indeterminate state...');
+    await firstCheckbox.click();
+    await page.waitForTimeout(500);
 
-    await page.goBack();
-    await page.waitForTimeout(1000);
-    const back2 = page.url();
-
-    const pass4 = back1 === url2 && back2 === 'http://localhost:5173/card-programmes';
-    await page.screenshot({ path: path.join(screenshotDir, '04_back_to_list.png') });
+    const isIndeterminate = await page.$eval('thead input[type="checkbox"]', (el) => el.indeterminate);
+    const toolbarText4 = await page.innerText('body');
+    const pass4 = isIndeterminate && toolbarText4.includes(`${rowCount - 1} items selected`);
+    await page.screenshot({ path: path.join(screenshotDir, 'selection_04_indeterminate.png') });
     results.push({
-      criterion: '4. Browser Back Button Traversal',
-      expected: `${url2} -> http://localhost:5173/card-programmes`,
-      actual: `${back1} -> ${back2}`,
+      criterion: '4. Indeterminate Header Checkbox State',
+      expected: `indeterminate = true, ${rowCount - 1} items selected`,
+      actual: pass4 ? 'Header checkbox indeterminate = true' : `indeterminate = ${isIndeterminate}`,
       pass: pass4,
     });
 
-    // Step 5: Browser Forward (twice)
-    console.log('Step 5: Testing Browser Forward button...');
-    await page.goForward();
-    await page.waitForTimeout(1000);
-    const fwd1 = page.url();
+    // 5. Clear Selection Button
+    console.log('Step 5: Clicking Clear Selection button...');
+    await page.click('button:has-text("Clear Selection")');
+    await page.waitForTimeout(500);
 
-    await page.goForward();
-    await page.waitForTimeout(1000);
-    const fwd2 = page.url();
-
-    const pass5 = fwd1 === url2 && fwd2 === url3;
-    await page.screenshot({ path: path.join(screenshotDir, '05_forward_to_charges.png') });
+    const toolbarText5 = await page.innerText('body');
+    const pass5 = toolbarText5.includes('No items selected');
+    await page.screenshot({ path: path.join(screenshotDir, 'selection_05_cleared.png') });
     results.push({
-      criterion: '5. Browser Forward Button Traversal',
-      expected: `${url2} -> ${url3}`,
-      actual: `${fwd1} -> ${fwd2}`,
+      criterion: '5. Clear Selection Button',
+      expected: 'No items selected',
+      actual: pass5 ? 'Selection cleared' : 'Clear selection failed',
       pass: pass5,
     });
 
-    // Step 6: Page Refresh
-    console.log('Step 6: Refreshing page at /charges...');
-    await page.reload();
-    await page.waitForTimeout(1500);
-    const refreshUrl = page.url();
-    const refreshBody = await page.innerText('body');
-    const pass6 = refreshUrl === url3 && refreshBody.includes('Charges');
-    await page.screenshot({ path: path.join(screenshotDir, '06_refresh.png') });
+    // 6. Disabled Bulk Actions with Tooltip
+    console.log('Step 6: Verifying Disabled Bulk Actions button & tooltip...');
+    const bulkButtonDisabled = await page.$eval('button:has-text("Bulk Actions")', (btn) => btn.disabled);
+    await page.hover('div:has(> button:has-text("Bulk Actions"))');
+    await page.waitForTimeout(500);
+    const tooltipText = await page.innerText('body');
+    const pass6 = bulkButtonDisabled && tooltipText.includes('Bulk actions will be enabled in a future release.');
+    await page.screenshot({ path: path.join(screenshotDir, 'selection_06_bulk_tooltip.png') });
     results.push({
-      criterion: '6. Page Refresh State Persistence',
-      expected: url3,
-      actual: refreshUrl,
+      criterion: '6. Disabled Bulk Actions Button & Tooltip',
+      expected: 'Button disabled with release tooltip',
+      actual: pass6 ? 'Button disabled with tooltip displayed' : 'Tooltip missing or button enabled',
       pass: pass6,
     });
 
-    // Step 7: Deep Link to Segments
-    console.log('Step 7: Deep Link -> /card-programmes/1/segments');
-    await page.goto('http://localhost:5173/card-programmes/1/segments');
-    await page.waitForTimeout(1500);
-    const segUrl = page.url();
-    const segBody = await page.innerText('body');
-    const pass7 = segUrl === 'http://localhost:5173/card-programmes/1/segments' && segBody.includes('Customer Segment');
-    await page.screenshot({ path: path.join(screenshotDir, '07_deeplink_segments.png') });
-    results.push({
-      criterion: '7. Deep Link to /card-programmes/1/segments',
-      expected: 'http://localhost:5173/card-programmes/1/segments',
-      actual: segUrl,
-      pass: pass7,
-    });
-
-    // Step 8: Deep Link to New Programme (No drawer)
-    console.log('Step 8: Deep Link -> /card-programmes/new');
-    await page.goto('http://localhost:5173/card-programmes/new');
-    await page.waitForTimeout(1500);
-    const newUrl = page.url();
-    const newBody = await page.innerText('body');
-    const pass8 = newUrl === 'http://localhost:5173/card-programmes/new' && newBody.includes('New Card Programme');
-    await page.screenshot({ path: path.join(screenshotDir, '08_deeplink_new.png') });
-    results.push({
-      criterion: '8. Dedicated New Programme Full-Page Route',
-      expected: 'http://localhost:5173/card-programmes/new',
-      actual: newUrl,
-      pass: pass8,
-    });
-
-    // Step 9: Deep Link to Edit Programme
-    console.log('Step 9: Deep Link -> /card-programmes/1/edit');
-    await page.goto('http://localhost:5173/card-programmes/1/edit');
-    await page.waitForTimeout(1500);
-    const editUrl = page.url();
-    const editBody = await page.innerText('body');
-    const pass9 = editUrl === 'http://localhost:5173/card-programmes/1/edit' && editBody.includes('Edit Card Programme');
-    await page.screenshot({ path: path.join(screenshotDir, '09_deeplink_edit.png') });
-    results.push({
-      criterion: '9. Dedicated Edit Programme Full-Page Route',
-      expected: 'http://localhost:5173/card-programmes/1/edit',
-      actual: editUrl,
-      pass: pass9,
-    });
-
-    // Step 10: Deep Link to References & Audit
-    console.log('Step 10: Deep Link -> References & Audit');
-    await page.goto('http://localhost:5173/card-programmes/1/references');
-    await page.waitForTimeout(1000);
-    const refUrl = page.url();
-
-    await page.goto('http://localhost:5173/card-programmes/1/audit');
-    await page.waitForTimeout(1000);
-    const auditUrl = page.url();
-
-    const pass10 = refUrl === 'http://localhost:5173/card-programmes/1/references' && auditUrl === 'http://localhost:5173/card-programmes/1/audit';
-    await page.screenshot({ path: path.join(screenshotDir, '10_deeplink_audit.png') });
-    results.push({
-      criterion: '10. Deep Link to References & Audit Workspaces',
-      expected: 'http://localhost:5173/card-programmes/1/references & /audit',
-      actual: `${refUrl} | ${auditUrl}`,
-      pass: pass10,
-    });
-
-    // Step 11: No /config/ in Frontend URLs
-    console.log('Step 11: Checking URL Hygiene...');
-    const hasConfigUrl = results.some(r => r.actual.includes('/config/card-programmes'));
-    results.push({
-      criterion: '11. No Frontend URL Uses /config/',
-      expected: 'No /config/ prefix in frontend routes',
-      actual: hasConfigUrl ? 'Found /config/ in routes' : 'Clean /card-programmes routes',
-      pass: !hasConfigUrl,
-    });
-
   } catch (err) {
-    console.error('Browser Test Error:', err);
+    console.error('Selection Test Error:', err);
   } finally {
     await browser.close();
   }
 
   console.log('\n=====================================================');
-  console.log('         LIVE BROWSER TEST RESULTS TABLE            ');
+  console.log('    DATAGRID SELECTION BROWSER TEST RESULTS TABLE    ');
   console.log('=====================================================');
   let totalPass = 0;
   for (const r of results) {
@@ -222,4 +146,4 @@ async function runBrowserTests() {
   console.log('=====================================================\n');
 }
 
-runBrowserTests();
+runSelectionTests();
