@@ -1,3 +1,5 @@
+Normative Reference: All screens and components described in this document shall conform to docs/ui/ui_standards.md.
+
 # eREQUEST360 Navigation & Information Architecture
 
 **Version:** 1.1  

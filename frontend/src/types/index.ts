@@ -21,6 +21,14 @@ export interface CardProgramme {
   created_date?: string;
   last_modified_by?: string | null;
   last_modified_date?: string | null;
+  description?: string;
+  service_code?: string;
+  default_validity_years?: number;
+  currency?: string;
+  issuance_fee?: number;
+  maintenance_fee?: number;
+  account_type_binding?: string;
+  version?: number;
   // Extended Banking Configuration Parameters
   bin?: string;
   platform_indicator?: string;
@@ -83,7 +91,7 @@ export interface AuditLogItem {
 }
 
 export interface ProgrammeReferenceItem {
-  id: string;
+  id: string | number;
   category: 'Request Types' | 'Eligibility Rules' | 'Card Requests' | 'Templates' | 'Branches';
   reference_name: string;
   reference_code: string;

@@ -19,6 +19,7 @@ import { Select } from '../../components/ui/select'
 import { useToast } from '../../components/ui/toast'
 import { Checkbox } from '../../components/ui/checkbox'
 import { SelectionToolbar } from '../../components/ui/selection-toolbar'
+import { SortableHeader, SortOrder } from '../../components/ui/sortable-header'
 import { useRowSelection } from '../../hooks/use-row-selection'
 
 export interface CardProgrammeChargesProps {
@@ -72,7 +73,26 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
   const [searchQuery, setSearchQuery] = React.useState('')
   const [isAddSheetOpen, setIsAddSheetOpen] = React.useState(false)
 
-  // Demo Charge Entries State with rich columns
+  // Sorting State
+  const [sortField, setSortField] = React.useState<string | null>('sequence')
+  const [sortOrder, setSortOrder] = React.useState<SortOrder>('asc')
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      if (sortOrder === 'asc') setSortOrder('desc')
+      else if (sortOrder === 'desc') {
+        setSortField(null)
+        setSortOrder(null)
+      } else {
+        setSortOrder('asc')
+      }
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
+  // Demo Charge Entries State with rich columns and NGN currency
   const [chargeEntries, setChargeEntries] = React.useState<DetailedChargeEntry[]>([
     {
       id: 1,
@@ -117,13 +137,29 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
   )
 
   const filteredEntries = React.useMemo(() => {
-    return chargeEntries.filter(
+    const list = chargeEntries.filter(
       (c) =>
         c.narration.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.posting_account_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.account_number.toLowerCase().includes(searchQuery.toLowerCase())
     )
-  }, [chargeEntries, searchQuery])
+
+    if (!sortField || !sortOrder) return list
+
+    return [...list].sort((a: any, b: any) => {
+      const valA = a[sortField] ?? ''
+      const valB = b[sortField] ?? ''
+
+      let comp = 0
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        comp = valA - valB
+      } else {
+        comp = String(valA).localeCompare(String(valB))
+      }
+
+      return sortOrder === 'asc' ? comp : -comp
+    })
+  }, [chargeEntries, searchQuery, sortField, sortOrder])
 
   // Selection Hook
   const {
@@ -238,14 +274,65 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
                     aria-label="Select all fee entries"
                   />
                 </th>
-                <th className="py-3 px-4 text-center">Seq</th>
-                <th className="py-3 px-4">Posting Account Type</th>
-                <th className="py-3 px-4 text-center">DR/CR</th>
+                <th className="py-3 px-4 text-center">
+                  <SortableHeader
+                    label="Seq"
+                    sortField="sequence"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                    align="center"
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Posting Account Type"
+                    sortField="posting_account_type"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4 text-center">
+                  <SortableHeader
+                    label="DR/CR"
+                    sortField="debit_credit"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                    align="center"
+                  />
+                </th>
                 <th className="py-3 px-4 text-center">Entry Type</th>
-                <th className="py-3 px-4">Narration</th>
-                <th className="py-3 px-4 font-mono">GL Account</th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Narration"
+                    sortField="narration"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4 font-mono">
+                  <SortableHeader
+                    label="GL Account"
+                    sortField="account_number"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
                 <th className="py-3 px-4">Branch Type</th>
-                <th className="py-3 px-4 text-right">Amount</th>
+                <th className="py-3 px-4 text-right">
+                  <SortableHeader
+                    label="Amount (NGN)"
+                    sortField="amount"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                    align="right"
+                  />
+                </th>
                 <th className="py-3 px-4 text-center">Currency</th>
                 <th className="py-3 px-4">Charge Profile</th>
                 <th className="py-3 px-4 text-center">Status</th>
@@ -328,7 +415,7 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
 
                       {/* Amount */}
                       <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
-                        {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        ₦{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Currency */}
@@ -401,9 +488,9 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
             onChange={(e) => setPostingAccountType(e.target.value)}
             options={[
               { label: 'Card Issuance Fee (CARD_ISSUANCE_FEE)', value: 'CARD_ISSUANCE_FEE' },
-              { label: 'Maintenance Fee (MAINTENANCE_FEE)', value: 'MAINTENANCE_FEE' },
+              { label: 'Annual Maintenance Fee (MAINTENANCE_FEE)', value: 'MAINTENANCE_FEE' },
               { label: 'VAT Tax Charge (VAT_CHARGE)', value: 'VAT_CHARGE' },
-              { label: 'Pin Selection Fee (PIN_FEE)', value: 'PIN_FEE' },
+              { label: 'PIN Selection Fee (PIN_FEE)', value: 'PIN_FEE' },
             ]}
           />
 
@@ -418,21 +505,39 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
             ]}
           />
 
-          <Input
-            label="GL Account Number"
+          {/* GL Account Lookup Dropdown */}
+          <Select
+            label="GL Account Lookup"
             required
             value={accountNumber}
             onChange={(e) => setAccountNumber(e.target.value)}
+            options={[
+              { label: 'GL_3002938491 - Card Issuance Income Account', value: 'GL_3002938491' },
+              { label: 'GL_2001928374 - FIRS VAT Payable Account', value: 'GL_2001928374' },
+              { label: 'GL_4009283741 - Card Production Expense Account', value: 'GL_4009283741' },
+              { label: 'GL_1009876543 - Branch Clearing Suspense Account', value: 'GL_1009876543' },
+            ]}
             helperText="General ledger account code for fee posting."
           />
 
-          <Input
-            label="Fee Amount"
-            type="number"
-            required
-            value={amount}
-            onChange={(e) => setAmount(Number(e.target.value))}
-          />
+          {/* Fee Amount (₦) */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+              Fee Amount (₦)
+            </label>
+            <div className="relative rounded-md shadow-2xs">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-bold text-xs">
+                ₦
+              </div>
+              <input
+                type="number"
+                required
+                value={amount}
+                onChange={(e) => setAmount(Number(e.target.value))}
+                className="w-full pl-8 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-slate-100 font-mono font-bold"
+              />
+            </div>
+          </div>
 
           <Select
             label="Currency"
@@ -440,7 +545,7 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
             options={[
-              { label: 'Nigerian Naira (NGN)', value: 'NGN' },
+              { label: 'Nigerian Naira (NGN / ₦)', value: 'NGN' },
               { label: 'US Dollar (USD)', value: 'USD' },
               { label: 'Euro (EUR)', value: 'EUR' },
             ]}

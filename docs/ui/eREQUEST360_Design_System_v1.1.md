@@ -1,6 +1,6 @@
 # eREQUEST360 UI Design System v1.1
 
-**Version:** 1.1 (Updated for Master-Detail Configuration Standard)  
+**Version:** 1.1 (Updated for Dedicated React Router Route Architecture Standard)  
 **Status:** Approved Specification  
 **Author:** PN SYSTEMS LTD & eREQUEST360 Architecture Team  
 **Project:** eREQUEST360 – Enterprise Multi-Tenant Card Request & Lifecycle Management Platform  
@@ -22,30 +22,35 @@ eREQUEST360 is a mission-critical, enterprise-grade banking application used con
 
 ## 2. Master–Detail Configuration Architecture Standard
 
-All master configuration modules (e.g. Card Programmes `SCR-003`, Card Segments `SCR-012`, Card Charges `SCR-013`) follow the standard **2-Column Master-Detail Layout**:
+All master configuration modules (e.g. Card Programmes `SCR-003`, Card Segments `SCR-012`, Card Charges `SCR-013`) follow the standard **Master → Detail React Router Navigation Architecture**:
 
 ```
 +---------------------------------------------------------------------------------------------------+
 | PAGE HEADER: Title, Description, Breadcrumbs, Global Actions [+ New Entity]                      |
-+--------------------------------------------------+------------------------------------------------+
-| MASTER SELECTOR PANEL (LEFT: 380px / 35%)        | DETAIL WORKSPACE PANEL (RIGHT: FLEX-1 / 65%)   |
-| - Integrated Search Bar                          | - Active Entity Header & Metadata Bar          |
-| - Compact Master List Rows                       | - Action Dropdown [...]                        |
-| - Active Selection Highlight                     | - Sub-Tab Navigation Bar:                      |
-| - Status Badges                                  |   [General] [Segments] [Charges] [Audit] [Usage]|
-| - Pagination Controls                            | - Tab Workspace Content Area                   |
-+--------------------------------------------------+------------------------------------------------+
++---------------------------------------------------------------------------------------------------+
+| FULL-WIDTH MASTER LIST GRID (/card-programmes)                                                    |
+| - Integrated Search & Filter Controls, Sortable Column Headers, Row Selection & Checkbox Header   |
++---------------------------------------------------------------------------------------------------+
+
+Route Navigation Hierarchy:
+  /card-programmes                          (Full-Width Master Management List)
+  ├── /card-programmes/new                  (Dedicated 5-Section Create Form Page)
+  ├── /card-programmes/:id                  (Aggregate Parent Details Inspector)
+  ├── /card-programmes/:id/edit             (Dedicated 5-Section Edit Form Page + Audit Log)
+  ├── /card-programmes/:id/segments         (Customer Segment Eligibility Workspace)
+  ├── /card-programmes/:id/charges          (Fee Profiles & Charge Posting Workspace)
+  ├── /card-programmes/:id/references       (Integration Mapping Workspace)
+  └── /card-programmes/:id/audit            (Audit Trail & Maker-Checker History Workspace)
 ```
 
-### Key Principles of Master–Detail Layout
-1. **Single-Click Selection:** Single-clicking any row in the left Master Selector sets it as active (`border-l-4 border-l-blue-600 bg-blue-50/50`) and populates the right Detail Workspace without a full page reload.
-2. **Contextual Sub-Tabs:** Detail workspaces present 5 standard tabs:
-   - **`[General]`**: Core database parameters mapping the master table.
-   - **`[Segments]`**: Mapped customer segment groups and eligibility associations.
-   - **`[Charges]`**: Fee headers, entries, GL accounting rules, and pricing structure.
-   - **`[Audit]`**: Embedded audit log timeline from `audit.audit_events` filtered by entity ID.
-   - **`[Usage]`**: Operational metrics, total card volume, and linked request history.
-3. **Drawer Editing:** Creating and editing master entities continues to use the slide-over Sheet drawer (`480px` width) to preserve context.
+### Key Principles of Master–Detail Route Architecture
+1. **Route-Based Detail Navigation:** Clicking any row or View action navigates to the dedicated Parent Details Inspector (`/card-programmes/:id`) or target child workspace without losing history or browser capability.
+2. **Contextual Child Workspaces:** Child workspace pages present full-width management tables topped with a `ParentSummaryBanner` to maintain parent orientation across sub-routes:
+   - **`[Segments]`**: Mapped customer segment groups and eligibility associations (`/:id/segments`).
+   - **`[Charges]`**: Fee headers, entries, GL accounting rules, and NGN pricing structure (`/:id/charges`).
+   - **`[References]`**: Core banking, switch, and tax integration mappings (`/:id/references`).
+   - **`[Audit]`**: Embedded audit log timeline and change history log (`/:id/audit`).
+3. **Dedicated Maintenance Form Pages:** Creating (`/new`) and editing (`/:id/edit`) master entities use dedicated full-page routes with 5 logical full-width sections rather than slide-over drawers or popups.
 
 ---
 
@@ -107,7 +112,7 @@ System font stack prioritizes native performance and legibility: `Inter, -apple-
 |-------------|------|--------|-------------|-------|
 | `Display / Title` | 24px (1.5rem) | 600 (Semibold) | 1.2 | Main Page Headers |
 | `Heading 1` | 20px (1.25rem) | 600 (Semibold) | 1.3 | Card Section Titles, Modal Headers |
-| `Heading 2` | 16px (1.0rem) | 500 (Medium) | 1.4 | Form Section Labels, Drawer Subheaders |
+| `Heading 2` | 16px (1.0rem) | 500 (Medium) | 1.4 | Form Section Labels, Page Subheaders |
 | `Body Standard` | 14px (0.875rem) | 400 (Regular) | 1.5 | Grid Cells, Form Field Values, Body Copy |
 | `Body Medium` | 14px (0.875rem) | 500 (Medium) | 1.5 | Table Column Headers, Button Labels |
 | `Caption / Small` | 12px (0.75rem) | 400 (Regular) | 1.4 | Helper text, Timestamp subtitles, Footers |
@@ -117,16 +122,16 @@ System font stack prioritizes native performance and legibility: `Inter, -apple-
 
 ## 5. Standard Component Patterns
 
-### 5.1 Data Tables & Master Selector Grids
+### 5.1 Data Tables & Master Grids
 - **Row Density:** 36px row height with alternating row hover highlight (`hover:bg-muted/50`).
-- **Active Selection Highlight:** `border-l-4 border-l-blue-600 bg-blue-50/50`.
+- **Sortable Column Headers:** Clickable column headers supporting 3-state sorting cycle (`asc` -> `desc` -> `null`) with visual chevron direction indicators.
 - **Pagination:** Bottom right displaying `Showing 1-25 of 142 items` with Page Size Selector `[10, 25, 50]` and Next/Prev controls.
 
-### 5.2 Form Drawers (`Sheet Component`)
-- **Position:** Slides in from the right edge, occupying 480px width (Desktop) or 100% (Mobile).
-- **Header:** Sticky top header with title, close icon `X`, and description.
-- **Body:** Scrollable form controls with length limits (`maxLength={35}`) and character counters (`0/35`).
-- **Footer:** Fixed bottom bar with `Cancel` (Secondary Outline) on left and `Save Changes` (Primary Solid) on right.
+### 5.2 Maintenance Form Pages (Dedicated React Router Routes)
+- **Routes:** Creation (`/new`) and editing (`/:id/edit`) operate on dedicated full-page routes.
+- **Form Layout:** Organized into 5 logical full-width sections (General Product Identity, Scheme & BIN Parameters, Financial Rules, Operational Controls, Audit Metadata).
+- **Audit Metadata:** System-managed audit fields are rendered as read-only font-mono labels in edit mode.
+- **Footer:** Fixed action bar with `Cancel` (Secondary Outline) on left and `Save Specifications` (Primary Solid) on right.
 
 ### 5.3 Action Confirmation Dialogs
 - **Usage:** Explicit double-check confirmation dialogs with required remarks for status changes (`Activate` / `Deactivate`).

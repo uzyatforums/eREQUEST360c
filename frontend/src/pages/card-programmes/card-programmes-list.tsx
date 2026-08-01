@@ -16,6 +16,7 @@ import { Tooltip } from '../../components/ui/tooltip'
 import { Breadcrumb } from '../../components/ui/breadcrumb'
 import { Checkbox } from '../../components/ui/checkbox'
 import { SelectionToolbar } from '../../components/ui/selection-toolbar'
+import { SortableHeader, SortOrder } from '../../components/ui/sortable-header'
 import { useRowSelection } from '../../hooks/use-row-selection'
 
 export interface CardProgrammesListProps {
@@ -46,6 +47,25 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
   const [brandFilter, setBrandFilter] = React.useState('ALL')
   const [statusFilter, setStatusFilter] = React.useState('ALL')
 
+  // Sorting State
+  const [sortField, setSortField] = React.useState<string | null>('card_programme_code')
+  const [sortOrder, setSortOrder] = React.useState<SortOrder>('asc')
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      if (sortOrder === 'asc') setSortOrder('desc')
+      else if (sortOrder === 'desc') {
+        setSortField(null)
+        setSortOrder(null)
+      } else {
+        setSortOrder('asc')
+      }
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
+
   const handleCreate = () => {
     if (onCreateProgramme) onCreateProgramme()
     navigate('/card-programmes/new')
@@ -61,9 +81,9 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
     navigate(`/card-programmes/${prog.id}/edit`)
   }
 
-  // Filter programmes
+  // Filter & Sort programmes
   const filteredProgrammes = React.useMemo(() => {
-    return cardProgrammes.filter((p) => {
+    const list = cardProgrammes.filter((p) => {
       const q = searchQuery.toLowerCase().trim()
       const matchesSearch =
         !q ||
@@ -76,7 +96,23 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
 
       return matchesSearch && matchesBrand && matchesStatus
     })
-  }, [cardProgrammes, searchQuery, brandFilter, statusFilter])
+
+    if (!sortField || !sortOrder) return list
+
+    return [...list].sort((a: any, b: any) => {
+      const valA = a[sortField] ?? ''
+      const valB = b[sortField] ?? ''
+
+      let comp = 0
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        comp = valA - valB
+      } else {
+        comp = String(valA).localeCompare(String(valB))
+      }
+
+      return sortOrder === 'asc' ? comp : -comp
+    })
+  }, [cardProgrammes, searchQuery, brandFilter, statusFilter, sortField, sortOrder])
 
   // Reusable Row Selection Hook
   const {
@@ -194,18 +230,119 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
                     aria-label="Select all card programmes"
                   />
                 </th>
-                <th className="py-3 px-4">Programme Code</th>
-                <th className="py-3 px-4">Programme Name</th>
-                <th className="py-3 px-4">Brand</th>
-                <th className="py-3 px-4">BIN</th>
-                <th className="py-3 px-4">Platform</th>
-                <th className="py-3 px-4 text-center">PAN Length</th>
-                <th className="py-3 px-4 text-center">Seq</th>
-                <th className="py-3 px-4 text-center">Status</th>
-                <th className="py-3 px-4 text-center">Segments</th>
-                <th className="py-3 px-4 text-center">Charges</th>
-                <th className="py-3 px-4">Created Date</th>
-                <th className="py-3 px-4">Last Modified</th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Programme Code"
+                    sortField="card_programme_code"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Programme Name"
+                    sortField="card_programme_name"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Brand"
+                    sortField="card_type"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="BIN"
+                    sortField="bin"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Platform"
+                    sortField="platform_indicator"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4 text-center">
+                  <SortableHeader
+                    label="PAN Length"
+                    sortField="pan_length"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                    align="center"
+                  />
+                </th>
+                <th className="py-3 px-4 text-center">
+                  <SortableHeader
+                    label="Seq"
+                    sortField="sequence"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                    align="center"
+                  />
+                </th>
+                <th className="py-3 px-4 text-center">
+                  <SortableHeader
+                    label="Status"
+                    sortField="active"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                    align="center"
+                  />
+                </th>
+                <th className="py-3 px-4 text-center">
+                  <SortableHeader
+                    label="Segments"
+                    sortField="segment_count"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                    align="center"
+                  />
+                </th>
+                <th className="py-3 px-4 text-center">
+                  <SortableHeader
+                    label="Charges"
+                    sortField="charge_header_count"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                    align="center"
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Created Date"
+                    sortField="created_date"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Last Modified"
+                    sortField="last_modified_date"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>

@@ -15,10 +15,12 @@ import { StatusBadge } from '../../components/ui/status-badge'
 import { Button } from '../../components/ui/button'
 import { Tooltip } from '../../components/ui/tooltip'
 import { Sheet } from '../../components/ui/sheet'
+import { Select } from '../../components/ui/select'
 import { Input } from '../../components/ui/input'
 import { useToast } from '../../components/ui/toast'
 import { Checkbox } from '../../components/ui/checkbox'
 import { SelectionToolbar } from '../../components/ui/selection-toolbar'
+import { SortableHeader, SortOrder } from '../../components/ui/sortable-header'
 import { useRowSelection } from '../../hooks/use-row-selection'
 
 export interface CardProgrammeSegmentsProps {
@@ -42,6 +44,25 @@ export const CardProgrammeSegments: React.FC<CardProgrammeSegmentsProps> = ({
   const [isLoading, setIsLoading] = React.useState(true)
   const [searchQuery, setSearchQuery] = React.useState('')
   const [isAssignSheetOpen, setIsAssignSheetOpen] = React.useState(false)
+
+  // Sorting State
+  const [sortField, setSortField] = React.useState<string | null>('priority')
+  const [sortOrder, setSortOrder] = React.useState<SortOrder>('asc')
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      if (sortOrder === 'asc') setSortOrder('desc')
+      else if (sortOrder === 'desc') {
+        setSortField(null)
+        setSortOrder(null)
+      } else {
+        setSortOrder('asc')
+      }
+    } else {
+      setSortField(field)
+      setSortOrder('asc')
+    }
+  }
 
   const handleBackToDetails = () => {
     if (onBackToDetails) onBackToDetails()
@@ -85,12 +106,28 @@ export const CardProgrammeSegments: React.FC<CardProgrammeSegmentsProps> = ({
   }, [fetchSegments])
 
   const filteredSegments = React.useMemo(() => {
-    return segments.filter(
+    const list = segments.filter(
       (s) =>
         s.segment_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.segment_name.toLowerCase().includes(searchQuery.toLowerCase())
     )
-  }, [segments, searchQuery])
+
+    if (!sortField || !sortOrder) return list
+
+    return [...list].sort((a: any, b: any) => {
+      const valA = a[sortField] ?? ''
+      const valB = b[sortField] ?? ''
+
+      let comp = 0
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        comp = valA - valB
+      } else {
+        comp = String(valA).localeCompare(String(valB))
+      }
+
+      return sortOrder === 'asc' ? comp : -comp
+    })
+  }, [segments, searchQuery, sortField, sortOrder])
 
   // Selection Hook
   const {
@@ -109,6 +146,17 @@ export const CardProgrammeSegments: React.FC<CardProgrammeSegmentsProps> = ({
   const canManage = currentUser.roles.some((r) =>
     ['super_admin', 'operations_admin_maker', 'operations_admin_checker'].includes(r)
   )
+
+  const handleSegmentCodeChange = (code: string) => {
+    setSegmentCode(code)
+    const nameMap: Record<string, string> = {
+      SEG_MASS_RETAIL: 'Mass Retail Savings Segment',
+      SEG_AFFLUENT_VIP: 'Affluent & HNI VIP Segment',
+      SEG_CORPORATE: 'Corporate Account Segment',
+      SEG_STAFF: 'Bank Staff & Executive Segment',
+    }
+    if (nameMap[code]) setSegmentName(nameMap[code])
+  }
 
   const handleAssignSegment = (e: React.FormEvent) => {
     e.preventDefault()
@@ -213,12 +261,55 @@ export const CardProgrammeSegments: React.FC<CardProgrammeSegmentsProps> = ({
                     aria-label="Select all segments"
                   />
                 </th>
-                <th className="py-3 px-4 text-center">Priority</th>
-                <th className="py-3 px-4">Segment Code</th>
-                <th className="py-3 px-4">Segment Name</th>
-                <th className="py-3 px-4 text-center">Default Flag</th>
+                <th className="py-3 px-4 text-center">
+                  <SortableHeader
+                    label="Priority"
+                    sortField="priority"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                    align="center"
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Segment Code"
+                    sortField="segment_code"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Segment Name"
+                    sortField="segment_name"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4 text-center">
+                  <SortableHeader
+                    label="Default Flag"
+                    sortField="is_default"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                    align="center"
+                  />
+                </th>
                 <th className="py-3 px-4">Fee Profile</th>
-                <th className="py-3 px-4 text-center">Status</th>
+                <th className="py-3 px-4 text-center">
+                  <SortableHeader
+                    label="Status"
+                    sortField="active"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                    align="center"
+                  />
+                </th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
             </thead>
@@ -338,12 +429,18 @@ export const CardProgrammeSegments: React.FC<CardProgrammeSegmentsProps> = ({
         }
       >
         <form onSubmit={handleAssignSegment} className="space-y-4">
-          <Input
-            label="Segment Code"
+          <Select
+            label="Customer Segment Lookup"
             required
             value={segmentCode}
-            onChange={(e) => setSegmentCode(e.target.value.toUpperCase())}
-            helperText="Internal code for account eligibility matching."
+            onChange={(e) => handleSegmentCodeChange(e.target.value)}
+            options={[
+              { label: 'SEG_MASS_RETAIL - Mass Retail Savings Segment', value: 'SEG_MASS_RETAIL' },
+              { label: 'SEG_AFFLUENT_VIP - Affluent & HNI VIP Segment', value: 'SEG_AFFLUENT_VIP' },
+              { label: 'SEG_CORPORATE - Corporate Account Segment', value: 'SEG_CORPORATE' },
+              { label: 'SEG_STAFF - Bank Staff & Executive Segment', value: 'SEG_STAFF' },
+            ]}
+            helperText="Select target customer eligibility segment."
           />
 
           <Input

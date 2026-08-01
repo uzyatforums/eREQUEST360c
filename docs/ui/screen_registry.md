@@ -1,17 +1,32 @@
-## SCR-003 Card Programmes Master
+Normative Reference: All screens and components described in this document shall conform to docs/ui/ui_standards.md.
+
+# eREQUEST360 Screen Registry & Module Architecture
+
+## SCR-003 Card Programmes Master (Reference Implementation)
 
 ### Architectural Pattern
-Dedicated **Master → Detail Navigation Architecture** (React Router True Route-Based Navigation).
+Dedicated **Master → Detail Navigation Architecture** (React Router True Route-Based Navigation) serving as the benchmark reference implementation for all eREQUEST360 configuration modules.
 
 ### Frontend React Router Routes
-- `/card-programmes` (Management List)
-- `/card-programmes/new` (Dedicated Create Form Page)
-- `/card-programmes/:id` (Aggregate Parent Details)
-- `/card-programmes/:id/edit` (Dedicated Edit Form Page)
-- `/card-programmes/:id/segments` (Customer Segment Eligibility Workspace)
-- `/card-programmes/:id/charges` (Fee Profiles & Charge Posting Workspace)
-- `/card-programmes/:id/references` (Reference Data Mapping Workspace)
-- `/card-programmes/:id/audit` (Audit Trail & Change Log Workspace)
+- `/card-programmes` (Management Master List with sortable headers & row selection)
+- `/card-programmes/new` (Full-Width 5-Section Create Maintenance Form Page)
+- `/card-programmes/:id` (Aggregate Parent Details Inspector)
+- `/card-programmes/:id/edit` (Full-Width 5-Section Edit Maintenance Form Page with Read-Only Audit Log)
+- `/card-programmes/:id/segments` (Customer Segment Eligibility Workspace with Segment Lookups)
+- `/card-programmes/:id/charges` (Fee Profiles Workspace with GL Account Lookups & NGN Ledger)
+- `/card-programmes/:id/references` (Integration Mapping Workspace with Target Systems)
+- `/card-programmes/:id/audit` (Audit Trail & Maker-Checker History Workspace)
+
+### Key Specifications & Standards
+1. **Full-Width Maintenance Form**:
+   - Section 1: General Product Identity (Code, Name, Description, Brand, Active Status)
+   - Section 2: Card Scheme & BIN Parameters (BIN, Platform Indicator, Service Code, Default Expiry, PAN Length)
+   - Section 3: Financial & Pricing Rules (Base Currency NGN, Issuance Fee ₦, Maintenance Fee ₦, Account Binding)
+   - Section 4: Operational & System Controls (Instant Print, NFC Contactless, PIN Mailer, Web 3DS, ATM Dispense)
+   - Section 5: Audit Metadata (Read-only system log displaying Created By, Created Date, Modified By, Modified Date, Version)
+2. **Nigerian Currency Formatting**: Standardized to `NGN` in data grids and `₦` prefix on monetary inputs.
+3. **Sortable Column Headers**: Reusable `SortableHeader` component with chevron direction indicators on all master and child grids.
+4. **DataGrid Row Selection Framework**: `useRowSelection` hook, `Checkbox` with `indeterminate` state, and `SelectionToolbar`.
 
 ### Backend API Endpoints (Unchanged)
 - `GET /config/card-programmes`
@@ -21,21 +36,9 @@ Dedicated **Master → Detail Navigation Architecture** (React Router True Route
 
 ### Route Separation Standard
 
-The eREQUEST360 frontend uses React Router with clean business-oriented URLs.
+The eREQUEST360 frontend uses React Router with clean business-oriented URLs. Frontend routes **must never** reuse backend REST API paths.
 
-Frontend routes **must never** reuse backend REST API paths.
-
-Reserved backend API prefixes include:
-
-- `/auth`
-- `/config`
-- `/iam`
-- `/maker-checker`
-- `/eligibility`
-- `/request`
-- `/audit`
-
-Examples:
+Reserved backend API prefixes include: `/auth`, `/config`, `/iam`, `/maker-checker`, `/eligibility`, `/request`, `/audit`.
 
 | Frontend | Backend API |
 |----------|-------------|
@@ -45,29 +48,21 @@ Examples:
 | `/users` | `/iam/users` |
 | `/roles` | `/iam/roles` |
 
-This separation ensures:
-
-- Browser Refresh (F5) works.
-- Deep linking and bookmarks work.
-- Browser Back/Forward navigation works.
-- React Router never conflicts with FastAPI REST endpoints.
-
 ### Child Operations
 
 **Segments (`/card-programmes/:id/segments`)**
-- Assign Segment
+- Assign Segment drawer with structured segment code lookups (`SEG_MASS_RETAIL`, `SEG_AFFLUENT_VIP`, `SEG_CORPORATE`, `SEG_STAFF`)
 - Remove Segment
-- Set Priority Rank (P1, P2...)
-- Set Default Fallback Flag
+- Priority Rank evaluation (P1, P2...)
+- Default Fallback Flag
 
 **Charges (`/card-programmes/:id/charges`)**
-- Add Fee Entry
-- Edit Entry
-- Delete Entry
-- Multi-column Posting Ledger (Sequence, DR/CR, Narration, GL Account, Amount, Currency)
-
-**Audit (`/card-programmes/:id/audit`)**
-- Read Only Timeline & Change History Table
+- Add Fee Entry drawer with GL Account lookups (`GL_3002938491`, `GL_2001928374`, `GL_4009283741`)
+- Multi-column Posting Ledger (Sequence, DR/CR, Narration, GL Account, Amount ₦, Currency NGN)
 
 **References (`/card-programmes/:id/references`)**
-- Read Only Mapping Grid & External Codes
+- Target Integration System Mappings (`FLEXCUBE_V12`, `POSTILION_HOST`, `FIRS_TAX_ENGINE`)
+- Core Banking Code, Switch Product ID, Network Scheme Code
+
+**Audit (`/card-programmes/:id/audit`)**
+- Read-Only Timeline & Change Audit History Table with Initiating User, Action, Field Modified, Old/New Values, Maker/Checker

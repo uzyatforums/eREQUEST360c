@@ -1,194 +1,216 @@
+Normative Reference: All screens and components described in this document shall conform to docs/ui/ui_standards.md.
+
 # eREQUEST360 Component Library Specification
 
-**Version:** 1.1 (Updated with Master-Detail Layout Pattern)  
-**Status:** Approved  
+**Version:** 1.2 (Updated for React Router Master-Detail Architecture & DataGrid Selection Standards)  
+**Status:** Approved Specification  
 **Framework Target:** React + Vite + TypeScript + Tailwind CSS + shadcn/ui + Lucide Icons  
 
 ---
 
 ## 1. Overview
 
-This document specifies the standard component primitives and composite UI modules for eREQUEST360. All components are built on top of `shadcn/ui` (Radix UI primitives styled with Tailwind CSS) to ensure full WCAG 2.1 AA accessibility, keyboard predictability, and visual consistency.
+This document specifies the standard component primitives, composite UI modules, and custom hooks for eREQUEST360. All components are built using React, TypeScript, Tailwind CSS, and `shadcn/ui` (Radix UI primitives styled with Tailwind CSS) to ensure WCAG 2.1 AA accessibility, keyboard predictability, and enterprise visual consistency.
 
 ---
 
-## 2. Master → Detail Composite Navigation Pattern
+## 2. Parent → Child Workspace Architecture Pattern
 
-Used for aggregate configuration workspaces (`SCR-003`, and reusable for `SCR-012`, `SCR-013`, `SCR-006`, `SCR-004`). Replaces split-screen layout with full-width master management grids and dedicated detail and child workspace sub-routes.
+Configuration and operational entities follow the **Master → Detail Route Architecture Pattern** (reference implementation established by `SCR-003 Card Programmes Master`).
 
-### 2.1 Parent Summary Banner (`components/card-programmes/parent-summary-banner.tsx`)
-Displayed at the top of all child entity management pages (`Segments`, `Charges`, `References`, `Audit`) to maintain context orientation. Displays Programme Code, Name, Card Brand, BIN, Active Status, and an "Edit Parent" action trigger.
+### Architecture Breakdown
+1. **Master Management Grid (`/card-programmes`)**: Full-width data table listing all master records with search, filters, row selection, and sortable headers.
+2. **Parent Details Inspector (`/card-programmes/:id`)**: Aggregate detail inspector presenting parent record overview, key operational attributes, and workspace navigation triggers.
+3. **Parent Summary Banner (`ParentSummaryBanner`)**: Persistent orientation header displayed at the top of all child management pages to maintain parent context.
+4. **Child Workspaces (`/card-programmes/:id/*`)**: Dedicated full-width sub-routes for managing child relationship entities:
+   - **`Segments`** (`/card-programmes/:id/segments`): Customer segment eligibility and fallback flags.
+   - **`Charges`** (`/card-programmes/:id/charges`): Fee profiles, GL account entries, DR/CR posting rules, and NGN pricing.
+   - **`References`** (`/card-programmes/:id/references`): Target system integration mappings (Flexcube, Postilion, FIRS).
+   - **`Audit`** (`/card-programmes/:id/audit`): Change audit trail and Maker-Checker history log.
 
-### 2.2 Accessible Tooltip (`components/ui/tooltip.tsx`)
-Provides hover/focus label overlays for icon-only buttons (Edit, Delete, Clone, Refresh, Assign, Back, View) across data tables and action bars.
+---
 
-### 2.3 Breadcrumb Bar (`components/ui/breadcrumb.tsx`)
-Standardized breadcrumb navigation path (e.g., `Configuration > Card Programmes > AG-CL-NGN > Charges`) ensuring predictable hierarchical navigation.
+## 3. DataGrid Framework & Selection Primitives
 
+### 3.1 `useRowSelection<T>` Hook (`hooks/use-row-selection.ts`)
+
+Generic React hook providing type-safe selection state management across configuration and operational data tables.
+
+#### Import & Signature
 ```typescript
-interface MasterDetailLayoutProps<T> {
-  // Master list props
-  items: T[];
-  selectedItem: T | null;
-  onSelectItem: (item: T) => void;
-  renderMasterItem: (item: T, isSelected: boolean) => React.ReactNode;
-  masterSearchPlaceholder?: string;
-  onMasterCreate?: () => void;
-  isLoading?: boolean;
-  
-  // Detail workspace props
-  detailHeader?: React.ReactNode;
-  tabs: {
-    id: 'general' | 'segments' | 'charges' | 'audit' | 'usage';
-    label: string;
-    icon?: React.ReactNode;
-    content: React.ReactNode;
-  }[];
+import { useRowSelection, UseRowSelectionOptions, UseRowSelectionReturn } from '../hooks/use-row-selection'
+
+export interface UseRowSelectionOptions<T> {
+  items: T[]
+  getKey?: (item: T) => string | number
 }
 ```
 
-### 2.4 DataGrid Selection Framework
-
-A reusable row selection architecture for configuration and operational data tables.
-
-#### Components & Primitives
-1. **`useRowSelection<T>` Hook (`hooks/use-row-selection.ts`)**: Reusable state management for grid selection.
-   - Provides `selectedIds`, `selectedCount`, `selectedItems`, `isSelected()`, `toggleRow()`, `selectAll()`, `clearSelection()`, `toggleSelectAll()`, `isAllSelected`, `isSomeSelected`, `isNoneSelected`.
-2. **`Checkbox` Primitive (`components/ui/checkbox.tsx`)**: Form control supporting standard HTML props and `indeterminate` state (`ref.current.indeterminate = true`).
-3. **`SelectionToolbar` Component (`components/ui/selection-toolbar.tsx`)**: Sticky or embedded status toolbar displaying:
-   - Selection count badge (e.g. `"3 selected"` or `"No items selected"`)
-   - `[Clear Selection]` trigger button
-   - `[Bulk Actions]` disabled trigger button with tooltip (*"Bulk actions will be enabled in a future release."*)
-
-#### Behavior Rules
-- **Select All Checkbox**: Header checkbox in column 1. Selects all currently filtered/displayed rows when clicked; clears all when clicked again.
-- **Indeterminate State**: Displays a dash icon (`indeterminate = true`) when 1 or more rows are selected, but fewer than the total visible row count.
-- **Event Isolation**: Row checkbox clicks must execute `e.stopPropagation()` to prevent unwanted navigation into detail inspectors.
-
----
-
-## 3. Core UI Primitives
-
-### 3.1 Button (`components/ui/button.tsx`)
-
-| Variant | Tailwind Classes | Usage / Guidelines |
-|---------|------------------|--------------------|
-| `primary` | `bg-primary text-primary-foreground hover:bg-primary/90` | Main call to action per page (e.g. "Create Request", "Submit", "Save Configuration"). Max one primary button per primary workflow view. |
-| `secondary` | `border border-input bg-background hover:bg-accent hover:text-accent-foreground` | Secondary/cancel actions, toolbar filters, drawers, and modal dismissals. |
-| `destructive` | `bg-destructive text-destructive-foreground hover:bg-destructive/90` | Irreversible/dangerous actions ("Reject Request", "Hotlist Card", "Deactivate User"). |
-| `ghost` | `hover:bg-accent hover:text-accent-foreground` | Table row action menus, breadcrumb links, icon-only buttons. |
-| `outline` | `border border-primary text-primary hover:bg-primary/10` | Secondary primary-equivalent actions ("Export Excel", "Download PDF"). |
+#### Public API Reference
+| Property / Method | Return Type | Description |
+|---|---|---|
+| `selectedIds` | `Set<string \| number>` | Set containing unique keys of all currently selected rows. |
+| `selectedCount` | `number` | Total number of selected items (`selectedIds.size`). |
+| `selectedItems` | `T[]` | Array of full item objects corresponding to `selectedIds`. |
+| `isSelected(id)` | `(id: string \| number) => boolean` | Returns `true` if the specified item ID is selected. |
+| `toggleRow(id)` | `(id: string \| number) => void` | Toggles selection state for a single row ID. |
+| `selectAll()` | `() => void` | Selects all currently rendered/filtered items. |
+| `deselectAll()` | `() => void` | Clears all row selections (alias of `clearSelection`). |
+| `clearSelection()` | `() => void` | Clears all row selections. |
+| `toggleSelectAll()` | `() => void` | Selects all items if `isAllSelected` is false; otherwise deselects all. |
+| `isAllSelected` | `boolean` | `true` when items length > 0 and all visible items are selected. |
+| `isSomeSelected` | `boolean` | `true` when 1 or more items are selected, but fewer than `items.length` (Indeterminate). |
+| `isNoneSelected` | `boolean` | `true` when zero items are selected. |
+| `handleSelectAllChange` | `(checked: boolean) => void` | Direct checkbox change event handler for header Select All checkbox. |
 
 ---
 
-### 3.2 Status Badge (`components/ui/status-badge.tsx`)
+### 3.2 `Checkbox` Primitive (`components/ui/checkbox.tsx`)
 
-Used across tables, detail pages, and dashboards to present request and entity state consistently.
+Enhanced HTML checkbox form primitive supporting `indeterminate` visual states and keyboard accessibility.
 
+#### Component Signature & Props
 ```typescript
-export type StatusType = 
-  | 'PENDING' | 'PENDING_APPROVAL' | 'PENDING_AUTHORIZATION' 
-  | 'APPROVED' | 'COMPLETED' | 'REJECTED' | 'HOTLISTED' 
-  | 'SETTLEMENT_FAILED' | 'ACTIVE' | 'INACTIVE';
-
-interface StatusBadgeProps {
-  status: StatusType | boolean;
-  label?: string;
-  showIcon?: boolean;
-  className?: string;
+export interface CheckboxProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  indeterminate?: boolean
+  label?: string
 }
 ```
 
----
-
-### 3.3 Form Input & Select Controls (`components/ui/input.tsx`, `select.tsx`)
-
-Form fields use React Hook Form + Zod schema validation.
-
-- **Accessibility:** Includes `aria-invalid={!!error}` and `aria-describedby` helper IDs.
-- **Length Limit Support:** `maxLength={35}` with `0/35` character counter.
-- **Required Field Marker:** Red asterisk `<span className="text-destructive">*</span>`
-- **Focus State:** `focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`
+#### Behaviour & Rules
+- **Indeterminate State**: Implemented via DOM ref synchronization (`combinedRef.current.indeterminate = !!indeterminate`). Displays a dash/minus visual indicator when partially selected (`isSomeSelected`).
+- **Select All Header Checkbox**: Used in table header column 1 with `indeterminate={isSomeSelected}` and `checked={isAllSelected}`.
+- **Event Propagation Rule**: Table row checkboxes **must** call `e.stopPropagation()` on `onClick` or container wrapper clicks to prevent row checkbox toggling from unintentionally triggering row navigation into detail inspectors.
 
 ---
 
-### 3.4 Action Confirmation Dialog (`components/ui/dialog.tsx`)
+### 3.3 `SelectionToolbar` Component (`components/ui/selection-toolbar.tsx`)
 
-Explicit modal dialog for confirming sensitive operations (e.g. Deactivating a Card Programme). Supports mandatory remarks for Maker users.
+Selection status bar rendered immediately above data grid tables to communicate selection state and provide bulk action controls.
 
----
-
-### 3.5 Row Action Dropdown Menu (`components/ui/dropdown-menu.tsx`)
-
-Standard popup dropdown for table row actions:
-- `Edit Programme`
-- `Toggle Status (Activate / Deactivate)`
-- `View Audit Logs`
-
----
-
-## 4. Toast Notifications Specification
-
-Global notifications triggered via `useToast()` hook (`shadcn/ui` toast):
-
+#### Component Signature & Props
 ```typescript
-toast({
-  title: "Request Approved Successfully",
-  description: "Request #REQ-2026-004 has been sent for settlement.",
-  variant: "success", // default, destructive, success, warning, info
-});
+export interface SelectionToolbarProps {
+  selectedCount: number
+  totalCount?: number
+  onClearSelection: () => void
+  bulkActionsDisabledTooltip?: string
+  customActions?: React.ReactNode
+  className?: string
+}
 ```
 
+#### Behaviour & Rules
+- **Selection Count Display**: Renders count badge pill (`"0"` or `"N"`). Shows `"X items selected"` when `selectedCount > 0`, or `"No items selected"` with optional `(N total)` count when `selectedCount === 0`.
+- **Clear Selection Button**: `[Clear Selection]` ghost button renders automatically when `selectedCount > 0`. Clicking invokes `onClearSelection()`.
+- **Bulk Actions Placeholder**: Renders a secondary disabled `[Bulk Actions]` button wrapped in a `Tooltip` displaying: *"Bulk actions will be enabled in a future release."*
+
 ---
 
+## 4. DataGrid Column Header Sorting
 
-## Master-Detail Layout
+### 4.1 `SortableHeader` Component (`components/ui/sortable-header.tsx`)
 
-Purpose:
-Reusable layout for all configuration modules.
+Reusable header button component enabling 3-state column sorting on data tables.
 
-Components:
+#### Component Signature & Props
+```typescript
+export type SortOrder = 'asc' | 'desc' | null
 
-- Filter Bar
-- Master List
-- Detail Panel
-- Entity Header
-- Tab Strip
-- Child Grid
-- Pagination
-- Empty State
-- Loading State
+export interface SortableHeaderProps {
+  label: string
+  sortField: string
+  currentSortField: string | null
+  currentSortOrder: SortOrder
+  onSort: (field: string) => void
+  align?: 'left' | 'center' | 'right'
+  className?: string
+}
+```
 
-Used By:
+#### Specifications & Behavior
+- **Purpose**: Enables users to sort grid records by clicking column header buttons.
+- **Sort Cycle**: Clicking a column header toggles sorting:
+  1. `Unsorted (null)` ➔ **`Ascending ('asc')`**
+  2. **`Ascending ('asc')`** ➔ **`Descending ('desc')`**
+  3. **`Descending ('desc')`** ➔ **`Unsorted (null)`**
+- **Visual Indicators**:
+  - `ArrowUp` icon (bold blue) displayed when active column is sorted `asc`.
+  - `ArrowDown` icon (bold blue) displayed when active column is sorted `desc`.
+  - `ArrowUpDown` icon (muted gray, visible on hover) displayed when column is unsorted.
+- **Typical Usage**: Integrated inside table `<th>` elements across master and child workspace grids.
+- **Accessibility Considerations**: Renders a semantic `<button type="button">` with `select-none`, clear focus styles, and high-contrast color states.
 
-- Card Programmes
-- Card Segments
-- Card Charges
-- Branches
-- Users
-- Roles
-- Permissions
+---
 
-## Assignment Dialog
+## 5. Parent Summary Banner Component
 
-Purpose:
+### 5.1 `ParentSummaryBanner` (`components/card-programmes/parent-summary-banner.tsx`)
 
-Assign child entities to a parent.
+Contextual banner component rendered at the top of all child workspace management pages (`Segments`, `Charges`, `References`, `Audit`).
 
-Examples:
+#### Component Signature & Props
+```typescript
+export interface ParentSummaryBannerProps {
+  programme: CardProgramme
+  onEditParent?: () => void
+  onBackToDetails?: () => void
+  onBackToList?: () => void
+  currentChildName?: string
+}
+```
 
-- Programme → Segments
-- Programme → Charges
-- User → Roles
-- Role → Permissions
+#### Specifications & Behavior
+- **Purpose**: Prevents user disorientation by permanently displaying parent product identity, active status, key routing parameters, and navigation triggers when managing child entities.
+- **Required Fields**:
+  - Parent Identifiers: `card_programme_code`, `card_programme_name`, `card_type` Brand, `active` StatusBadge.
+  - Attributes Strip: `bin` Prefix, `platform_indicator`, `pan_length`, `currentChildName`.
+- **Layout & Structure**:
+  - **Left**: Back to Details button (`ArrowLeft` icon in tooltip), Programme Code, Brand Badge, Status Badge, Programme Name heading.
+  - **Center**: 4-column attribute summary card (`BIN`, `Platform`, `PAN Length`, `Active Context`).
+  - **Right**: `[Edit Parent]` secondary button and `[All Programmes]` ghost button.
+- **Design Rationale**: Replaces split-screen left panels with a lightweight top banner, allowing child workspace tables to consume 100% full screen width.
 
-Functions:
+---
 
-- Search
-- Multi-select
-- Priority
-- Default selection
-- Save
-- Cancel
+## 6. Core UI Primitives
+
+### 6.1 Button (`components/ui/button.tsx`)
+Supports `primary`, `secondary`, `destructive`, `ghost`, `outline` variants, `sm`/`md`/`lg` sizes, and `isLoading` spinner state.
+
+### 6.2 Status Badge (`components/ui/status-badge.tsx`)
+Presents entity state (`ACTIVE`, `INACTIVE`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`) using standardized HSL color tokens.
+
+### 6.3 Form Input & Select Controls (`components/ui/input.tsx`, `select.tsx`)
+Accessible form inputs supporting `maxLength` limits, character counters (`0/35`), red asterisk required markers, and ₦ currency input prefixes.
+
+### 6.4 Confirmation Dialog (`components/ui/dialog.tsx`)
+Explicit modal dialog for confirming sensitive operations (e.g. status activation/deactivation) with mandatory Maker remarks.
+
+### 6.5 Action Dropdown Menu (`components/ui/dropdown-menu.tsx`)
+Standardized row action dropdown (`Edit`, `Toggle Status`, `View Audit Logs`).
+
+### 6.6 Accessible Tooltip (`components/ui/tooltip.tsx`)
+Hover/focus label overlay for icon-only action triggers across headers, toolbars, and table rows.
+
+### 6.7 Breadcrumbs (`components/ui/breadcrumb.tsx`)
+Hierarchical breadcrumb path (e.g., `Configuration > Card Programmes > AG-CL-NGN > Charges`) ensuring clear route awareness.
+
+---
+
+## 7. Component Usage Matrix
+
+The matrix below documents which reusable components are deployed across the `SCR-003 Card Programmes` reference implementation routes:
+
+| Screen Code & Route | `Breadcrumb` | `PageHeader` | `ParentSummaryBanner` | `SortableHeader` | `useRowSelection` | `Checkbox` | `SelectionToolbar` | `StatusBadge` | `Tooltip` | `Button` | `Sheet` / `Dialog` |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **`SCR-003` Master List** (`/card-programmes`) | **✓** | **✓** | — | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** |
+| **`SCR-003` Details Inspector** (`/card-programmes/:id`) | **✓** | **✓** | — | — | — | — | — | **✓** | **✓** | **✓** | **✓** |
+| **`SCR-003` Create Form** (`/card-programmes/new`) | **✓** | **✓** | — | — | — | — | — | — | **✓** | **✓** | — |
+| **`SCR-003` Edit Form** (`/card-programmes/:id/edit`) | **✓** | **✓** | — | — | — | — | — | — | **✓** | **✓** | — |
+| **`SCR-003` Segments Workspace** (`/:id/segments`) | **✓** | — | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** |
+| **`SCR-003` Charges Workspace** (`/:id/charges`) | **✓** | — | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** |
+| **`SCR-003` References Workspace** (`/:id/references`) | **✓** | — | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | **✓** | — |
+| **`SCR-003` Audit Workspace** (`/:id/audit`) | **✓** | — | **✓** | **✓** | **✓** | **✓** | **✓** | — | **✓** | **✓** | — |
 
 **End of Component Library Specification**

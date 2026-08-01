@@ -12,6 +12,7 @@ import { Tooltip } from '../../components/ui/tooltip'
 import { useToast } from '../../components/ui/toast'
 import { Checkbox } from '../../components/ui/checkbox'
 import { SelectionToolbar } from '../../components/ui/selection-toolbar'
+import { SortableHeader, SortOrder } from '../../components/ui/sortable-header'
 import { useRowSelection } from '../../hooks/use-row-selection'
 
 export interface CardProgrammeAuditProps {
@@ -51,6 +52,25 @@ export const CardProgrammeAudit: React.FC<CardProgrammeAuditProps> = ({
   const [isLoading, setIsLoading] = React.useState(true)
   const [searchQuery, setSearchQuery] = React.useState('')
 
+  // Sorting State
+  const [sortField, setSortField] = React.useState<string | null>('timestamp')
+  const [sortOrder, setSortOrder] = React.useState<SortOrder>('desc')
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      if (sortOrder === 'asc') setSortOrder('desc')
+      else if (sortOrder === 'desc') {
+        setSortField(null)
+        setSortOrder(null)
+      } else {
+        setSortOrder('asc')
+      }
+    } else {
+      setSortField(field)
+      setSortOrder('desc')
+    }
+  }
+
   const fetchAuditLogs = React.useCallback(async () => {
     setIsLoading(true)
     try {
@@ -72,13 +92,29 @@ export const CardProgrammeAudit: React.FC<CardProgrammeAuditProps> = ({
   }, [fetchAuditLogs])
 
   const filteredLogs = React.useMemo(() => {
-    return logs.filter(
+    const list = logs.filter(
       (l) =>
         (l.user || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (l.action || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (l.field || '').toLowerCase().includes(searchQuery.toLowerCase())
     )
-  }, [logs, searchQuery])
+
+    if (!sortField || !sortOrder) return list
+
+    return [...list].sort((a: any, b: any) => {
+      const valA = a[sortField] ?? ''
+      const valB = b[sortField] ?? ''
+
+      let comp = 0
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        comp = valA - valB
+      } else {
+        comp = String(valA).localeCompare(String(valB))
+      }
+
+      return sortOrder === 'asc' ? comp : -comp
+    })
+  }, [logs, searchQuery, sortField, sortOrder])
 
   // Selection Hook
   const {
@@ -161,10 +197,42 @@ export const CardProgrammeAudit: React.FC<CardProgrammeAuditProps> = ({
                     aria-label="Select all audit log entries"
                   />
                 </th>
-                <th className="py-3 px-4">Date & Time</th>
-                <th className="py-3 px-4">Initiating User</th>
-                <th className="py-3 px-4">Action</th>
-                <th className="py-3 px-4">Field Modified</th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Date & Time"
+                    sortField="timestamp"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Initiating User"
+                    sortField="user"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Action"
+                    sortField="action"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
+                <th className="py-3 px-4">
+                  <SortableHeader
+                    label="Field Modified"
+                    sortField="field"
+                    currentSortField={sortField}
+                    currentSortOrder={sortOrder}
+                    onSort={handleSort}
+                  />
+                </th>
                 <th className="py-3 px-4">Old Value</th>
                 <th className="py-3 px-4">New Value</th>
                 <th className="py-3 px-4 text-center">Maker</th>

@@ -1,314 +1,700 @@
 import * as React from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { CardProgramme, CardProgrammeFormData, UserInfo, CardType } from '../../types'
+import {
+  Shield,
+  CreditCard,
+  Building2,
+  Lock,
+  ArrowLeft,
+  Save,
+  Clock,
+  Layers,
+  Sparkles,
+  CheckCircle2,
+  DollarSign,
+  Info,
+} from 'lucide-react'
+import { CardProgramme, UserInfo, CardType } from '../../types'
 import { apiService } from '../../services/api'
-import { useToast } from '../../components/ui/toast'
+import { PageHeader } from '../../components/shared/page-header'
+import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Select } from '../../components/ui/select'
-import { Button } from '../../components/ui/button'
-import { Breadcrumb } from '../../components/ui/breadcrumb'
-import { PageHeader } from '../../components/shared/page-header'
-import { ShieldAlert, ArrowLeft, Loader2, Save } from 'lucide-react'
+import { Breadcrumb, BreadcrumbItem } from '../../components/ui/breadcrumb'
+import { useToast } from '../../components/ui/toast'
 
 export interface CardProgrammeFormProps {
   currentUser: UserInfo
+  onSaveSuccess?: (saved?: CardProgramme) => void
 }
 
-export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUser }) => {
-  const { id } = useParams<{ id?: string }>()
+export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUser, onSaveSuccess }) => {
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { toast } = useToast()
 
-  const isEditMode = Boolean(id)
+  const isEditMode = !!id
   const programmeId = id ? parseInt(id, 10) : null
 
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [isSaving, setIsSaving] = React.useState(false)
   const [cardTypes, setCardTypes] = React.useState<CardType[]>([])
-  const [isLoadingProgramme, setIsLoadingProgramme] = React.useState(isEditMode)
   const [editingProgramme, setEditingProgramme] = React.useState<CardProgramme | null>(null)
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
-  const [formData, setFormData] = React.useState<CardProgrammeFormData>({
-    card_programme_code: '',
-    card_programme_name: '',
-    card_type: '',
-    active: true,
-  })
-  const [formErrors, setFormErrors] = React.useState<Partial<Record<keyof CardProgrammeFormData, string>>>({})
+  // Form State Fields
+  const [cardProgrammeCode, setCardProgrammeCode] = React.useState('')
+  const [cardProgrammeName, setCardProgrammeName] = React.useState('')
+  const [description, setDescription] = React.useState('')
+  const [cardType, setCardType] = React.useState('VERVE_CLASSIC')
+  const [bin, setBin] = React.useState('506118')
+  const [platformIndicator, setPlatformIndicator] = React.useState('POSTILION_V2')
+  const [serviceCode, setServiceCode] = React.useState('201')
+  const [panLength, setPanLength] = React.useState(16)
+  const [defaultValidityYears, setDefaultValidityYears] = React.useState(3)
+  const [currency, setCurrency] = React.useState('NGN')
+  const [issuanceFee, setIssuanceFee] = React.useState(1000)
+  const [maintenanceFee, setMaintenanceFee] = React.useState(250)
+  const [accountTypeBinding, setAccountTypeBinding] = React.useState('SAVINGS_CURRENT')
+  const [active, setActive] = React.useState(true)
 
-  const isMakerOnly = currentUser.roles.includes('operations_admin_maker') && !currentUser.roles.includes('super_admin')
+  // Operational Control Flags
+  const [instantIssuanceAllowed, setInstantIssuanceAllowed] = React.useState(true)
+  const [contactlessEnabled, setContactlessEnabled] = React.useState(true)
+  const [pinMailerAllowed, setPinMailerAllowed] = React.useState(true)
+  const [ecommerceAllowed, setEcommerceAllowed] = React.useState(true)
+  const [atmWithdrawalAllowed, setAtmWithdrawalAllowed] = React.useState(true)
 
-  // Fetch Card Types
+  // Fetch Lookup Data
   React.useEffect(() => {
-    apiService.getCardTypes().then((types) => {
-      setCardTypes(types)
-      if (!isEditMode && types.length > 0 && !formData.card_type) {
-        setFormData((prev) => ({ ...prev, card_type: types[0].card_type }))
-      }
-    }).catch(() => {})
-  }, [isEditMode])
+    apiService.getCardTypes().then((types) => setCardTypes(types)).catch(() => {})
+  }, [])
 
-  // Fetch Existing Programme if Edit Mode
+  // Fetch Existing Record for Edit Mode
   React.useEffect(() => {
     if (isEditMode && programmeId) {
-      setIsLoadingProgramme(true)
+      setIsLoading(true)
       apiService
         .getCardProgrammes()
         .then((programmes) => {
           const found = programmes.find((p) => p.id === programmeId)
           if (found) {
             setEditingProgramme(found)
-            setFormData({
-              card_programme_code: found.card_programme_code,
-              card_programme_name: found.card_programme_name,
-              card_type: found.card_type,
-              active: found.active,
-            })
+            setCardProgrammeCode(found.card_programme_code)
+            setCardProgrammeName(found.card_programme_name)
+            setDescription(found.description || `${found.card_programme_name} product specification.`)
+            setCardType(found.card_type)
+            setBin(found.bin || '506118')
+            setPlatformIndicator(found.platform_indicator || 'POSTILION_V2')
+            setServiceCode(found.service_code || '201')
+            setPanLength(found.pan_length || 16)
+            setDefaultValidityYears(found.default_validity_years || 3)
+            setCurrency(found.currency || 'NGN')
+            setIssuanceFee(found.issuance_fee || 1000)
+            setMaintenanceFee(found.maintenance_fee || 250)
+            setAccountTypeBinding(found.account_type_binding || 'SAVINGS_CURRENT')
+            setActive(found.active)
           } else {
             toast({
               title: 'Programme Not Found',
-              description: `Card Programme #${programmeId} could not be located.`,
+              description: `Card Programme #${id} could not be loaded.`,
               variant: 'destructive',
             })
-            navigate('/card-programmes', { replace: true })
+            navigate('/card-programmes')
           }
         })
         .catch(() => {
           toast({
-            title: 'Error Loading Programme',
-            description: 'Failed to retrieve card programme details.',
+            title: 'Fetch Error',
+            description: 'Failed to load programme specifications from API.',
             variant: 'destructive',
           })
-          navigate('/card-programmes', { replace: true })
         })
-        .finally(() => setIsLoadingProgramme(false))
+        .finally(() => setIsLoading(false))
     }
-  }, [isEditMode, programmeId, navigate, toast])
+  }, [isEditMode, programmeId, id, navigate, toast])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const errors: Partial<Record<keyof CardProgrammeFormData, string>> = {}
 
-    const cleanCode = formData.card_programme_code.trim().toUpperCase()
-    const cleanName = formData.card_programme_name.trim()
-
-    if (!isEditMode) {
-      if (!cleanCode) {
-        errors.card_programme_code = 'Programme code is required'
-      } else if (cleanCode.length > 35) {
-        errors.card_programme_code = 'Programme code cannot exceed 35 characters'
-      } else if (!/^[A-Z0-9_-]+$/.test(cleanCode)) {
-        errors.card_programme_code = 'Uppercase letters, numbers, hyphens and underscores only'
-      }
-    }
-
-    if (!cleanName) {
-      errors.card_programme_name = 'Programme name is required'
-    } else if (cleanName.length > 100) {
-      errors.card_programme_name = 'Programme name cannot exceed 100 characters'
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors)
+    if (!cardProgrammeCode.trim() || !cardProgrammeName.trim()) {
+      toast({
+        title: 'Validation Failed',
+        description: 'Programme Code and Name are required fields.',
+        variant: 'destructive',
+      })
       return
     }
 
-    setIsSubmitting(true)
+    setIsSaving(true)
+
+    const payload: Partial<CardProgramme> = {
+      card_programme_code: cardProgrammeCode.trim().toUpperCase(),
+      card_programme_name: cardProgrammeName.trim(),
+      description: description.trim(),
+      card_type: cardType,
+      bin,
+      platform_indicator: platformIndicator,
+      service_code: serviceCode,
+      pan_length: Number(panLength),
+      default_validity_years: Number(defaultValidityYears),
+      currency,
+      issuance_fee: Number(issuanceFee),
+      maintenance_fee: Number(maintenanceFee),
+      account_type_binding: accountTypeBinding,
+      active,
+      client_id: currentUser.client_id || 100,
+    }
+
     try {
-      if (isMakerOnly) {
-        const workItem = await apiService.submitMakerCheckerWorkItem({
-          entity_type: 'card_programmes',
-          entity_id: editingProgramme ? editingProgramme.id : undefined,
-          operation: editingProgramme ? 'UPDATE' : 'CREATE',
-          maker_remarks: `Card programme ${editingProgramme ? 'update' : 'creation'} for ${cleanName}`,
-          payload: {
-            client_id: currentUser.client_id,
-            card_programme_code: cleanCode,
-            card_programme_name: cleanName,
-            card_type: formData.card_type,
-            active: formData.active,
-          },
-        })
-
+      if (isEditMode && editingProgramme) {
+        const updated = await apiService.updateCardProgramme(editingProgramme.id, payload)
         toast({
-          title: 'Maker-Checker Work Item Submitted',
-          description: `Work Item #${workItem.work_item_id} sent for Checker authorization.`,
-          variant: 'info',
+          title: 'Programme Specifications Updated',
+          description: `Card Programme '${cardProgrammeName}' parameters updated successfully.`,
+          variant: 'success',
         })
-      } else {
-        if (editingProgramme) {
-          await apiService.updateCardProgramme(editingProgramme.id, {
-            ...formData,
-            card_programme_code: cleanCode,
-            card_programme_name: cleanName,
-          })
-          toast({
-            title: 'Card Programme Updated',
-            description: `Programme '${cleanName}' updated successfully.`,
-            variant: 'success',
-          })
-        } else {
-          await apiService.createCardProgramme(
-            {
-              ...formData,
-              card_programme_code: cleanCode,
-              card_programme_name: cleanName,
-            },
-            currentUser.client_id
-          )
-          toast({
-            title: 'Card Programme Created',
-            description: `New programme '${cleanName}' created successfully.`,
-            variant: 'success',
-          })
-        }
-      }
-
-      if (editingProgramme) {
+        if (onSaveSuccess) onSaveSuccess(updated)
         navigate(`/card-programmes/${editingProgramme.id}`)
       } else {
-        navigate('/card-programmes')
+        const created = await apiService.createCardProgramme(payload)
+        toast({
+          title: 'Card Programme Created',
+          description: `New card programme '${cardProgrammeName}' created successfully.`,
+          variant: 'success',
+        })
+        if (onSaveSuccess) onSaveSuccess(created)
+        navigate(`/card-programmes/${created.id}`)
       }
     } catch (err: any) {
       toast({
-        title: 'Operation Failed',
-        description: err.message || 'An unexpected error occurred while saving the card programme.',
+        title: 'Save Operation Failed',
+        description: err.message || 'Could not persist card programme parameters.',
         variant: 'destructive',
       })
     } finally {
-      setIsSubmitting(false)
+      setIsSaving(false)
     }
   }
 
-  const handleCancel = () => {
-    if (editingProgramme) {
-      navigate(`/card-programmes/${editingProgramme.id}`)
-    } else {
-      navigate('/card-programmes')
-    }
-  }
-
-  if (isLoadingProgramme) {
-    return (
-      <div className="p-12 text-center text-slate-400">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-500" />
-        Loading Card Programme configuration...
-      </div>
-    )
-  }
-
-  const pageTitle = isEditMode ? `Edit Card Programme (${formData.card_programme_code || '#' + programmeId})` : 'New Card Programme'
-  const pageDescription = isEditMode
-    ? 'Modify payment card product parameters, brand association, and active status.'
-    : 'Define product parameters, select card scheme brand, and set operational flags.'
-
-  const breadcrumbs: Array<{ label: string; onClick?: () => void }> = [
+  const breadcrumbs: BreadcrumbItem[] = [
     { label: 'Configuration', onClick: () => navigate('/card-programmes') },
     { label: 'Card Programmes', onClick: () => navigate('/card-programmes') },
   ]
+
   if (isEditMode && editingProgramme) {
-    breadcrumbs.push({ label: editingProgramme.card_programme_code, onClick: () => navigate(`/card-programmes/${editingProgramme.id}`) })
-    breadcrumbs.push({ label: 'Edit' })
+    breadcrumbs.push({
+      label: editingProgramme.card_programme_code,
+      onClick: () => navigate(`/card-programmes/${editingProgramme.id}`),
+    })
+    breadcrumbs.push({ label: 'Edit Maintenance' })
   } else {
     breadcrumbs.push({ label: 'New Card Programme' })
   }
 
+  if (isLoading) {
+    return (
+      <div className="p-12 text-center text-slate-400">
+        <Sparkles className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-500" />
+        Loading Card Programme parameters...
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Breadcrumbs */}
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      {/* Breadcrumb Navigation */}
       <Breadcrumb items={breadcrumbs} />
 
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button
-          onClick={handleCancel}
-          className="p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0 cursor-pointer"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <PageHeader
-          title={pageTitle}
-          description={pageDescription}
-        />
-      </div>
-
-      {/* Form Card */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-2xs">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {isMakerOnly && (
-            <div className="flex items-start gap-2.5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs">
-              <ShieldAlert className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold">Maker-Checker Workflow Enforced:</span> Submitting changes will create
-                a pending work item for Checker authorization before taking effect in production.
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input
-              label="Programme Code"
-              required
-              maxLength={35}
-              placeholder="e.g. APEX_VERVE_CLASSIC"
-              value={formData.card_programme_code}
-              onChange={(e) =>
-                setFormData({ ...formData, card_programme_code: e.target.value.toUpperCase() })
+      {/* Page Header */}
+      <PageHeader
+        title={isEditMode ? `Edit Card Programme: ${cardProgrammeCode}` : 'New Card Programme Maintenance'}
+        description={
+          isEditMode
+            ? 'Modify payment card product parameters, brand association, pricing rules, and operational flags.'
+            : 'Define new card product parameters, select card scheme brand, set BIN routing, and set operational flags.'
+        }
+        actions={
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() =>
+                navigate(isEditMode && editingProgramme ? `/card-programmes/${editingProgramme.id}` : '/card-programmes')
               }
-              error={formErrors.card_programme_code}
-              helperText="Uppercase alphanumeric characters, hyphens & underscores only (Max 35 chars)."
-              disabled={isEditMode}
-            />
+              className="gap-1.5 text-xs"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Cancel
+            </Button>
+            <Button type="button" variant="primary" onClick={handleSubmit} isLoading={isSaving} className="gap-1.5 text-xs">
+              <Save className="h-3.5 w-3.5" />
+              {isEditMode ? 'Save Specifications' : 'Create Programme'}
+            </Button>
+          </div>
+        }
+      />
 
-            <Input
-              label="Programme Name"
-              required
-              maxLength={100}
-              placeholder="e.g. Apex Verve Classic Card"
-              value={formData.card_programme_name}
-              onChange={(e) => setFormData({ ...formData, card_programme_name: e.target.value })}
-              error={formErrors.card_programme_name}
-              helperText="Descriptive business name for branch operators (Max 100 chars)."
-            />
-
-            <Select
-              label="Card Type Brand"
-              required
-              value={formData.card_type}
-              onChange={(e) => setFormData({ ...formData, card_type: e.target.value })}
-              options={cardTypes.map((ct) => ({
-                label: ct.description ? `${ct.description} (${ct.card_type})` : ct.card_type,
-                value: ct.card_type,
-              }))}
-            />
-
-            <div className="flex flex-col justify-center pt-2">
-              <label className="flex items-center gap-2.5 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.active}
-                  onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                  className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Active Card Programme</span>
-              </label>
-              <p className="text-[11px] text-slate-500 mt-1 pl-6">
-                Only active programmes are available for branch card requests and eligibility checks.
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* SECTION 1: General Product Identity */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-2xs space-y-6">
+          <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="h-9 w-9 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold">
+              <CreditCard className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                1. General Product Identity
+              </h2>
+              <p className="text-xs text-slate-500">
+                Primary identifier codes, descriptive titles, scheme branding, and tenant status.
               </p>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-3">
-            <Button type="button" variant="secondary" onClick={handleCancel}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" isLoading={isSubmitting} className="gap-2">
-              <Save className="h-4 w-4" />
-              {isEditMode ? 'Save Changes' : 'Create Programme'}
-            </Button>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Programme Code */}
+            <div>
+              <Input
+                label="Card Programme Code"
+                required
+                disabled={isEditMode}
+                value={cardProgrammeCode}
+                onChange={(e) => setCardProgrammeCode(e.target.value.toUpperCase())}
+                placeholder="e.g. AG-CL-NGN"
+                helperText="Unique uppercase identifier code (e.g. AG-CL-NGN)."
+                maxLength={30}
+              />
+            </div>
+
+            {/* Programme Name */}
+            <div>
+              <Input
+                label="Card Programme Name"
+                required
+                value={cardProgrammeName}
+                onChange={(e) => setCardProgrammeName(e.target.value)}
+                placeholder="e.g. Apex Verve Classic Card"
+                helperText="Full descriptive product title displayed to customers."
+                maxLength={100}
+              />
+            </div>
+
+            {/* Card Scheme Brand */}
+            <div>
+              <Select
+                label="Card Scheme Brand"
+                required
+                value={cardType}
+                onChange={(e) => setCardType(e.target.value)}
+                options={
+                  cardTypes.length > 0
+                    ? cardTypes.map((ct) => ({
+                        label: `${ct.description || ct.card_type} (${ct.card_type})`,
+                        value: ct.card_type,
+                      }))
+                    : [
+                        { label: 'Verve Classic (VERVE_CLASSIC)', value: 'VERVE_CLASSIC' },
+                        { label: 'Verve World (VERVE_WORLD)', value: 'VERVE_WORLD' },
+                        { label: 'Visa Gold (VISA_GOLD)', value: 'VISA_GOLD' },
+                        { label: 'Mastercard World (MASTERCARD_WORLD)', value: 'MASTERCARD_WORLD' },
+                      ]
+                }
+                helperText="Payment scheme network association."
+              />
+            </div>
           </div>
-        </form>
-      </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 pt-2">
+            {/* Product Description */}
+            <div className="md:col-span-3">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Product Description & Value Proposition
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={2}
+                placeholder="Describe target market, usage limits, and product parameters..."
+                className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-slate-100"
+              />
+            </div>
+
+            {/* Active Status */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Operational Status
+              </label>
+              <Select
+                value={active ? 'ACTIVE' : 'INACTIVE'}
+                onChange={(e) => setActive(e.target.value === 'ACTIVE')}
+                options={[
+                  { label: 'Active (Available for issuance)', value: 'ACTIVE' },
+                  { label: 'Inactive (Disabled for new requests)', value: 'INACTIVE' },
+                ]}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 2: Card Scheme & BIN Parameters */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-2xs space-y-6">
+          <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="h-9 w-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold">
+              <Layers className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                2. Card Scheme & BIN Parameters
+              </h2>
+              <p className="text-xs text-slate-500">
+                Bank Identification Number routing, platform indicators, and PAN structure specifications.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-6">
+            {/* BIN Lookup */}
+            <div>
+              <Select
+                label="Bank Identification Number (BIN)"
+                required
+                value={bin}
+                onChange={(e) => setBin(e.target.value)}
+                options={[
+                  { label: '506118 (Verve Debit National)', value: '506118' },
+                  { label: '400123 (Visa International)', value: '400123' },
+                  { label: '521456 (Mastercard World)', value: '521456' },
+                  { label: '506119 (Verve Prepaid)', value: '506119' },
+                ]}
+                helperText="6-digit IIN/BIN prefix."
+              />
+            </div>
+
+            {/* Platform Indicator Lookup */}
+            <div>
+              <Select
+                label="Switch Platform Indicator"
+                required
+                value={platformIndicator}
+                onChange={(e) => setPlatformIndicator(e.target.value)}
+                options={[
+                  { label: 'Postilion V2 (POSTILION_V2)', value: 'POSTILION_V2' },
+                  { label: 'ISO 8583 Switch (ISO_8583)', value: 'ISO_8583' },
+                  { label: 'Prime Card Management (PRIME)', value: 'PRIME' },
+                  { label: 'Flexcube Interface (FLEXCUBE)', value: 'FLEXCUBE' },
+                ]}
+                helperText="Card authorization host engine."
+              />
+            </div>
+
+            {/* Service Code Lookup */}
+            <div>
+              <Select
+                label="EMV Service Code"
+                required
+                value={serviceCode}
+                onChange={(e) => setServiceCode(e.target.value)}
+                options={[
+                  { label: '201 (International, IC Chip, Normal)', value: '201' },
+                  { label: '101 (International, Magnetic, Normal)', value: '101' },
+                  { label: '221 (International, IC Chip, PIN Required)', value: '221' },
+                ]}
+                helperText="3-digit magnetic stripe / chip rule."
+              />
+            </div>
+
+            {/* Default Expiry (Years) */}
+            <div>
+              <Select
+                label="Default Validity Period"
+                required
+                value={String(defaultValidityYears)}
+                onChange={(e) => setDefaultValidityYears(Number(e.target.value))}
+                options={[
+                  { label: '3 Years (Standard Debit)', value: '3' },
+                  { label: '2 Years (Short Term)', value: '2' },
+                  { label: '4 Years (Extended Validity)', value: '4' },
+                  { label: '5 Years (Corporate Credit)', value: '5' },
+                ]}
+                helperText="Card expiration timeframe."
+              />
+            </div>
+
+            {/* PAN Length */}
+            <div>
+              <Select
+                label="PAN Character Length"
+                required
+                value={String(panLength)}
+                onChange={(e) => setPanLength(Number(e.target.value))}
+                options={[
+                  { label: '16 Digits (ISO Standard)', value: '16' },
+                  { label: '19 Digits (Verve Extended)', value: '19' },
+                ]}
+                helperText="Card account number digit length."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 3: Financial & Account Rules */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-2xs space-y-6">
+          <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="h-9 w-9 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+              <span className="font-bold text-base">₦</span>
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                3. Financial & Pricing Rules (Nigerian Currency Conventions)
+              </h2>
+              <p className="text-xs text-slate-500">
+                Default ledger currency (NGN), product fee parameters (₦), and customer account bindings.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+            {/* Default Currency */}
+            <div>
+              <Select
+                label="Base Currency"
+                required
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value)}
+                options={[
+                  { label: 'Nigerian Naira (NGN / ₦)', value: 'NGN' },
+                  { label: 'US Dollar (USD)', value: 'USD' },
+                  { label: 'Euro (EUR)', value: 'EUR' },
+                ]}
+                helperText="Primary ledger settlement currency."
+              />
+            </div>
+
+            {/* Card Issuance Fee (₦) */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Card Issuance Fee (₦)
+              </label>
+              <div className="relative rounded-md shadow-2xs">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-bold text-xs">
+                  ₦
+                </div>
+                <input
+                  type="number"
+                  required
+                  value={issuanceFee}
+                  onChange={(e) => setIssuanceFee(Number(e.target.value))}
+                  className="w-full pl-8 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-slate-100 font-mono font-bold"
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">One-time initial issuance charge.</p>
+            </div>
+
+            {/* Annual Maintenance Fee (₦) */}
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
+                Annual Maintenance Fee (₦)
+              </label>
+              <div className="relative rounded-md shadow-2xs">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-bold text-xs">
+                  ₦
+                </div>
+                <input
+                  type="number"
+                  required
+                  value={maintenanceFee}
+                  onChange={(e) => setMaintenanceFee(Number(e.target.value))}
+                  className="w-full pl-8 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-slate-100 font-mono font-bold"
+                />
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">Recurring annual maintenance fee.</p>
+            </div>
+
+            {/* Account Type Binding */}
+            <div>
+              <Select
+                label="Allowed Account Type Binding"
+                required
+                value={accountTypeBinding}
+                onChange={(e) => setAccountTypeBinding(e.target.value)}
+                options={[
+                  { label: 'Savings & Current Accounts', value: 'SAVINGS_CURRENT' },
+                  { label: 'Savings Account Only', value: 'SAVINGS_ONLY' },
+                  { label: 'Current Account Only', value: 'CURRENT_ONLY' },
+                  { label: 'Individual Accounts Only', value: 'INDIVIDUAL_ONLY' },
+                  { label: 'Corporate Accounts Only', value: 'CORPORATE_ONLY' },
+                ]}
+                helperText="Eligible core account categories."
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 4: Operational & System Controls */}
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-2xs space-y-6">
+          <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="h-9 w-9 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold">
+              <Shield className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                4. Operational & System Controls
+              </h2>
+              <p className="text-xs text-slate-500">
+                Channel permissions, instant issuance flags, and security feature toggles.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            {/* Instant Issuance */}
+            <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
+              <div>
+                <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  Instant Branch Print
+                </span>
+                <span className="text-[11px] text-slate-500">In-branch personalization</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={instantIssuanceAllowed}
+                onChange={(e) => setInstantIssuanceAllowed(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+            </div>
+
+            {/* Contactless */}
+            <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
+              <div>
+                <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  NFC Contactless
+                </span>
+                <span className="text-[11px] text-slate-500">Tap to pay enabled</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={contactlessEnabled}
+                onChange={(e) => setContactlessEnabled(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+            </div>
+
+            {/* PIN Mailer */}
+            <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
+              <div>
+                <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  PIN Mailer Printing
+                </span>
+                <span className="text-[11px] text-slate-500">Physical paper mailer</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={pinMailerAllowed}
+                onChange={(e) => setPinMailerAllowed(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+            </div>
+
+            {/* E-Commerce */}
+            <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
+              <div>
+                <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  Web & E-Commerce
+                </span>
+                <span className="text-[11px] text-slate-500">Online 3DS payments</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={ecommerceAllowed}
+                onChange={(e) => setEcommerceAllowed(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+            </div>
+
+            {/* ATM Withdrawal */}
+            <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 flex items-center justify-between">
+              <div>
+                <span className="block text-xs font-semibold text-slate-900 dark:text-slate-100">
+                  ATM Cash Dispense
+                </span>
+                <span className="text-[11px] text-slate-500">ATM transaction channel</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={atmWithdrawalAllowed}
+                onChange={(e) => setAtmWithdrawalAllowed(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION 5: Audit Metadata (Read-Only) */}
+        {isEditMode && editingProgramme && (
+          <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-6 space-y-4">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-bold text-xs">
+              <Clock className="h-4 w-4 text-slate-400" />
+              <span>5. Record Audit Metadata (Read-Only System Log)</span>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs font-mono">
+              <div>
+                <span className="block text-slate-400 text-[11px]">Created By</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {editingProgramme.created_by || 'system_admin'}
+                </span>
+              </div>
+
+              <div>
+                <span className="block text-slate-400 text-[11px]">Created Date</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {editingProgramme.created_date ? new Date(editingProgramme.created_date).toLocaleString() : 'N/A'}
+                </span>
+              </div>
+
+              <div>
+                <span className="block text-slate-400 text-[11px]">Last Modified By</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {editingProgramme.last_modified_by || currentUser.user_id}
+                </span>
+              </div>
+
+              <div>
+                <span className="block text-slate-400 text-[11px]">Last Modified Date</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {editingProgramme.last_modified_date
+                    ? new Date(editingProgramme.last_modified_date).toLocaleString()
+                    : 'N/A'}
+                </span>
+              </div>
+
+              <div>
+                <span className="block text-slate-400 text-[11px]">Specification Version</span>
+                <span className="font-semibold text-blue-600 dark:text-blue-400">
+                  v{editingProgramme.version || 1.0}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Actions */}
+        <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() =>
+              navigate(isEditMode && editingProgramme ? `/card-programmes/${editingProgramme.id}` : '/card-programmes')
+            }
+          >
+            Cancel
+          </Button>
+          <Button type="submit" variant="primary" isLoading={isSaving} className="gap-2">
+            <Save className="h-4 w-4" />
+            {isEditMode ? 'Save Specifications' : 'Create Card Programme'}
+          </Button>
+        </div>
+      </form>
     </div>
   )
 }

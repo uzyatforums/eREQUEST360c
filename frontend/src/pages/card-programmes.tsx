@@ -236,7 +236,7 @@ export const CardProgrammesPage: React.FC<CardProgrammesPageProps> = ({ currentU
           }
         />
 
-        <Route path="new" element={<CardProgrammeForm currentUser={currentUser} />} />
+        <Route path="new" element={<CardProgrammeForm currentUser={currentUser} onSaveSuccess={fetchProgrammes} />} />
 
         <Route
           path=":id"
@@ -250,7 +250,7 @@ export const CardProgrammesPage: React.FC<CardProgrammesPageProps> = ({ currentU
           }
         />
 
-        <Route path=":id/edit" element={<CardProgrammeForm currentUser={currentUser} />} />
+        <Route path=":id/edit" element={<CardProgrammeForm currentUser={currentUser} onSaveSuccess={fetchProgrammes} />} />
 
         <Route
           path=":id/segments"

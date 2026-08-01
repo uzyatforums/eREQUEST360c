@@ -1,6 +1,6 @@
 # eREQUEST360 UI Standards & Production Readiness Checklist
 
-**Version:** 1.1 (Updated with Master-Detail Configuration Standard)  
+**Version:** 1.2 (Updated for Dedicated Route Architecture Standard)  
 **Status:** Official UI Quality Standard  
 **Author:** PN SYSTEMS LTD & eREQUEST360 Architecture Team  
 
@@ -19,13 +19,13 @@ Every screen built in eREQUEST360 must follow the Master-Detail reference patter
 | # | Check Criterion | Mandatory Requirement | SCR-003 Reference Implementation | Status |
 |---|-----------------|-----------------------|----------------------------------|--------|
 | **1** | **Screen Code Registration** | Must be assigned a unique Screen Code (`SCR-XXX`) registered in `docs/ui/screen_registry.md`. | Registered as `SCR-003` in `screen_registry.md`. | [x] Passed |
-| **2** | **Master-Detail Split Layout** | Master configuration screens must use 2-Column Split layout: Left Master Selector (`380px`), Right 5-Tab Detail Workspace (`General`, `Segments`, `Charges`, `Audit`, `Usage`). | 2-Column Master-Detail Layout specified for `SCR-003`. | [x] Passed |
+| **2** | **Master → Detail Route Architecture** | Master configuration screens must use full-width management grids with dedicated detail inspector and child workspace React Router sub-routes (`/card-programmes`, `/card-programmes/:id`, `/card-programmes/:id/segments`, `/card-programmes/:id/charges`, `/card-programmes/:id/references`, `/card-programmes/:id/audit`). | Full-width Master → Detail React Router sub-routes implemented for `SCR-003`. | [x] Passed |
 | **3** | **Database Field Alignment** | Every field in the primary SQL table must be represented without truncation (`maxLength={35}` on codes). | Maps all columns of `config.card_programmes` with `maxLength={35}` on codes. | [x] Passed |
-| **4** | **Master-Detail Sheet Drawer** | Record creation and editing must take place in slide-over Sheet drawers (`480px` width) rather than blocking popups. | `Sheet` component handles Create/Edit without losing context. | [x] Passed |
+| **4** | **Dedicated Maintenance Form Pages** | Record creation and editing must take place on dedicated full-page React Router routes (`/new`, `/:id/edit`) organized into logical full-width sections rather than slide-over drawers or blocking popups. | Dedicated full-page maintenance forms implemented at `/card-programmes/new` and `/card-programmes/:id/edit`. | [x] Passed |
 | **5** | **Row Action Menu (`...`)** | Every data grid row must feature a standardized dropdown menu containing context actions (`Edit`, `Toggle Status`, `View Audit Logs`). | `DropdownMenu` component integrated into row cells. | [x] Passed |
 | **6** | **Confirmation Dialogs** | Destructive or status-changing operations must require explicit confirmation modals with optional/required remarks. | `Dialog` component handles activate/deactivate actions. | [x] Passed |
 | **7** | **Dual-Control / Maker-Checker** | Maker users (`isMakerOnly`) must see clear workflow banners and submit actions to Maker-Checker work items. | Amber notice banner & `submitMakerCheckerWorkItem` API integration. | [x] Passed |
-| **8** | **Audit Integration** | Must display creation/modification audit metadata and provide an embedded `[Audit]` tab and direct link to `SCR-014` (Audit Inspector). | Displays `created_by`, `created_date`, embedded audit tab, and `[View Audit Logs (SCR-014)]` trigger. | [x] Passed |
+| **8** | **Audit Integration** | Must display creation/modification audit metadata and provide an embedded `[Audit]` workspace tab and direct link to `SCR-014` (Audit Inspector). | Displays `created_by`, `created_date`, embedded audit workspace, and `[View Audit Logs (SCR-014)]` trigger. | [x] Passed |
 | **9** | **Status Badge Color Tokens** | Status indicators must use standard HSL badge tokens defined in Design System v1.1. | Uses `StatusBadge` (`bg-emerald-50 text-emerald-700 border-emerald-200` for Active). | [x] Passed |
 | **10** | **Accessibility (WCAG 2.1 AA)** | Input controls must include `aria-invalid`, `aria-describedby`, keyboard navigation (`Esc`), and high-contrast focus rings. | `Input` and `Select` include full `aria-` attributes and keyboard handlers. | [x] Passed |
 | **11** | **Input Length & Formatting** | Form inputs must enforce database column length limits (`maxLength`) and format sanitization (e.g. uppercase codes). | Enforces `maxLength={35}` with character counters (`0/35`) and regex validation. | [x] Passed |
