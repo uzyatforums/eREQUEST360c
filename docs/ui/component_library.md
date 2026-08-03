@@ -224,8 +224,32 @@ Standardized row action dropdown (`Edit`, `Toggle Status`, `View Audit Logs`).
 ### 6.6 Accessible Tooltip (`components/ui/tooltip.tsx`)
 Hover/focus label overlay for icon-only action triggers across headers, toolbars, and table rows.
 
-### 6.7 Breadcrumbs (`components/ui/breadcrumb.tsx`)
-Hierarchical breadcrumb path (e.g., `Configuration > Card Programmes > AG-CL-NGN > Charges`) ensuring clear route awareness.
+### 6.8 Standard Row Actions & Configuration Record Lifecycle
+
+All Configuration Master data grids (e.g. Card Programmes, Card Segments, Charge Headers, Branches, Card Types, etc.) shall deploy the following standard row actions:
+
+1. **👁 View**: Open the record in read-only mode (`/module/:id`).
+2. **✏ Edit**: Modify existing configuration parameters (`/module/:id/edit`).
+3. **📄 Copy**: Open the existing Create screen (`/module/new?copyFrom=:id`) pre-populated with specifications from the selected record.
+   - Reuses existing `GET` and `POST` endpoints.
+   - Does NOT duplicate: Primary Key, Audit fields, Created/Modified metadata, or Unique business identifiers (e.g. Programme Code).
+   - User supplies a new unique business identifier before saving.
+4. **🔄 Activate / Deactivate**: Enable or retire a configuration (retaining Maker/Checker approval workflow where applicable).
+
+#### Configuration Record Lifecycle (No-Delete Standard)
+
+Configuration master records **SHALL NOT** provide a Delete action in the UI.
+
+Records are retired strictly by deactivation rather than physical deletion.
+
+**Reasons for No-Delete Standard:**
+- Preserve audit trail and compliance history.
+- Maintain database referential integrity across relational entities.
+- Preserve historical reporting accuracy.
+- Prevent orphaned references.
+- Ensure strict banking regulatory compliance.
+
+Physical deletion is restricted to database administration activities and is never exposed through application UI controls.
 
 ---
 

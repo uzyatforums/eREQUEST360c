@@ -25,14 +25,15 @@ Dedicated **Master → Detail Navigation Architecture** (React Router True Route
    - Section 4: Operational & System Controls (Instant Print, NFC Contactless, PIN Mailer, Web 3DS, ATM Dispense)
    - Section 5: Audit Metadata (Read-only system log displaying Created By, Created Date, Modified By, Modified Date, Version)
 2. **Multi-Currency Formatting Standards**: Standardized ISO currency codes (`NGN`, `USD`, etc.) in dedicated grid columns and numeric-only monetary inputs inheriting currency from the parent entity.
-3. **Sortable Column Headers**: Reusable `SortableHeader` component with chevron direction indicators on all master and child grids.
-4. **DataGrid Row Selection Framework**: `useRowSelection` hook, `Checkbox` with `indeterminate` state, and `SelectionToolbar`.
+3. **Standard Row Actions**: View (👁), Edit (✏), Copy (📄), Activate/Deactivate (🔄).
+4. **Sortable Column Headers**: Reusable `SortableHeader` component with chevron direction indicators on all master and child grids.
+5. **DataGrid Row Selection Framework**: `useRowSelection` hook, `Checkbox` with `indeterminate` state, and `SelectionToolbar`.
+6. **No-Delete Configuration Lifecycle**: Configuration masters do NOT expose a delete UI action. Retirement is managed strictly by deactivation to preserve auditability and regulatory compliance.
 
-### Backend API Endpoints (Unchanged)
-- `GET /config/card-programmes`
-- `POST /config/card-programmes`
-- `PUT /config/card-programmes/{id}`
-- `DELETE /config/card-programmes/{id}`
+### Backend API Endpoints
+- `GET /config/card-programmes` (Master List & Single ID Fetch for View/Edit/Copy)
+- `POST /config/card-programmes` (Create & Copy Specification Persistence)
+- `PUT /config/card-programmes/{id}` (Update Specifications & Active/Inactive Toggle)
 
 ### Route Separation Standard
 

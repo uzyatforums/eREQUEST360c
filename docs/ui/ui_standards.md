@@ -485,7 +485,50 @@ Future modules shall reuse these patterns.
 
 ---
 
-# 24. Future Enhancements
+# 24. Standard Row Actions for Configuration Masters
+
+All Configuration Master screens (e.g. Card Programmes, Card Segments, Charge Headers, Branches, Card Types, etc.) shall use the following row actions:
+
+1. 👁 **View**
+   - Open the record in read-only mode.
+
+2. ✏ **Edit**
+   - Modify the existing configuration record.
+
+3. 📄 **Copy**
+   - Open the existing Create screen pre-populated from the selected record.
+   - Copy shall reuse the existing GET and POST endpoints.
+   - Copy shall NOT duplicate:
+     - Primary Key
+     - Audit fields
+     - Created/Modified metadata
+     - Unique business identifiers (e.g. Programme Code)
+   - The user must supply a new unique business identifier before saving.
+
+4. 🔄 **Activate / Deactivate**
+   - Enable or retire a configuration.
+   - Where applicable, the action shall follow the Maker/Checker approval workflow.
+
+---
+
+# 25. Configuration Record Lifecycle
+
+Configuration master records SHALL NOT provide a Delete action.
+
+Records are retired by deactivation rather than physical deletion.
+
+**Reasons:**
+- Preserve audit history.
+- Preserve referential integrity.
+- Preserve historical reporting.
+- Prevent orphaned references.
+- Maintain banking regulatory compliance.
+
+Physical deletion is reserved for controlled database administration and maintenance activities and shall not be available through the application UI.
+
+---
+
+# 26. Future Enhancements
 
 Planned reusable capabilities include:
 
