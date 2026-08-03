@@ -181,8 +181,39 @@ Supports `primary`, `secondary`, `destructive`, `ghost`, `outline` variants, `sm
 ### 6.2 Status Badge (`components/ui/status-badge.tsx`)
 Presents entity state (`ACTIVE`, `INACTIVE`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`) using standardized HSL color tokens.
 
-### 6.3 Form Input & Select Controls (`components/ui/input.tsx`, `select.tsx`)
-Accessible form inputs supporting `maxLength` limits, character counters (`0/35`), red asterisk required markers, and ₦ currency input prefixes.
+### 6.3 Form Controls (`components/ui/input.tsx`, `select.tsx`)
+Accessible form inputs supporting `maxLength` limits, character counters (`0/35`), red asterisk required markers, and contextual currency configuration.
+
+### Currency Field Standards
+
+Adopt the following rules for all eREQUEST360 forms:
+
+1. Currency symbols (₦, $, €, £, etc.) MUST NOT be embedded inside amount input fields.
+
+2. Monetary amount fields shall display numeric values only.
+
+3. The currency of monetary fields is inherited from the parent business entity (for example Card Programme, Charge Profile, Product, Account, Contract, or Customer Account). Monetary input fields must not maintain an independent currency.
+
+4. The applicable currency shall be displayed once as contextual information, for example:
+   - Parent summary banner
+   - Form header
+   - Currency field
+   - Currency badge
+   - Section caption
+
+5. If the parent entity allows multiple currencies, the user selects the currency once at the parent level. All monetary fields inherit that currency automatically.
+
+6. Individual amount fields should not display a currency symbol unless the business process explicitly permits multiple currencies within the same record or on the same screen.
+
+7. Data grids should display the ISO currency code (NGN, USD, EUR, GBP, etc.) in a dedicated Currency column rather than prefixing every amount with a symbol.
+
+8. The inherited currency shall be displayed prominently once at the page, parent summary banner, form header, section header, or other contextual location so that users always know the currency context before entering monetary values.
+
+This standard replaces the previous convention of placing a ₦ prefix inside every monetary input field.
+
+#### Design Rationale
+
+eREQUEST360 is a multi-currency banking platform. Monetary values inherit their currency from the parent business object rather than from individual fields. Displaying a currency symbol beside every amount creates unnecessary visual clutter and can become misleading when products support NGN, USD, EUR, GBP, or additional currencies. The preferred design is to establish the currency context once and allow all monetary fields beneath that context to inherit it automatically.
 
 ### 6.4 Confirmation Dialog (`components/ui/dialog.tsx`)
 Explicit modal dialog for confirming sensitive operations (e.g. status activation/deactivation) with mandatory Maker remarks.

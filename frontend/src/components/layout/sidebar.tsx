@@ -11,7 +11,7 @@ import {
   Building2,
   ChevronRight,
   Layers,
-  CircleDollarSign,
+  Coins,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 
@@ -55,7 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
   const configItems = [
     { label: 'Card Programmes', route: '/card-programmes', icon: Layers },
     { label: 'Card Segments', route: '/config/segments', icon: Settings },
-    { label: 'Card Charges', route: '/config/charges', icon: CircleDollarSign },
+    { label: 'Card Charges', route: '/config/charges', icon: Coins },
     { label: 'Branch Directory', route: '/config/branches', icon: Building2 },
   ]
 

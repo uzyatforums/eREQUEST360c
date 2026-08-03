@@ -84,8 +84,6 @@ const MOCK_REFERENCES: Record<number, ProgrammeReferenceItem[]> = {
   ],
 }
 
-const SAVED_PROGRAMMES_CACHE = new Map<number, CardProgramme>()
-
 export const apiService = {
   /**
    * Authenticates user against FastAPI /auth/login and stores JWT token.
@@ -127,41 +125,54 @@ export const apiService = {
    */
   async getCardProgrammes(): Promise<CardProgramme[]> {
     const data = await apiClient<any[]>('/config/card-programmes')
-    let list: CardProgramme[] = []
     if (Array.isArray(data)) {
-      list = data.map((item: any) => {
-        const cached = SAVED_PROGRAMMES_CACHE.get(item.id)
-        const base = {
-          ...item,
-          bin: item.bin || (item.card_type === 'VISA' ? '412345' : item.card_type === 'MCARD' ? '512345' : '506118'),
-          platform_indicator: item.platform_indicator || 'POSTILION_V2',
-          pan_length: item.pan_length || 16,
-          sequence: item.sequence || item.id,
-          min_random_number: item.min_random_number || 100000,
-          max_random_number: item.max_random_number || 999999,
-          output_path: item.output_path || '/var/erequest/card_files/',
-          table_prefix: item.table_prefix || 'TBL_CP_',
-          fep_programme_id: item.fep_programme_id || `FEP_${item.card_programme_code}`,
-          instant_card_type: item.instant_card_type || 'INSTANT_STANDARD',
-          payment_ref_prefix: item.payment_ref_prefix || 'PAY_REF_',
-          assigned_segment_group: item.assigned_segment_group || 'Retail Segment (01)',
-          pp_bin: item.pp_bin || '901234',
-          segment_count: item.segment_count || (item.id % 2 === 0 ? 3 : 2),
-          charge_header_count: item.charge_header_count || (item.id % 3 === 0 ? 2 : 1),
-          charge_header_name: item.charge_header_name || `${item.card_type} Standard Fee Profile`,
-        }
-        return cached ? { ...base, ...cached } : base
-      })
+      return data.map((item: any) => ({
+        ...item,
+        bin: item.bin || (item.card_type === 'VISA' ? '412345' : item.card_type === 'MCARD' ? '512345' : '506118'),
+        platform_indicator: item.platform_indicator || 'POSTILION_V2',
+        pan_length: item.pan_length || 16,
+        sequence: item.sequence || item.id,
+        min_random_number: item.min_random_number || 100000,
+        max_random_number: item.max_random_number || 999999,
+        output_path: item.output_path || null,
+        table_prefix: item.table_prefix || 'TBL_CP_',
+        fep_programme_id: item.fep_programme_id || `FEP_${item.card_programme_code}`,
+        instant_card_type: item.instant_card_type || 'INSTANT_STANDARD',
+        payment_ref_prefix: item.payment_ref_prefix || 'PAY_REF_',
+        assigned_segment_group: item.assigned_segment_group || 'Retail Segment (01)',
+        pp_bin: item.pp_bin || '901234',
+        segment_count: item.segment_count || (item.id % 2 === 0 ? 3 : 2),
+        charge_header_count: item.charge_header_count || (item.id % 3 === 0 ? 2 : 1),
+        charge_header_name: item.charge_header_name || `${item.card_type} Standard Fee Profile`,
+      }))
     }
+    return []
+  },
 
-    // Include any locally created programmes not yet returned by backend
-    SAVED_PROGRAMMES_CACHE.forEach((cachedProg, cachedId) => {
-      if (!list.some((p) => p.id === cachedId)) {
-        list.unshift(cachedProg)
-      }
-    })
-
-    return list
+  /**
+   * Fetches single card programme by ID from FastAPI endpoint /config/card-programmes/{id}.
+   */
+  async getCardProgrammeById(id: number): Promise<CardProgramme> {
+    const item = await apiClient<any>(`/config/card-programmes/${id}`)
+    return {
+      ...item,
+      bin: item.bin || (item.card_type === 'VISA' ? '412345' : item.card_type === 'MCARD' ? '512345' : '506118'),
+      platform_indicator: item.platform_indicator || 'POSTILION_V2',
+      pan_length: item.pan_length || 16,
+      sequence: item.sequence || item.id,
+      min_random_number: item.min_random_number || 100000,
+      max_random_number: item.max_random_number || 999999,
+      output_path: item.output_path || null,
+      table_prefix: item.table_prefix || 'TBL_CP_',
+      fep_programme_id: item.fep_programme_id || `FEP_${item.card_programme_code}`,
+      instant_card_type: item.instant_card_type || 'INSTANT_STANDARD',
+      payment_ref_prefix: item.payment_ref_prefix || 'PAY_REF_',
+      assigned_segment_group: item.assigned_segment_group || 'Retail Segment (01)',
+      pp_bin: item.pp_bin || '901234',
+      segment_count: item.segment_count || (item.id % 2 === 0 ? 3 : 2),
+      charge_header_count: item.charge_header_count || (item.id % 3 === 0 ? 2 : 1),
+      charge_header_name: item.charge_header_name || `${item.card_type} Standard Fee Profile`,
+    }
   },
 
   /**
@@ -228,9 +239,7 @@ export const apiService = {
         ...payload,
       }),
     })
-    const fullItem = { ...res, ...payload, id: res.id || Date.now() }
-    SAVED_PROGRAMMES_CACHE.set(fullItem.id, fullItem)
-    return fullItem
+    return { ...payload, ...res }
   },
 
   /**
@@ -241,10 +250,7 @@ export const apiService = {
       method: 'PUT',
       body: JSON.stringify(payload),
     })
-    const existing = SAVED_PROGRAMMES_CACHE.get(id) || {}
-    const fullItem = { ...existing, ...res, ...payload, id }
-    SAVED_PROGRAMMES_CACHE.set(id, fullItem as CardProgramme)
-    return fullItem as CardProgramme
+    return { ...payload, ...res, id }
   },
 
   /**

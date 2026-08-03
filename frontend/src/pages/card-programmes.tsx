@@ -29,15 +29,28 @@ const DetailsRouteWrapper: React.FC<{
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const programmeId = id ? parseInt(id, 10) : null
+  const [singleProg, setSingleProg] = React.useState<CardProgramme | null>(null)
+  const [isFetchingSingle, setIsFetchingSingle] = React.useState(false)
 
   const programme = React.useMemo(() => {
     if (programmeId) {
-      return programmes.find((p) => p.id === programmeId) || null
+      return programmes.find((p) => p.id === programmeId) || singleProg || null
     }
     return null
-  }, [programmes, programmeId])
+  }, [programmes, programmeId, singleProg])
 
-  if (isLoading) {
+  React.useEffect(() => {
+    if (programmeId && !programmes.some((p) => p.id === programmeId) && !singleProg) {
+      setIsFetchingSingle(true)
+      apiService
+        .getCardProgrammeById(programmeId)
+        .then((item) => setSingleProg(item))
+        .catch(() => {})
+        .finally(() => setIsFetchingSingle(false))
+    }
+  }, [programmeId, programmes, singleProg])
+
+  if (isLoading || isFetchingSingle) {
     return (
       <div className="p-12 text-center text-slate-400">
         <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-500" />
@@ -84,15 +97,28 @@ const ChildWorkspaceWrapper: React.FC<{
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const programmeId = id ? parseInt(id, 10) : null
+  const [singleProg, setSingleProg] = React.useState<CardProgramme | null>(null)
+  const [isFetchingSingle, setIsFetchingSingle] = React.useState(false)
 
   const programme = React.useMemo(() => {
     if (programmeId) {
-      return programmes.find((p) => p.id === programmeId) || null
+      return programmes.find((p) => p.id === programmeId) || singleProg || null
     }
     return null
-  }, [programmes, programmeId])
+  }, [programmes, programmeId, singleProg])
 
-  if (isLoading) {
+  React.useEffect(() => {
+    if (programmeId && !programmes.some((p) => p.id === programmeId) && !singleProg) {
+      setIsFetchingSingle(true)
+      apiService
+        .getCardProgrammeById(programmeId)
+        .then((item) => setSingleProg(item))
+        .catch(() => {})
+        .finally(() => setIsFetchingSingle(false))
+    }
+  }, [programmeId, programmes, singleProg])
+
+  if (isLoading || isFetchingSingle) {
     return (
       <div className="p-12 text-center text-slate-400">
         <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2 text-blue-500" />

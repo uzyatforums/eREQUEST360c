@@ -11,7 +11,7 @@ import {
   Layers,
   Sparkles,
   CheckCircle2,
-  DollarSign,
+  Coins,
   Info,
 } from 'lucide-react'
 import { CardProgramme, UserInfo, CardType } from '../../types'
@@ -66,7 +66,7 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
 
   // Fetch Lookup Data
   React.useEffect(() => {
-    apiService.getCardTypes().then((types) => setCardTypes(types)).catch(() => {})
+    apiService.getCardTypes().then((types) => setCardTypes(types)).catch(() => { })
   }, [])
 
   // Fetch Existing Record for Edit Mode
@@ -74,9 +74,8 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
     if (isEditMode && programmeId) {
       setIsLoading(true)
       apiService
-        .getCardProgrammes()
-        .then((programmes) => {
-          const found = programmes.find((p) => p.id === programmeId)
+        .getCardProgrammeById(programmeId)
+        .then((found) => {
           if (found) {
             setEditingProgramme(found)
             setCardProgrammeCode(found.card_programme_code)
@@ -289,15 +288,15 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
                 options={
                   cardTypes.length > 0
                     ? cardTypes.map((ct) => ({
-                        label: `${ct.description || ct.card_type} (${ct.card_type})`,
-                        value: ct.card_type,
-                      }))
+                      label: `${ct.description || ct.card_type} (${ct.card_type})`,
+                      value: ct.card_type,
+                    }))
                     : [
-                        { label: 'Verve Classic (VERVE_CLASSIC)', value: 'VERVE_CLASSIC' },
-                        { label: 'Verve World (VERVE_WORLD)', value: 'VERVE_WORLD' },
-                        { label: 'Visa Gold (VISA_GOLD)', value: 'VISA_GOLD' },
-                        { label: 'Mastercard World (MASTERCARD_WORLD)', value: 'MASTERCARD_WORLD' },
-                      ]
+                      { label: 'Verve Classic (VERVE_CLASSIC)', value: 'VERVE_CLASSIC' },
+                      { label: 'Verve World (VERVE_WORLD)', value: 'VERVE_WORLD' },
+                      { label: 'Visa Gold (VISA_GOLD)', value: 'VISA_GOLD' },
+                      { label: 'Mastercard World (MASTERCARD_WORLD)', value: 'MASTERCARD_WORLD' },
+                    ]
                 }
                 helperText="Payment scheme network association."
               />
@@ -441,14 +440,14 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-2xs space-y-6">
           <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
             <div className="h-9 w-9 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-              <span className="font-bold text-base">₦</span>
+              <Coins className="h-5 w-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                3. Financial & Pricing Rules (Nigerian Currency Conventions)
+                3. Financial & Pricing Rules
               </h2>
               <p className="text-xs text-slate-500">
-                Default ledger currency (NGN), product fee parameters (₦), and customer account bindings.
+                Default settlement currency, product fee parameters, and customer account bindings.
               </p>
             </div>
           </div>
@@ -462,7 +461,7 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
                 options={[
-                  { label: 'Nigerian Naira (NGN / ₦)', value: 'NGN' },
+                  { label: 'Nigerian Naira (NGN)', value: 'NGN' },
                   { label: 'US Dollar (USD)', value: 'USD' },
                   { label: 'Euro (EUR)', value: 'EUR' },
                 ]}
@@ -470,43 +469,33 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
               />
             </div>
 
-            {/* Card Issuance Fee (₦) */}
+            {/* Card Issuance Fee */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Card Issuance Fee (₦)
+                Card Issuance Fee
               </label>
-              <div className="relative rounded-md shadow-2xs">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-bold text-xs">
-                  ₦
-                </div>
-                <input
-                  type="number"
-                  required
-                  value={issuanceFee}
-                  onChange={(e) => setIssuanceFee(Number(e.target.value))}
-                  className="w-full pl-8 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-slate-100 font-mono font-bold"
-                />
-              </div>
+              <input
+                type="number"
+                required
+                value={issuanceFee}
+                onChange={(e) => setIssuanceFee(Number(e.target.value))}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-slate-100 font-mono font-bold"
+              />
               <p className="mt-1 text-[11px] text-slate-500">One-time initial issuance charge.</p>
             </div>
 
-            {/* Annual Maintenance Fee (₦) */}
+            {/* Annual Maintenance Fee */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-                Annual Maintenance Fee (₦)
+                Annual Maintenance Fee
               </label>
-              <div className="relative rounded-md shadow-2xs">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-bold text-xs">
-                  ₦
-                </div>
-                <input
-                  type="number"
-                  required
-                  value={maintenanceFee}
-                  onChange={(e) => setMaintenanceFee(Number(e.target.value))}
-                  className="w-full pl-8 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-slate-100 font-mono font-bold"
-                />
-              </div>
+              <input
+                type="number"
+                required
+                value={maintenanceFee}
+                onChange={(e) => setMaintenanceFee(Number(e.target.value))}
+                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-slate-100 font-mono font-bold"
+              />
               <p className="mt-1 text-[11px] text-slate-500">Recurring annual maintenance fee.</p>
             </div>
 

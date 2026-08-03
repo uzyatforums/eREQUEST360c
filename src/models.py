@@ -101,12 +101,58 @@ class CardProgrammeCreate(BaseModel):
     card_type: str = Field(..., max_length=20)
     active: bool = True
     client_id: Optional[int] = None
+    description: Optional[str] = None
+    service_code: Optional[str] = None
+    default_validity_years: Optional[int] = 3
+    currency: Optional[str] = "NGN"
+    issuance_fee: Optional[float] = 1000.0
+    maintenance_fee: Optional[float] = 250.0
+    account_type_binding: Optional[str] = "SAVINGS_CURRENT"
+    bin: Optional[str] = None
+    platform_indicator: Optional[str] = "POSTILION_V2"
+    pan_length: Optional[int] = 16
+    sequence: Optional[int] = None
+    min_random_number: Optional[int] = 100000
+    max_random_number: Optional[int] = 999999
+    output_path: Optional[str] = None
+    table_prefix: Optional[str] = "TBL_CP_"
+    fep_programme_id: Optional[str] = None
+    instant_card_type: Optional[str] = "INSTANT_STANDARD"
+    payment_ref_prefix: Optional[str] = "PAY_REF_"
+    assigned_segment_group: Optional[str] = "Retail Segment (01)"
+    pp_bin: Optional[str] = "901234"
+    segment_count: Optional[int] = 2
+    charge_header_count: Optional[int] = 1
+    charge_header_name: Optional[str] = None
 
 
 class CardProgrammeUpdate(BaseModel):
     card_programme_name: Optional[str] = Field(None, max_length=100)
     card_type: Optional[str] = Field(None, max_length=20)
     active: Optional[bool] = None
+    description: Optional[str] = None
+    service_code: Optional[str] = None
+    default_validity_years: Optional[int] = None
+    currency: Optional[str] = None
+    issuance_fee: Optional[float] = None
+    maintenance_fee: Optional[float] = None
+    account_type_binding: Optional[str] = None
+    bin: Optional[str] = None
+    platform_indicator: Optional[str] = None
+    pan_length: Optional[int] = None
+    sequence: Optional[int] = None
+    min_random_number: Optional[int] = None
+    max_random_number: Optional[int] = None
+    output_path: Optional[str] = None
+    table_prefix: Optional[str] = None
+    fep_programme_id: Optional[str] = None
+    instant_card_type: Optional[str] = None
+    payment_ref_prefix: Optional[str] = None
+    assigned_segment_group: Optional[str] = None
+    pp_bin: Optional[str] = None
+    segment_count: Optional[int] = None
+    charge_header_count: Optional[int] = None
+    charge_header_name: Optional[str] = None
 
 
 class CardProgrammeRead(BaseModel):
@@ -120,6 +166,29 @@ class CardProgrammeRead(BaseModel):
     created_date: Optional[datetime] = None
     last_modified_by: Optional[str] = None
     last_modified_date: Optional[datetime] = None
+    description: Optional[str] = None
+    service_code: Optional[str] = None
+    default_validity_years: Optional[int] = 3
+    currency: Optional[str] = "NGN"
+    issuance_fee: Optional[float] = 1000.0
+    maintenance_fee: Optional[float] = 250.0
+    account_type_binding: Optional[str] = "SAVINGS_CURRENT"
+    bin: Optional[str] = None
+    platform_indicator: Optional[str] = "POSTILION_V2"
+    pan_length: Optional[int] = 16
+    sequence: Optional[int] = None
+    min_random_number: Optional[int] = 100000
+    max_random_number: Optional[int] = 999999
+    output_path: Optional[str] = None
+    table_prefix: Optional[str] = "TBL_CP_"
+    fep_programme_id: Optional[str] = None
+    instant_card_type: Optional[str] = "INSTANT_STANDARD"
+    payment_ref_prefix: Optional[str] = "PAY_REF_"
+    assigned_segment_group: Optional[str] = "Retail Segment (01)"
+    pp_bin: Optional[str] = "901234"
+    segment_count: Optional[int] = 2
+    charge_header_count: Optional[int] = 1
+    charge_header_name: Optional[str] = None
 
     class Config:
         from_attributes = True

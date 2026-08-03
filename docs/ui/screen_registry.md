@@ -24,7 +24,7 @@ Dedicated **Master → Detail Navigation Architecture** (React Router True Route
    - Section 3: Financial & Pricing Rules (Base Currency NGN, Issuance Fee ₦, Maintenance Fee ₦, Account Binding)
    - Section 4: Operational & System Controls (Instant Print, NFC Contactless, PIN Mailer, Web 3DS, ATM Dispense)
    - Section 5: Audit Metadata (Read-only system log displaying Created By, Created Date, Modified By, Modified Date, Version)
-2. **Nigerian Currency Formatting**: Standardized to `NGN` in data grids and `₦` prefix on monetary inputs.
+2. **Multi-Currency Formatting Standards**: Standardized ISO currency codes (`NGN`, `USD`, etc.) in dedicated grid columns and numeric-only monetary inputs inheriting currency from the parent entity.
 3. **Sortable Column Headers**: Reusable `SortableHeader` component with chevron direction indicators on all master and child grids.
 4. **DataGrid Row Selection Framework**: `useRowSelection` hook, `Checkbox` with `indeterminate` state, and `SelectionToolbar`.
 

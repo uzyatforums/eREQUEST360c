@@ -236,13 +236,66 @@ def seed_data(db: Session):
     # 6. Seed Card Programmes
     logger.info("Seeding card programmes...")
     programmes = [
-        {"id": 1, "client_id": apex_tenant_id, "card_programme_code": "APEX_VERVE_CLASSIC", "card_programme_name": "Apex Verve Classic", "card_type": "VERVE", "created_by": "system"},
-        {"id": 2, "client_id": apex_tenant_id, "card_programme_code": "APEX_VISA_GOLD", "card_programme_name": "Apex Visa Gold", "card_type": "VISA", "created_by": "system"},
-        {"id": 3, "client_id": global_tenant_id, "card_programme_code": "GLOBAL_MC_PLATINUM", "card_programme_name": "Global Mastercard Platinum", "card_type": "MASTERCARD", "created_by": "system"},
+        {
+            "id": 1,
+            "client_id": apex_tenant_id,
+            "card_programme_code": "APEX_VERVE_CLASSIC",
+            "card_programme_name": "Apex Verve Classic",
+            "card_type": "VERVE",
+            "bin": "506118",
+            "platform_indicator": "POSTILION_V2",
+            "pan_length": 16,
+            "service_code": "201",
+            "default_validity_years": 3,
+            "currency": "NGN",
+            "issuance_fee": 1000.0,
+            "maintenance_fee": 250.0,
+            "account_type_binding": "SAVINGS_CURRENT",
+            "created_by": "system",
+        },
+        {
+            "id": 2,
+            "client_id": apex_tenant_id,
+            "card_programme_code": "APEX_VISA_GOLD",
+            "card_programme_name": "Apex Visa Gold",
+            "card_type": "VISA",
+            "bin": "412345",
+            "platform_indicator": "POSTILION_V2",
+            "pan_length": 16,
+            "service_code": "201",
+            "default_validity_years": 3,
+            "currency": "NGN",
+            "issuance_fee": 1500.0,
+            "maintenance_fee": 500.0,
+            "account_type_binding": "SAVINGS_CURRENT",
+            "created_by": "system",
+        },
+        {
+            "id": 3,
+            "client_id": global_tenant_id,
+            "card_programme_code": "GLOBAL_MC_PLATINUM",
+            "card_programme_name": "Global Mastercard Platinum",
+            "card_type": "MASTERCARD",
+            "bin": "512345",
+            "platform_indicator": "POSTILION_V2",
+            "pan_length": 16,
+            "service_code": "201",
+            "default_validity_years": 5,
+            "currency": "USD",
+            "issuance_fee": 2500.0,
+            "maintenance_fee": 1000.0,
+            "account_type_binding": "SAVINGS_CURRENT",
+            "created_by": "system",
+        },
     ]
     for p in programmes:
-        if not db.query(CardProgramme).filter((CardProgramme.id == p["id"]) | (CardProgramme.card_programme_code == p["card_programme_code"])).first():
+        existing = db.query(CardProgramme).filter((CardProgramme.id == p["id"]) | (CardProgramme.card_programme_code == p["card_programme_code"])).first()
+        if not existing:
             db.add(CardProgramme(**p))
+        else:
+            for field, val in p.items():
+                setattr(existing, field, val)
+    db.commit()
 
     # 7. Seed Client Card Policies
     logger.info("Seeding client card policies...")
@@ -309,9 +362,15 @@ def seed_data(db: Session):
         db.add(CardChargeEntry(header_id=h3.id, charge_type="ISSUANCE_FEE", amount=2500.00, currency="NGN"))
         db.add(CardChargeEntry(header_id=h3.id, charge_type="VAT", amount=187.50, currency="NGN"))
 
-        db.add(CardSegmentProgrammeCharge(client_id=apex_tenant_id, card_seg_grp="01", card_programme_id=prog1_id, charge_header_id=h1.id))
-        db.add(CardSegmentProgrammeCharge(client_id=apex_tenant_id, card_seg_grp="02", card_programme_id=prog2_id, charge_header_id=h2.id))
-        db.add(CardSegmentProgrammeCharge(client_id=global_tenant_id, card_seg_grp="02", card_programme_id=3, charge_header_id=h3.id))
+        csp1 = db.query(CardSegmentProgramme).filter(CardSegmentProgramme.card_programme_id == prog1_id).first()
+        csp2 = db.query(CardSegmentProgramme).filter(CardSegmentProgramme.card_programme_id == prog2_id).first()
+        csp3 = db.query(CardSegmentProgramme).filter(CardSegmentProgramme.card_programme_id == 3).first()
+        if csp1:
+            db.add(CardSegmentProgrammeCharge(client_id=apex_tenant_id, card_segment_programme_id=csp1.id, charge_header_id=h1.id, created_by="system"))
+        if csp2:
+            db.add(CardSegmentProgrammeCharge(client_id=apex_tenant_id, card_segment_programme_id=csp2.id, charge_header_id=h2.id, created_by="system"))
+        if csp3:
+            db.add(CardSegmentProgrammeCharge(client_id=global_tenant_id, card_segment_programme_id=csp3.id, charge_header_id=h3.id, created_by="system"))
 
     # 10. Seed Lookup and Mapping Tables
     logger.info("Seeding reference and lookup tables...")

@@ -12,7 +12,7 @@ In initial UI mockups and prototypes, generic dollar signs (`$`) and Lucide `Dol
 Standardize all monetary formatting, input controls, and financial icons across eREQUEST360 according to **Nigerian Currency Standards**:
 
 1. **Data Grids & Ledgers**: Data table column headers, summary ledgers, and transaction tables MUST use the 3-letter ISO 4217 code **`NGN`** (e.g. `Amount (NGN)`, `Fee (NGN)`).
-2. **Monetary Form Inputs**: Form input fields capturing monetary values (e.g. Card Issuance Fee, Annual Maintenance Fee, VAT Tax Charge) MUST feature the Naira symbol **`₦`** as an explicit input prefix.
+2. **Monetary Form Inputs**: Form input fields capturing monetary values MUST display numeric values only. Currency symbols (₦, $, €, £, etc.) MUST NOT be embedded inside input fields; monetary fields inherit their currency context from the parent business entity.
 3. **Icon Guidelines**: Dollar (`$`) icons (such as `DollarSign`) SHALL NOT be used for general financial fields unless specifically representing US Dollar (USD) transactions. Neutral banking icons (`Receipt`, `Banknote`, `CreditCard`, `Ledger`) or styled Naira text badges (`<span className="...">₦</span>`) MUST be used instead.
 
 ## Consequences

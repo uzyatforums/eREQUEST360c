@@ -8,7 +8,7 @@ import {
   Trash2,
   ArrowLeft,
   Layers,
-  CircleDollarSign,
+  Coins,
   Link2,
   History,
   ShieldAlert,
@@ -70,7 +70,7 @@ export const CardProgrammeDetails: React.FC<CardProgrammeDetailsProps> = ({
     { label: 'PAN Length', value: `${programme.pan_length || 16} Digits` },
     { label: 'Min Random Number', value: programme.min_random_number || 100000, fontMono: true },
     { label: 'Max Random Number', value: programme.max_random_number || 999999, fontMono: true },
-    { label: 'Output Export Path', value: programme.output_path || '/var/erequest/card_files/', fontMono: true },
+    { label: 'Output Export Path', value: programme.output_path || 'Not Configured (System Default)', fontMono: true },
     { label: 'Table Prefix', value: programme.table_prefix || 'TBL_CP_', fontMono: true },
     { label: 'FEP Programme ID', value: programme.fep_programme_id || `FEP_${programme.card_programme_code}`, fontMono: true },
     { label: 'Instant Card Type', value: programme.instant_card_type || 'INSTANT_STANDARD' },
@@ -189,7 +189,7 @@ export const CardProgrammeDetails: React.FC<CardProgrammeDetailsProps> = ({
           >
             <div className="flex items-center justify-between mb-2">
               <div className="p-2.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400">
-                <CircleDollarSign className="h-5 w-5" />
+                <Coins className="h-5 w-5" />
               </div>
               <span className="px-2.5 py-0.5 text-xs font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 rounded-full">
                 {programme.charge_header_count || 1} Profiles

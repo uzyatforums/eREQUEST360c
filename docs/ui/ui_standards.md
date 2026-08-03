@@ -337,21 +337,21 @@ Version
 
 # 16. Currency Standards
 
-Primary currency:
+Supported currencies:
 
-NGN
+Multi-currency platform (NGN, USD, EUR, GBP, etc.)
 
 Input fields:
 
-₦
+Numeric values only. Currency symbols (₦, $, €, £, etc.) MUST NOT be embedded inside amount input fields; monetary fields inherit currency from the parent business entity.
 
 Data grids:
 
-NGN
+ISO currency code column (NGN, USD, EUR, GBP, etc.)
 
-Dollar ($) icons SHALL NOT be used unless representing USD.
+Dollar ($) icons SHALL NOT be used unless explicitly representing USD transactions.
 
-Currency-neutral icons are preferred.
+Currency-neutral icons (e.g. Coins, Receipt) are required.
 
 ---
 

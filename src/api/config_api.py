@@ -95,6 +95,21 @@ def get_card_programmes(
     return db.query(CardProgramme).filter(CardProgramme.client_id == current_user.client_id).all()
 
 
+@router.get("/card-programmes/{id}", response_model=CardProgrammeRead)
+def get_card_programme_by_id(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    query = db.query(CardProgramme).filter(CardProgramme.id == id)
+    if "super_admin" not in current_user.roles:
+        query = query.filter(CardProgramme.client_id == current_user.client_id)
+    obj = query.first()
+    if not obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Card programme #{id} not found")
+    return obj
+
+
 @router.post("/card-programmes", response_model=CardProgrammeRead, status_code=status.HTTP_201_CREATED)
 def create_card_programme(
     payload: CardProgrammeCreate,
@@ -130,14 +145,13 @@ def create_card_programme(
                 detail=f"Invalid card type brand code '{payload.card_type}'."
             )
 
-    obj = CardProgramme(
-        client_id=target_client_id,
-        card_programme_code=payload.card_programme_code.upper(),
-        card_programme_name=payload.card_programme_name,
-        card_type=payload.card_type,
-        active=payload.active,
-        created_by=current_user.username,
-    )
+    obj_data = payload.model_dump(exclude_unset=True)
+    obj_data["client_id"] = target_client_id
+    obj_data["card_programme_code"] = payload.card_programme_code.upper()
+    obj_data["created_by"] = current_user.username
+    obj_data.setdefault("priority", 1)
+
+    obj = CardProgramme(**obj_data)
     db.add(obj)
 
     from sqlalchemy.exc import IntegrityError
@@ -148,7 +162,7 @@ def create_card_programme(
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Database constraint violation while creating card programme."
+            detail=f"Database constraint violation: {str(exc.orig)}"
         ) from exc
     return obj
 
@@ -175,18 +189,18 @@ def update_card_programme(
     if not obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card programme record not found")
 
-    if payload.card_programme_name is not None:
-        obj.card_programme_name = payload.card_programme_name
-    if payload.card_type is not None:
-        valid_card_type = db.query(CardType).filter(CardType.card_type == payload.card_type).first()
+    update_dict = payload.model_dump(exclude_unset=True)
+    if "card_type" in update_dict and update_dict["card_type"] is not None:
+        valid_card_type = db.query(CardType).filter(CardType.card_type == update_dict["card_type"]).first()
         if not valid_card_type:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid card type brand code '{payload.card_type}'."
+                detail=f"Invalid card type brand code '{update_dict['card_type']}'."
             )
-        obj.card_type = payload.card_type
-    if payload.active is not None:
-        obj.active = payload.active
+
+    for field, val in update_dict.items():
+        if hasattr(obj, field):
+            setattr(obj, field, val)
 
     from datetime import datetime
     from sqlalchemy.exc import IntegrityError

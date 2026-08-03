@@ -325,7 +325,7 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
                 <th className="py-3 px-4">Branch Type</th>
                 <th className="py-3 px-4 text-right">
                   <SortableHeader
-                    label="Amount (NGN)"
+                    label="Amount"
                     sortField="amount"
                     currentSortField={sortField}
                     currentSortOrder={sortOrder}
@@ -415,7 +415,7 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
 
                       {/* Amount */}
                       <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
-                        ₦{entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </td>
 
                       {/* Currency */}
@@ -520,23 +520,18 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
             helperText="General ledger account code for fee posting."
           />
 
-          {/* Fee Amount (₦) */}
+          {/* Fee Amount */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1.5">
-              Fee Amount (₦)
+              Fee Amount
             </label>
-            <div className="relative rounded-md shadow-2xs">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500 font-bold text-xs">
-                ₦
-              </div>
-              <input
-                type="number"
-                required
-                value={amount}
-                onChange={(e) => setAmount(Number(e.target.value))}
-                className="w-full pl-8 pr-4 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-slate-100 font-mono font-bold"
-              />
-            </div>
+            <input
+              type="number"
+              required
+              value={amount}
+              onChange={(e) => setAmount(Number(e.target.value))}
+              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-slate-100 font-mono font-bold"
+            />
           </div>
 
           <Select
@@ -545,7 +540,7 @@ export const CardProgrammeCharges: React.FC<CardProgrammeChargesProps> = ({
             value={currency}
             onChange={(e) => setCurrency(e.target.value)}
             options={[
-              { label: 'Nigerian Naira (NGN / ₦)', value: 'NGN' },
+              { label: 'Nigerian Naira (NGN)', value: 'NGN' },
               { label: 'US Dollar (USD)', value: 'USD' },
               { label: 'Euro (EUR)', value: 'EUR' },
             ]}
