@@ -6,6 +6,9 @@ import {
   RefreshCw,
   Eye,
   Edit2,
+  Copy,
+  ToggleLeft,
+  ToggleRight,
   Filter,
 } from 'lucide-react'
 import { CardProgramme, UserInfo, CardType } from '../../types'
@@ -27,6 +30,7 @@ export interface CardProgrammesListProps {
   onRefresh: () => void
   onViewDetails?: (id: number) => void
   onEditProgramme?: (prog: CardProgramme) => void
+  onToggleActive?: (prog: CardProgramme) => void
   onDeleteProgramme?: (prog: CardProgramme) => void
   onCreateProgramme?: () => void
 }
@@ -39,6 +43,7 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
   onRefresh,
   onViewDetails,
   onEditProgramme,
+  onToggleActive,
   onDeleteProgramme,
   onCreateProgramme,
 }) => {
@@ -79,6 +84,18 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
   const handleEdit = (prog: CardProgramme) => {
     if (onEditProgramme) onEditProgramme(prog)
     navigate(`/card-programmes/${prog.id}/edit`)
+  }
+
+  const handleCopy = (prog: CardProgramme) => {
+    navigate(`/card-programmes/new?copyFrom=${prog.id}`)
+  }
+
+  const handleToggleActive = (prog: CardProgramme) => {
+    if (onToggleActive) {
+      onToggleActive(prog)
+    } else if (onDeleteProgramme) {
+      onDeleteProgramme(prog)
+    }
   }
 
   // Filter & Sort programmes
@@ -461,14 +478,42 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
                           </Tooltip>
 
                           {canManage && (
-                            <Tooltip content="Edit Card Programme">
-                              <button
-                                onClick={() => handleEdit(prog)}
-                                className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/60 text-blue-600 dark:text-blue-400 transition-colors"
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </button>
-                            </Tooltip>
+                            <>
+                              <Tooltip content="Edit Card Programme">
+                                <button
+                                  onClick={() => handleEdit(prog)}
+                                  className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/60 text-blue-600 dark:text-blue-400 transition-colors"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+                              </Tooltip>
+
+                              <Tooltip content="Copy Specification (Create New)">
+                                <button
+                                  onClick={() => handleCopy(prog)}
+                                  className="p-1.5 rounded-md hover:bg-purple-50 dark:hover:bg-purple-950/60 text-purple-600 dark:text-purple-400 transition-colors"
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                </button>
+                              </Tooltip>
+
+                              <Tooltip content={prog.active ? 'Deactivate Card Programme' : 'Activate Card Programme'}>
+                                <button
+                                  onClick={() => handleToggleActive(prog)}
+                                  className={`p-1.5 rounded-md transition-colors ${
+                                    prog.active
+                                      ? 'hover:bg-amber-50 dark:hover:bg-amber-950/60 text-amber-600 dark:text-amber-400'
+                                      : 'hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+                                  }`}
+                                >
+                                  {prog.active ? (
+                                    <ToggleLeft className="h-3.5 w-3.5" />
+                                  ) : (
+                                    <ToggleRight className="h-3.5 w-3.5" />
+                                  )}
+                                </button>
+                              </Tooltip>
+                            </>
                           )}
                         </div>
                       </td>

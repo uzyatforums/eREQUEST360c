@@ -130,7 +130,7 @@ export const CardProgrammeDetails: React.FC<CardProgrammeDetailsProps> = ({
                 <Tooltip content="Edit Card Programme Specification">
                   <Button variant="primary" size="sm" onClick={handleEdit} className="gap-1.5 text-xs">
                     <Edit2 className="h-3.5 w-3.5" />
-                    Edit Programme
+                    Edit Card Programme
                   </Button>
                 </Tooltip>
 

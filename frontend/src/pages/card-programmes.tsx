@@ -257,6 +257,7 @@ export const CardProgrammesPage: React.FC<CardProgrammesPageProps> = ({ currentU
               cardTypes={cardTypes}
               isLoading={isLoading}
               onRefresh={fetchProgrammes}
+              onToggleActive={(prog) => setToggleItem(prog)}
               onDeleteProgramme={(prog) => setToggleItem(prog)}
             />
           }

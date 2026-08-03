@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Shield,
   CreditCard,
@@ -31,21 +31,25 @@ export interface CardProgrammeFormProps {
 export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUser, onSaveSuccess }) => {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { toast } = useToast()
 
   const isEditMode = !!id
   const programmeId = id ? parseInt(id, 10) : null
+  const copyFromIdStr = searchParams.get('copyFrom')
+  const copyFromId = copyFromIdStr ? parseInt(copyFromIdStr, 10) : null
 
   const [isLoading, setIsLoading] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
   const [cardTypes, setCardTypes] = React.useState<CardType[]>([])
   const [editingProgramme, setEditingProgramme] = React.useState<CardProgramme | null>(null)
+  const hasNotifiedCopyRef = React.useRef<number | null>(null)
 
   // Form State Fields
   const [cardProgrammeCode, setCardProgrammeCode] = React.useState('')
   const [cardProgrammeName, setCardProgrammeName] = React.useState('')
   const [description, setDescription] = React.useState('')
-  const [cardType, setCardType] = React.useState('VERVE_CLASSIC')
+  const [cardType, setCardType] = React.useState('VERVE')
   const [bin, setBin] = React.useState('506118')
   const [platformIndicator, setPlatformIndicator] = React.useState('POSTILION_V2')
   const [serviceCode, setServiceCode] = React.useState('201')
@@ -66,10 +70,18 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
 
   // Fetch Lookup Data
   React.useEffect(() => {
-    apiService.getCardTypes().then((types) => setCardTypes(types)).catch(() => { })
-  }, [])
+    apiService
+      .getCardTypes()
+      .then((types) => {
+        setCardTypes(types)
+        if (types.length > 0 && !isEditMode && !copyFromId) {
+          setCardType(types[0].card_type)
+        }
+      })
+      .catch(() => { })
+  }, [isEditMode, copyFromId])
 
-  // Fetch Existing Record for Edit Mode
+  // Fetch Existing Record for Edit Mode or Copy Mode
   React.useEffect(() => {
     if (isEditMode && programmeId) {
       setIsLoading(true)
@@ -109,8 +121,51 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
           })
         })
         .finally(() => setIsLoading(false))
+    } else if (!isEditMode && copyFromId) {
+      if (hasNotifiedCopyRef.current === copyFromId) {
+        return
+      }
+      setIsLoading(true)
+      apiService
+        .getCardProgrammeById(copyFromId)
+        .then((found) => {
+          if (found) {
+            // Pre-populate fields for Copy mode (Do NOT copy Primary key, audit fields, or Programme Code)
+            setCardProgrammeCode('') // Leave blank for user entry
+            setCardProgrammeName(`${found.card_programme_name} (Copy)`) // Pre-populate as "<Original Name> (Copy)"
+            setDescription(found.description || `${found.card_programme_name} product specification copy.`)
+            setCardType(found.card_type)
+            setBin(found.bin || '506118')
+            setPlatformIndicator(found.platform_indicator || 'POSTILION_V2')
+            setServiceCode(found.service_code || '201')
+            setPanLength(found.pan_length || 16)
+            setDefaultValidityYears(found.default_validity_years || 3)
+            setCurrency(found.currency || 'NGN')
+            setIssuanceFee(found.issuance_fee || 1000)
+            setMaintenanceFee(found.maintenance_fee || 250)
+            setAccountTypeBinding(found.account_type_binding || 'SAVINGS_CURRENT')
+            setActive(found.active)
+
+            if (hasNotifiedCopyRef.current !== copyFromId) {
+              hasNotifiedCopyRef.current = copyFromId
+              toast({
+                title: 'Specifications Pre-Populated',
+                description: `Pre-populated form from '${found.card_programme_name}'. Enter a unique Programme Code before saving.`,
+                variant: 'success',
+              })
+            }
+          }
+        })
+        .catch(() => {
+          toast({
+            title: 'Copy Load Error',
+            description: 'Failed to load source programme for copying.',
+            variant: 'destructive',
+          })
+        })
+        .finally(() => setIsLoading(false))
     }
-  }, [isEditMode, programmeId, id, navigate, toast])
+  }, [isEditMode, programmeId, copyFromId, id, navigate, toast])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -186,6 +241,8 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
       onClick: () => navigate(`/card-programmes/${editingProgramme.id}`),
     })
     breadcrumbs.push({ label: 'Edit Maintenance' })
+  } else if (copyFromId) {
+    breadcrumbs.push({ label: 'Copy Card Programme' })
   } else {
     breadcrumbs.push({ label: 'New Card Programme' })
   }
@@ -206,10 +263,18 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
 
       {/* Page Header */}
       <PageHeader
-        title={isEditMode ? `Edit Card Programme: ${cardProgrammeCode}` : 'New Card Programme Maintenance'}
+        title={
+          isEditMode
+            ? `Edit Card Programme: ${cardProgrammeCode}`
+            : copyFromId
+            ? 'Copy Card Programme Specification'
+            : 'New Card Programme Maintenance'
+        }
         description={
           isEditMode
             ? 'Modify payment card product parameters, brand association, pricing rules, and operational flags.'
+            : copyFromId
+            ? 'Pre-populated parameters from existing programme. Enter a unique Programme Code and review parameters before saving.'
             : 'Define new card product parameters, select card scheme brand, set BIN routing, and set operational flags.'
         }
         actions={
@@ -227,7 +292,7 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
             </Button>
             <Button type="button" variant="primary" onClick={handleSubmit} isLoading={isSaving} className="gap-1.5 text-xs">
               <Save className="h-3.5 w-3.5" />
-              {isEditMode ? 'Save Specifications' : 'Create Programme'}
+              {isEditMode ? 'Save Changes' : 'Create Card Programme'}
             </Button>
           </div>
         }
@@ -292,10 +357,11 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
                       value: ct.card_type,
                     }))
                     : [
-                      { label: 'Verve Classic (VERVE_CLASSIC)', value: 'VERVE_CLASSIC' },
-                      { label: 'Verve World (VERVE_WORLD)', value: 'VERVE_WORLD' },
-                      { label: 'Visa Gold (VISA_GOLD)', value: 'VISA_GOLD' },
-                      { label: 'Mastercard World (MASTERCARD_WORLD)', value: 'MASTERCARD_WORLD' },
+                      { label: 'Verve (VERVE)', value: 'VERVE' },
+                      { label: 'Visa (VISA)', value: 'VISA' },
+                      { label: 'Mastercard (MCARD)', value: 'MCARD' },
+                      { label: 'Afrigo (AFRIGO)', value: 'AFRIGO' },
+                      { label: 'Verve Contactless (VCL)', value: 'VCL' },
                     ]
                 }
                 helperText="Payment scheme network association."
@@ -680,7 +746,7 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
           </Button>
           <Button type="submit" variant="primary" isLoading={isSaving} className="gap-2">
             <Save className="h-4 w-4" />
-            {isEditMode ? 'Save Specifications' : 'Create Card Programme'}
+            {isEditMode ? 'Save Changes' : 'Create Card Programme'}
           </Button>
         </div>
       </form>
