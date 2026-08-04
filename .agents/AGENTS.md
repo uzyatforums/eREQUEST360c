@@ -14,7 +14,7 @@ All future modules SHALL conform to the architectural, navigation, UI, and lifec
 2. **Standard Row Actions**:
    - 👁 **View**: Open read-only inspector route (`/module/:id`).
    - ✏ **Edit**: Modify existing record (`/module/:id/edit`).
-   - 📄 **Copy**: Pre-populate Create form (`/module/new?copyFrom=:id`) using existing GET and POST endpoints without duplicating primary key, audit metadata, or unique business codes.
+   - 📄 **Copy**: Pre-populate Create form (`/module/new?copyFrom=:id`) using existing GET and POST endpoints without duplicating primary key, audit metadata, or unique business codes. Copy is strictly an intra-tenant duplication operation inheriting the source record's `client_id`; cross-tenant cloning is not supported in the current architecture.
    - 🔄 **Activate / Deactivate**: Toggle record status with Maker/Checker workflow integration where applicable.
 
 3. **No-Delete Configuration Record Lifecycle**:

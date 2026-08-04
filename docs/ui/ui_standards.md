@@ -504,6 +504,7 @@ All Configuration Master screens (e.g. Card Programmes, Card Segments, Charge He
      - Created/Modified metadata
      - Unique business identifiers (e.g. Programme Code)
    - The user must supply a new unique business identifier before saving.
+   - **Multi-Tenant Business Rule**: Card Programme Copy is strictly an intra-tenant duplication operation. A copied Card Programme always inherits the source programme's `client_id`. Cross-tenant cloning is not supported in the current architecture and will be treated as a future feature requiring explicit validation and tenant-specific reference data.
 
 4. 🔄 **Activate / Deactivate**
    - Enable or retire a configuration.

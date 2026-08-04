@@ -60,6 +60,7 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
   const [maintenanceFee, setMaintenanceFee] = React.useState(250)
   const [accountTypeBinding, setAccountTypeBinding] = React.useState('SAVINGS_CURRENT')
   const [active, setActive] = React.useState(true)
+  const [targetClientId, setTargetClientId] = React.useState<number>(currentUser.client_id || 1)
 
   // Operational Control Flags
   const [instantIssuanceAllowed, setInstantIssuanceAllowed] = React.useState(true)
@@ -104,6 +105,7 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
             setMaintenanceFee(found.maintenance_fee || 250)
             setAccountTypeBinding(found.account_type_binding || 'SAVINGS_CURRENT')
             setActive(found.active)
+            setTargetClientId(found.client_id)
           } else {
             toast({
               title: 'Programme Not Found',
@@ -145,6 +147,7 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
             setMaintenanceFee(found.maintenance_fee || 250)
             setAccountTypeBinding(found.account_type_binding || 'SAVINGS_CURRENT')
             setActive(found.active)
+            setTargetClientId(found.client_id)
 
             if (hasNotifiedCopyRef.current !== copyFromId) {
               hasNotifiedCopyRef.current = copyFromId
@@ -196,7 +199,7 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
       maintenance_fee: Number(maintenanceFee),
       account_type_binding: accountTypeBinding,
       active,
-      client_id: currentUser.client_id || 100,
+      client_id: targetClientId,
     }
 
     try {
