@@ -8,10 +8,10 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from src.db import get_db
-from src.models import LoginRequest, TokenResponse, UserInfo, UserCreate, UserRead, RoleRead, UserUpdate, IAMRoleRead, IAMPermissionRead
+from src.models import LoginRequest, TokenResponse, UserInfo, UserCreate, UserRead, RoleRead, UserUpdate, IAMRoleRead, IAMPermissionRead, CurrentUserContext
 from src.config import settings
-from src.db_models import User, Role, Permission, RolePermission
-
+from src.db_models import User, Role, Permission, RolePermission, Branch
+from src.api.audit_service import log_audit_event
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -20,11 +20,28 @@ security = HTTPBearer(auto_error=False)
 
 class AuthService:
     @staticmethod
-    def _create_token(username: str, client_id: int, branch_code: Optional[str], roles: list[str]) -> str:
+    def _create_token(
+        username: str,
+        client_id: int,
+        effective_branch_code: Optional[str] = None,
+        roles: Optional[list[str]] = None,
+        user_id: Optional[str] = None,
+        role_scope: str = "BRANCH",
+        is_head_office_user: Optional[bool] = None,
+    ) -> str:
+        if roles is None:
+            roles = []
+        if is_head_office_user is None:
+            is_head_office_user = (role_scope == "HEAD_OFFICE")
+
         payload = {
             "sub": username,
+            "user_id": user_id or username,
             "client_id": client_id,
-            "branch_code": branch_code,
+            "branch_code": effective_branch_code,  # Backward compatibility alias
+            "effective_branch_code": effective_branch_code,
+            "role_scope": role_scope,
+            "is_head_office_user": is_head_office_user,
             "roles": roles,
             "exp": datetime.now(timezone.utc) + timedelta(hours=8),
         }
@@ -36,27 +53,52 @@ class AuthService:
         if not user_obj:
             return None
         hashed_pass = hashlib.sha256(password.encode("utf-8")).hexdigest()
-        if user_obj.password_hash == hashed_pass:
-            # Map role_code to a list of roles for JWT compatibility
-            # In Phase 1 we support roles like super_admin, branch_submitter, branch_authorizer
-            roles = [user_obj.role_code]
-            # Maintain backward compatibility with the existing test expectations for "admin" user
-            if user_obj.username == "admin" and "super_admin" in roles:
-                roles = ["branch_submitter", "branch_authorizer", "super_admin"]
-            return {
-                "user_id": user_obj.user_id,
-                "username": user_obj.username,
-                "client_id": user_obj.client_id,
-                "branch_code": user_obj.branch_id,
-                "roles": roles,
-            }
-        return None
+        if user_obj.password_hash != hashed_pass:
+            return None
+
+        roles = [user_obj.role_code]
+        if user_obj.username == "admin" and "super_admin" in roles:
+            roles = ["branch_submitter", "branch_authorizer", "super_admin"]
+
+        # Fetch Role definition from DB to check role_scope
+        role_obj = db.query(Role).filter(Role.role_code == user_obj.role_code).first()
+        role_scope = getattr(role_obj, "role_scope", "BRANCH") if role_obj else ("HEAD_OFFICE" if user_obj.role_code in ["super_admin", "operations_admin_maker", "operations_admin_checker"] else "BRANCH")
+
+        if role_scope == "HEAD_OFFICE":
+            effective_branch_code = None
+            is_head_office_user = True
+        else:
+            # Branch-scoped user: MUST have an active branch assignment
+            if not user_obj.branch_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Branch-scoped user has no active branch assignment"
+                )
+            branch_obj = db.query(Branch).filter(Branch.branch_code == user_obj.branch_id, Branch.active == True).first()
+            if not branch_obj:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Branch-scoped user's assigned branch '{user_obj.branch_id}' is inactive or does not exist"
+                )
+            effective_branch_code = user_obj.branch_id
+            is_head_office_user = False
+
+        return {
+            "user_id": user_obj.user_id,
+            "username": user_obj.username,
+            "client_id": user_obj.client_id or 1,
+            "branch_code": effective_branch_code,
+            "effective_branch_code": effective_branch_code,
+            "role_scope": role_scope,
+            "is_head_office_user": is_head_office_user,
+            "roles": roles,
+        }
 
 
 def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
-) -> UserInfo:
+) -> CurrentUserContext:
     if not credentials:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
@@ -65,11 +107,18 @@ def get_current_user(
     except Exception as exc:  # pragma: no cover - defensive path
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
 
-    return UserInfo(
-        user_id=str(payload.get("sub", "unknown")),
+    effective_branch = payload.get("effective_branch_code") or payload.get("branch_code")
+    role_scope = payload.get("role_scope", "BRANCH")
+    is_head_office = payload.get("is_head_office_user", False if role_scope == "BRANCH" else True)
+
+    return CurrentUserContext(
+        user_id=str(payload.get("user_id", payload.get("sub", "unknown"))),
         username=str(payload.get("sub", "unknown")),
         client_id=int(payload.get("client_id", 0)),
-        branch_code=payload.get("branch_code"),
+        branch_code=effective_branch,
+        effective_branch_code=effective_branch,
+        role_scope=role_scope,
+        is_head_office_user=is_head_office,
         roles=list(payload.get("roles", [])),
     )
 
@@ -81,11 +130,37 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     token = AuthService._create_token(
-        user["username"],
-        user["client_id"],
-        user["branch_code"],
-        user["roles"],
+        username=user["username"],
+        user_id=user["user_id"],
+        client_id=user["client_id"],
+        effective_branch_code=user["effective_branch_code"],
+        role_scope=user["role_scope"],
+        is_head_office_user=user["is_head_office_user"],
+        roles=user["roles"],
     )
+
+    try:
+        log_audit_event(
+            db=db,
+            entity_type="USER",
+            entity_id=abs(hash(user["user_id"])) % 2147483647,
+            event_code="AUTH_LOGIN_SUCCESS",
+            performed_by=user["username"],
+            branch_code=user["effective_branch_code"],
+            remarks=f"User login successful (role_scope: {user['role_scope']}, is_head_office: {user['is_head_office_user']})",
+            snapshot_data={
+                "user_id": user["user_id"],
+                "client_id": user["client_id"],
+                "effective_branch_code": user["effective_branch_code"],
+                "role_scope": user["role_scope"],
+                "is_head_office_user": user["is_head_office_user"],
+                "roles": user["roles"],
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        )
+    except Exception:
+        pass
+
     return TokenResponse(access_token=token)
 
 

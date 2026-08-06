@@ -8,6 +8,8 @@ from src.api.auth import get_current_user
 from datetime import datetime
 from src.api.audit_service import log_audit_event
 
+from src.api.branch_context_service import BranchContextService, get_branch_context
+
 router = APIRouter(prefix="/requests", tags=["requests"])
 
 
@@ -52,18 +54,25 @@ def _requires_approval(db: Session, obj) -> bool:
 @router.post("/", response_model=RequestRead, status_code=201)
 def create_request(
     payload: RequestCreate,
+    branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    # Auto-resolve request_branch for branch-scoped users if not provided or to enforce effective branch
+    req_branch = payload.request_branch
+    if not branch_service.is_head_office_user():
+        req_branch = branch_service.get_effective_branch() or payload.request_branch
+        branch_service.assert_branch_access(req_branch, action_description="create request")
+
     approval_required = _requires_approval(db, payload)
     request_status = "PENDING_APPROVAL" if approval_required else "PENDING"
 
     request_obj = RequestModel(
-        client_id=payload.client_id,
+        client_id=branch_service.get_client_id() or payload.client_id,
         account_number=payload.account_number,
         programme_id=payload.programme_id,
         request_status=request_status,
-        request_branch=payload.request_branch,
+        request_branch=req_branch,
         pickup_branch=payload.pickup_branch,
         created_by=payload.created_by,
         channel_id=payload.channel_id,
@@ -106,7 +115,7 @@ def create_request(
         entity_id=request_obj.request_id,
         event_code="REQUEST_CREATED",
         performed_by=current_user.username,
-        branch_code=current_user.branch_code,
+        branch_code=branch_service.get_effective_branch(),
         remarks="Request created",
         snapshot_data=snapshot_data
     )
@@ -118,24 +127,11 @@ def create_request(
 @router.get("/", response_model=list[RequestRead])
 def list_requests(
     global_view: bool = False,
+    branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
-    current_user: UserInfo = Depends(get_current_user),
 ):
-    # Enforce tenant scoping and role-based filtering
-    is_admin = "super_admin" in current_user.roles or any(
-        r in current_user.roles
-        for r in ["operations_admin_maker", "operations_admin_checker", "internal_control_maker", "internal_control_checker"]
-    )
-    
-    if is_admin or global_view:
-        query = db.query(RequestModel).filter(RequestModel.client_id == current_user.client_id)
-    else:
-        # Branch users only see requests in their branch
-        query = db.query(RequestModel).filter(
-            RequestModel.client_id == current_user.client_id,
-            RequestModel.request_branch == current_user.branch_code
-        )
-        
+    query = db.query(RequestModel)
+    query = branch_service.apply_branch_scope(query, RequestModel, primary_branch_col="request_branch", secondary_branch_col="pickup_branch")
     requests = query.all()
     for r in requests:
         r.approval_required = _requires_approval(db, r)
@@ -145,21 +141,14 @@ def list_requests(
 @router.get("/{request_id}", response_model=RequestRead)
 def get_request(
     request_id: int,
+    branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
-    current_user: UserInfo = Depends(get_current_user),
 ):
     request_obj = db.query(RequestModel).filter(RequestModel.request_id == request_id).first()
     if not request_obj:
         raise HTTPException(status_code=404, detail="Request not found")
-        
-    # Enforce branch scope if not admin
-    is_admin = "super_admin" in current_user.roles or any(
-        r in current_user.roles
-        for r in ["operations_admin_maker", "operations_admin_checker", "internal_control_maker", "internal_control_checker"]
-    )
-    if not is_admin and request_obj.request_branch != current_user.branch_code:
-        raise HTTPException(status_code=403, detail="Access denied to this request (branch scope violation)")
 
+    branch_service.assert_branch_access(request_obj.request_branch, action_description="view request")
     request_obj.approval_required = _requires_approval(db, request_obj)
     return request_obj
 
@@ -167,6 +156,7 @@ def get_request(
 @router.post("/{request_id}/approve", response_model=RequestRead)
 def approve_request(
     request_id: int,
+    branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
@@ -182,9 +172,8 @@ def approve_request(
     if not is_authorized:
         raise HTTPException(status_code=403, detail="Role does not have permission to approve requests")
 
-    # Enforce branch scope (unless super admin)
-    if "super_admin" not in current_user.roles and request_obj.request_branch != current_user.branch_code:
-        raise HTTPException(status_code=403, detail="Cannot approve request from a different branch")
+    # Enforce branch scope
+    branch_service.assert_branch_access(request_obj.request_branch, action_description="approve request")
 
     old_status = request_obj.request_status
     remarks = "Approved by authorizer"
@@ -236,7 +225,7 @@ def approve_request(
         entity_id=request_obj.request_id,
         event_code="REQUEST_APPROVED",
         performed_by=current_user.username,
-        branch_code=current_user.branch_code,
+        branch_code=branch_service.get_effective_branch(),
         remarks=remarks,
         changes={"request_status": (old_status, request_obj.request_status)},
         snapshot_data=snapshot_data
@@ -249,19 +238,14 @@ def approve_request(
 @router.get("/{request_id}/history")
 def get_request_history(
     request_id: int,
+    branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
-    current_user: UserInfo = Depends(get_current_user),
 ):
     request_obj = db.query(RequestModel).filter(RequestModel.request_id == request_id).first()
     if not request_obj:
         raise HTTPException(status_code=404, detail="Request not found")
 
-    is_admin = "super_admin" in current_user.roles or any(
-        r in current_user.roles
-        for r in ["operations_admin_maker", "operations_admin_checker", "internal_control_maker", "internal_control_checker"]
-    )
-    if not is_admin and request_obj.request_branch != current_user.branch_code:
-        raise HTTPException(status_code=403, detail="Access denied to this request (branch scope violation)")
+    branch_service.assert_branch_access(request_obj.request_branch, action_description="view request history")
 
     history = db.query(RequestStatusHistory).filter(
         RequestStatusHistory.request_id == request_id
@@ -273,19 +257,14 @@ def get_request_history(
 @router.get("/{request_id}/audit")
 def get_request_audit(
     request_id: int,
+    branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
-    current_user: UserInfo = Depends(get_current_user),
 ):
     request_obj = db.query(RequestModel).filter(RequestModel.request_id == request_id).first()
     if not request_obj:
         raise HTTPException(status_code=404, detail="Request not found")
 
-    is_admin = "super_admin" in current_user.roles or any(
-        r in current_user.roles
-        for r in ["operations_admin_maker", "operations_admin_checker", "internal_control_maker", "internal_control_checker"]
-    )
-    if not is_admin and request_obj.request_branch != current_user.branch_code:
-        raise HTTPException(status_code=403, detail="Access denied to this request (branch scope violation)")
+    branch_service.assert_branch_access(request_obj.request_branch, action_description="view request audit")
 
     events = db.query(AuditEvent).filter(
         AuditEvent.entity_type == "request",

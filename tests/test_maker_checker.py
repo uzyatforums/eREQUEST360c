@@ -77,7 +77,15 @@ def setup_test_db():
         MakerCheckerEntityType(entity_type_code="BRANCH", entity_type_name="Branch", created_by="INIT"),
         MakerCheckerEntityType(entity_type_code="CARD_PROGRAMME", entity_type_name="Card Programme", created_by="INIT"),
     ]
-    db.add_all(statuses + operations + entity_types)
+    for s in statuses:
+        if not db.query(MakerCheckerStatus).filter(MakerCheckerStatus.status_code == s.status_code).first():
+            db.add(s)
+    for o in operations:
+        if not db.query(MakerCheckerOperation).filter(MakerCheckerOperation.operation_code == o.operation_code).first():
+            db.add(o)
+    for e in entity_types:
+        if not db.query(MakerCheckerEntityType).filter(MakerCheckerEntityType.entity_type_code == e.entity_type_code).first():
+            db.add(e)
     db.commit()
 
     yield

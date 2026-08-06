@@ -281,4 +281,66 @@ export const apiService = {
       body: JSON.stringify(workPayload),
     })
   },
+
+  // ==========================================
+  // CARD SEGMENTS API (SCR-004)
+  // ==========================================
+
+  async getCardSegments(): Promise<import('../types').CardSegment[]> {
+    return apiClient<import('../types').CardSegment[]>('/config/card-segments')
+  },
+
+  async getCardSegmentById(id: number): Promise<import('../types').CardSegment> {
+    return apiClient<import('../types').CardSegment>(`/config/card-segments/${id}`)
+  },
+
+  async createCardSegment(payload: { segment_code: string; segment_name: string; priority?: number }): Promise<any> {
+    return apiClient<any>('/config/card-segments', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async updateCardSegment(id: number, payload: { segment_name?: string; priority?: number }): Promise<any> {
+    return apiClient<any>(`/config/card-segments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async activateCardSegment(id: number): Promise<any> {
+    return apiClient<any>(`/config/card-segments/${id}/activate`, {
+      method: 'POST',
+    })
+  },
+
+  async deactivateCardSegment(id: number): Promise<any> {
+    return apiClient<any>(`/config/card-segments/${id}/deactivate`, {
+      method: 'POST',
+    })
+  },
+
+  async getSegmentProgrammes(segmentId: number): Promise<import('../types').CardSegmentProgrammeRead[]> {
+    return apiClient<import('../types').CardSegmentProgrammeRead[]>(`/config/card-segments/${segmentId}/programmes`)
+  },
+
+  async assignSegmentProgramme(segmentId: number, payload: { card_programme_id: number; description?: string }): Promise<any> {
+    return apiClient<any>(`/config/card-segments/${segmentId}/programmes`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async removeSegmentProgramme(segmentId: number, programmeId: number): Promise<any> {
+    return apiClient<any>(`/config/card-segments/${segmentId}/programmes/${programmeId}`, {
+      method: 'DELETE',
+    })
+  },
+
+  async reorderSegmentProgramme(segmentId: number, payload: { card_programme_id: number; direction: 'UP' | 'DOWN' }): Promise<any> {
+    return apiClient<any>(`/config/card-segments/${segmentId}/programmes/reorder`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
 }

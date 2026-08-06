@@ -73,15 +73,7 @@ def get_clients(
     return db.query(Client).filter(Client.tenant_id == current_user.client_id).all()
 
 
-@router.get("/branches", response_model=list[BranchRead])
-def get_branches(
-    db: Session = Depends(get_db),
-    current_user: UserInfo = Depends(get_current_user),
-):
-    # Enforce tenant scoping
-    if "super_admin" in current_user.roles:
-        return db.query(Branch).all()
-    return db.query(Branch).filter(Branch.client_id == current_user.client_id).all()
+
 
 
 @router.get("/card-programmes", response_model=list[CardProgrammeRead])
@@ -220,15 +212,7 @@ def update_card_programme(
     return obj
 
 
-@router.get("/card-segments", response_model=list[CardSegmentRead])
-def get_card_segments(
-    db: Session = Depends(get_db),
-    current_user: UserInfo = Depends(get_current_user),
-):
-    # Enforce tenant scoping
-    if "super_admin" in current_user.roles:
-        return db.query(CardSegment).all()
-    return db.query(CardSegment).filter(CardSegment.client_id == current_user.client_id).all()
+
 
 
 @router.get("/card-policy", response_model=ClientCardPolicyRead)

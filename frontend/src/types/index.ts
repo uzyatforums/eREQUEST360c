@@ -58,6 +58,32 @@ export interface CardProgrammeSegment {
   charge_profile_name: string;
 }
 
+export interface CardSegment {
+  id: number;
+  client_id: number;
+  segment_code: string;
+  segment_name: string;
+  priority: number;
+  active: boolean;
+  created_by: string;
+  created_date?: string;
+  last_modified_by?: string | null;
+  last_modified_date?: string | null;
+  assigned_programmes_count?: number;
+}
+
+export interface CardSegmentProgrammeRead {
+  id: number;
+  client_id: number;
+  segment_id: number;
+  card_programme_id: number;
+  card_programme_code: string;
+  card_programme_name: string;
+  card_brand: string;
+  priority: number;
+  description?: string;
+}
+
 export interface ChargeEntry {
   id: number;
   charge_type: string;

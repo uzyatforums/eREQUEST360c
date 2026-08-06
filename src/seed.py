@@ -40,6 +40,8 @@ from src.db_models import (
     InstantCardType,
     InstantInventoryMovementType,
     LocalEmailRecipient,
+    MakerCheckerEntityType,
+    MakerCheckerOperation,
 )
 
 logger = logging.getLogger(__name__)
@@ -53,11 +55,11 @@ def seed_data(db: Session):
     # 1. Seed Roles
     logger.info("Seeding roles...")
     roles = [
-        {"role_code": "branch_submitter", "role_name": "Branch Submitter", "description": "Branch level request submitter", "is_maker": True, "is_checker": False},
-        {"role_code": "branch_authorizer", "role_name": "Branch Authorizer", "description": "Branch level request authorizer", "is_maker": False, "is_checker": True},
-        {"role_code": "operations_admin_maker", "role_name": "Operations Admin Maker", "description": "Operations maker", "is_maker": True, "is_checker": False},
-        {"role_code": "operations_admin_checker", "role_name": "Operations Admin Checker", "description": "Operations checker", "is_maker": False, "is_checker": True},
-        {"role_code": "super_admin", "role_name": "Super Admin", "description": "Super admin access", "is_maker": True, "is_checker": True},
+        {"role_code": "branch_submitter", "role_name": "Branch Submitter", "description": "Branch level request submitter", "is_maker": True, "is_checker": False, "role_scope": "BRANCH"},
+        {"role_code": "branch_authorizer", "role_name": "Branch Authorizer", "description": "Branch level request authorizer", "is_maker": False, "is_checker": True, "role_scope": "BRANCH"},
+        {"role_code": "operations_admin_maker", "role_name": "Operations Admin Maker", "description": "Operations maker", "is_maker": True, "is_checker": False, "role_scope": "HEAD_OFFICE"},
+        {"role_code": "operations_admin_checker", "role_name": "Operations Admin Checker", "description": "Operations checker", "is_maker": False, "is_checker": True, "role_scope": "HEAD_OFFICE"},
+        {"role_code": "super_admin", "role_name": "Super Admin", "description": "Super admin access", "is_maker": True, "is_checker": True, "role_scope": "HEAD_OFFICE"},
     ]
     roles_added = 0
     for r in roles:
@@ -228,7 +230,8 @@ def seed_data(db: Session):
         {"card_type": "MASTERCARD", "description": "Mastercard Card", "client_id": global_tenant_id, "active": True},
     ]
     for ct in card_types:
-        if not db.query(CardType).filter(CardType.card_type == ct["card_type"]).first():
+        existing_ct = db.query(CardType).filter(CardType.card_type == ct["card_type"]).first()
+        if not existing_ct:
             db.add(CardType(**ct))
 
     db.commit()
@@ -294,6 +297,8 @@ def seed_data(db: Session):
             db.add(CardProgramme(**p))
         else:
             for field, val in p.items():
+                if field in ["client_id", "card_type"]:
+                    continue
                 setattr(existing, field, val)
     db.commit()
 
@@ -512,6 +517,31 @@ def seed_data(db: Session):
             LocalEmailRecipient.email_address == er["email_address"]
         ).first():
             db.add(LocalEmailRecipient(**er))
+
+    mc_entities = [
+        {"entity_type_code": "BRANCH", "entity_type_name": "Branch", "created_by": "system"},
+        {"entity_type_code": "CARD_PROGRAMME", "entity_type_name": "Card Programme", "created_by": "system"},
+        {"entity_type_code": "CARD_SEGMENT", "entity_type_name": "Card Segment", "created_by": "system"},
+        {"entity_type_code": "CARD_SEGMENT_PROGRAMME", "entity_type_name": "Card Segment Programme Assignment", "created_by": "system"},
+        {"entity_type_code": "APPROVAL_POLICY", "entity_type_name": "Approval Policy", "created_by": "system"},
+    ]
+    for me in mc_entities:
+        if not db.query(MakerCheckerEntityType).filter(MakerCheckerEntityType.entity_type_code == me["entity_type_code"]).first():
+            db.add(MakerCheckerEntityType(**me))
+
+    mc_operations = [
+        {"operation_code": "CREATE", "operation_name": "Create Record", "created_by": "system"},
+        {"operation_code": "UPDATE", "operation_name": "Update Record", "created_by": "system"},
+        {"operation_code": "DELETE", "operation_name": "Delete Record", "created_by": "system"},
+        {"operation_code": "ACTIVATE", "operation_name": "Activate Record", "created_by": "system"},
+        {"operation_code": "DEACTIVATE", "operation_name": "Deactivate Record", "created_by": "system"},
+        {"operation_code": "ASSIGN", "operation_name": "Assign Relationship", "created_by": "system"},
+        {"operation_code": "REMOVE", "operation_name": "Remove Relationship", "created_by": "system"},
+        {"operation_code": "REORDER", "operation_name": "Reorder Priority", "created_by": "system"},
+    ]
+    for mo in mc_operations:
+        if not db.query(MakerCheckerOperation).filter(MakerCheckerOperation.operation_code == mo["operation_code"]).first():
+            db.add(MakerCheckerOperation(**mo))
 
     db.commit()
 

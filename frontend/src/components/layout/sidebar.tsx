@@ -54,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
 
   const configItems = [
     { label: 'Card Programmes', route: '/card-programmes', icon: Layers },
-    { label: 'Card Segments', route: '/config/segments', icon: Settings },
+    { label: 'Card Segments', route: '/card-segments', icon: Settings },
     { label: 'Card Charges', route: '/config/charges', icon: Coins },
     { label: 'Branch Directory', route: '/config/branches', icon: Building2 },
   ]

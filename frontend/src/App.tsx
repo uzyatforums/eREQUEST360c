@@ -8,6 +8,7 @@ import { Footer } from './components/layout/footer'
 import { CommandPalette } from './components/layout/command-palette'
 import { ToastProvider } from './components/ui/toast'
 import { CardProgrammesPage } from './pages/card-programmes'
+import { CardSegmentsPage } from './pages/card-segments'
 import { Loader2 } from 'lucide-react'
 
 function ModulePlaceholder() {
@@ -73,6 +74,7 @@ function MainContent() {
           <Routes>
             <Route path="/" element={<Navigate to="/card-programmes" replace />} />
             <Route path="/card-programmes/*" element={<CardProgrammesPage currentUser={currentUser} />} />
+            <Route path="/card-segments/*" element={<CardSegmentsPage currentUser={currentUser} />} />
             <Route path="*" element={<ModulePlaceholder />} />
           </Routes>
         </main>

@@ -84,6 +84,7 @@ class Role(Base):
     description = Column(String(255), nullable=True)
     is_maker = Column(Boolean, nullable=False, default=False)
     is_checker = Column(Boolean, nullable=False, default=False)
+    role_scope = Column(String(20), nullable=False, default="BRANCH")
     active = Column(Boolean, nullable=False, default=True)
 
 
@@ -209,10 +210,10 @@ class CardSegment(Base):
     __table_args__ = schema_args("config")
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    client_id = Column(Integer, nullable=True)
-    segment_code = Column(String(20), nullable=False)
+    client_id = Column(Integer, ForeignKey(fk_ref("config.clients.tenant_id")), nullable=False)
+    segment_code = Column(String(10), nullable=False)
     segment_name = Column(String(100), nullable=False)
-    priority = Column(Integer, nullable=True)
+    priority = Column(Integer, nullable=True, default=0)
     active = Column(Boolean, nullable=False, default=True)
     created_by = Column(String(30), nullable=False)
     created_date = Column(DateTime, nullable=False, server_default=func.now())
@@ -225,16 +226,33 @@ class CardSegmentProgramme(Base):
     __table_args__ = schema_args("config")
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    client_id = Column(Integer, nullable=False)
+    client_id = Column(Integer, ForeignKey(fk_ref("config.clients.tenant_id")), nullable=False)
     segment_id = Column(Integer, ForeignKey(fk_ref("config.card_segments.id")), nullable=False)
     card_programme_id = Column(Integer, ForeignKey(fk_ref("config.card_programmes.id")), nullable=False)
-    priority = Column(Integer, nullable=True)
-    description = Column(String(255), nullable=True)
+    priority = Column(Integer, nullable=True, default=0)
+    description = Column(String(100), nullable=True)
     active = Column(Boolean, nullable=False, default=True)
     created_by = Column(String(30), nullable=False)
     created_date = Column(DateTime, nullable=False, server_default=func.now())
     last_modified_by = Column(String(30), nullable=True)
     last_modified_date = Column(DateTime, nullable=True)
+
+
+class CardSegmentProgrammeCharge(Base):
+    __tablename__ = "card_segment_programme_charges"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, ForeignKey(fk_ref("config.clients.tenant_id")), nullable=False)
+    card_segment_programme_id = Column(Integer, ForeignKey(fk_ref("config.card_segment_programmes.id")), nullable=False)
+    charge_header_id = Column(Integer, ForeignKey(fk_ref("config.card_charges_headers.id")), nullable=False)
+    priority = Column(Integer, nullable=True, default=0)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+    processing_mode_code = Column(String(20), nullable=False, default="NORMAL")
 
 
 
@@ -398,21 +416,7 @@ class CardChargeEntry(Base):
     active = Column(Boolean, nullable=False, default=True)
 
 
-class CardSegmentProgrammeCharge(Base):
-    __tablename__ = "card_segment_programme_charges"
-    __table_args__ = schema_args("config")
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    client_id = Column(Integer, nullable=False)
-    card_segment_programme_id = Column(Integer, ForeignKey(fk_ref("config.card_segment_programmes.id")), nullable=False)
-    charge_header_id = Column(Integer, ForeignKey(fk_ref("config.card_charges_headers.id")), nullable=False)
-    priority = Column(Integer, nullable=True)
-    processing_mode_code = Column(String(30), nullable=True)
-    active = Column(Boolean, nullable=False, default=True)
-    created_by = Column(String(30), nullable=False)
-    created_date = Column(DateTime, nullable=False, server_default=func.now())
-    last_modified_by = Column(String(30), nullable=True)
-    last_modified_date = Column(DateTime, nullable=True)
 
 
 class LocalAccount(Base):

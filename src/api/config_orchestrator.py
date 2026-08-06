@@ -34,7 +34,9 @@ class ConfigurationOrchestrator:
                 f"entity_id={entity_id}, operation={operation_code}, user_id={user.user_id}"
             )
             if commit_callback:
-                commit_callback(db, after_payload)
+                created_id = commit_callback(db, after_payload)
+                if created_id is not None:
+                    entity_id = created_id
             db.commit()
 
             return ConfigExecutionResult(

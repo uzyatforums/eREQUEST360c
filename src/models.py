@@ -17,8 +17,18 @@ class UserInfo(BaseModel):
     user_id: str
     username: str
     client_id: int
-    branch_code: Optional[str] = None
-    roles: list[str]
+    roles: list[str] = []
+    permissions: list[str] = []
+    branch_code: Optional[str] = None  # Backward compatibility alias for effective_branch_code
+    effective_branch_code: Optional[str] = None
+    role_scope: str = "BRANCH"
+    is_head_office_user: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+CurrentUserContext = UserInfo
 
 
 class IAMRoleRead(BaseModel):
@@ -27,6 +37,7 @@ class IAMRoleRead(BaseModel):
     description: Optional[str] = None
     is_maker: bool = False
     is_checker: bool = False
+    role_scope: str = "BRANCH"
     active: bool = True
 
     class Config:
@@ -194,11 +205,75 @@ class CardProgrammeRead(BaseModel):
         from_attributes = True
 
 
+class CardSegmentCreate(BaseModel):
+    segment_code: str = Field(..., max_length=10)
+    segment_name: str = Field(..., max_length=100)
+    priority: Optional[int] = 0
+    active: Optional[bool] = True
+
+
+class CardSegmentUpdate(BaseModel):
+    segment_name: Optional[str] = Field(None, max_length=100)
+    priority: Optional[int] = None
+    active: Optional[bool] = None
+
+
 class CardSegmentRead(BaseModel):
-    card_seg_grp: str
-    card_seg_name: str
+    id: int
+    client_id: int
+    segment_code: str
+    segment_name: str
+    priority: Optional[int] = 0
     active: bool
-    client_id: Optional[int] = None
+    created_by: Optional[str] = None
+    created_date: Optional[datetime] = None
+    last_modified_by: Optional[str] = None
+    last_modified_date: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CardSegmentProgrammeAssign(BaseModel):
+    card_programme_id: int
+    priority: Optional[int] = None
+    description: Optional[str] = None
+
+
+class CardSegmentProgrammeRead(BaseModel):
+    id: int
+    client_id: int
+    segment_id: int
+    card_programme_id: int
+    card_programme_code: Optional[str] = None
+    card_programme_name: Optional[str] = None
+    card_type: Optional[str] = None  # Card Brand
+    priority: int
+    description: Optional[str] = None
+    created_by: Optional[str] = None
+    created_date: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CardSegmentProgrammeReorder(BaseModel):
+    card_programme_id: int
+    direction: str = Field(..., pattern=r"^(UP|DOWN|up|down)$")
+
+
+class CardSegmentProgrammeChargeRead(BaseModel):
+    id: int
+    client_id: int
+    card_segment_programme_id: int
+    charge_header_id: int
+    priority: Optional[int] = 0
+    active: bool
+    processing_mode_code: str
+    created_by: Optional[str] = None
+    created_date: Optional[datetime] = None
+    last_modified_by: Optional[str] = None
+    last_modified_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True

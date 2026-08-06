@@ -10,6 +10,7 @@ from src.api.charges import router as charges_router
 from src.api.maker_checker import router as maker_checker_router
 from src.api.approval_policies import router as approval_policies_router
 from src.api.branches import router as branches_router
+from src.api.card_segments import router as card_segments_router
 from src.db import init_db
 from src.api.audit_service import ApiLoggingMiddleware
 
@@ -31,6 +32,7 @@ app.include_router(charges_router)
 app.include_router(maker_checker_router)
 app.include_router(approval_policies_router)
 app.include_router(branches_router)
+app.include_router(card_segments_router)
 
 
 
