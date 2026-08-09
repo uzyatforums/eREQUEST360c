@@ -25,6 +25,11 @@ export default defineConfig({
       '/maker-checker': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
+        bypass: (req) => {
+          if (req.headers.accept?.includes('html')) {
+            return '/index.html'
+          }
+        },
       },
       '/reports': {
         target: 'http://127.0.0.1:8000',

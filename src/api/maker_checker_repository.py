@@ -41,6 +41,24 @@ class MakerCheckerRepository:
         return operation_exists
 
     @staticmethod
+    def has_pending_for_entity(
+        db: Session, client_id: int, entity_type_code: str, entity_id: int
+    ) -> bool:
+        if not entity_id or entity_id <= 0:
+            return False
+        return (
+            db.query(MakerCheckerWorkItem.id)
+            .filter(
+                MakerCheckerWorkItem.client_id == client_id,
+                MakerCheckerWorkItem.entity_type_code == entity_type_code,
+                MakerCheckerWorkItem.entity_id == entity_id,
+                MakerCheckerWorkItem.status_code == WorkItemStatus.PENDING,
+            )
+            .first()
+            is not None
+        )
+
+    @staticmethod
     def create_work_item(
         db: Session,
         client_id: int,
@@ -152,6 +170,19 @@ class MakerCheckerRepository:
         if lock_for_update:
             query = query.with_for_update()
         return query.first()
+
+    @staticmethod
+    def count_pending(db: Session, client_id: int) -> int:
+        return (
+            db.query(func.count(MakerCheckerWorkItem.id))
+            .filter(
+                MakerCheckerWorkItem.client_id == client_id,
+                MakerCheckerWorkItem.status_code == WorkItemStatus.PENDING,
+                MakerCheckerWorkItem.active == True,
+            )
+            .scalar()
+            or 0
+        )
 
     @staticmethod
     def list_pending(db: Session, client_id: int) -> list[MakerCheckerWorkItem]:

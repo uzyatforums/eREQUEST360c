@@ -9,6 +9,8 @@ import { CommandPalette } from './components/layout/command-palette'
 import { ToastProvider } from './components/ui/toast'
 import { CardProgrammesPage } from './pages/card-programmes'
 import { CardSegmentsPage } from './pages/card-segments'
+import { MakerCheckerPage } from './pages/maker-checker'
+import { WorkQueueProvider } from './context/work-queue-context'
 import { Loader2 } from 'lucide-react'
 
 function ModulePlaceholder() {
@@ -62,33 +64,36 @@ function MainContent() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col dark:bg-slate-950 font-sans">
-      {/* Top Navigation Header */}
-      <Header onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
+    <WorkQueueProvider>
+      <div className="min-h-screen bg-slate-100 flex flex-col dark:bg-slate-950 font-sans">
+        {/* Top Navigation Header */}
+        <Header onOpenCommandPalette={() => setIsCommandPaletteOpen(true)} />
 
-      {/* Middle Body Layout: Sidebar + Main Workspace */}
-      <div className="flex-1 flex overflow-hidden">
-        <Sidebar />
+        {/* Middle Body Layout: Sidebar + Main Workspace */}
+        <div className="flex-1 flex overflow-hidden">
+          <Sidebar />
 
-        <main className="flex-1 p-6 overflow-y-auto w-full">
-          <Routes>
-            <Route path="/" element={<Navigate to="/card-programmes" replace />} />
-            <Route path="/card-programmes/*" element={<CardProgrammesPage currentUser={currentUser} />} />
-            <Route path="/card-segments/*" element={<CardSegmentsPage currentUser={currentUser} />} />
-            <Route path="*" element={<ModulePlaceholder />} />
-          </Routes>
-        </main>
+          <main className="flex-1 p-6 overflow-y-auto w-full">
+            <Routes>
+              <Route path="/" element={<Navigate to="/card-programmes" replace />} />
+              <Route path="/card-programmes/*" element={<CardProgrammesPage currentUser={currentUser} />} />
+              <Route path="/card-segments/*" element={<CardSegmentsPage currentUser={currentUser} />} />
+              <Route path="/maker-checker/*" element={<MakerCheckerPage currentUser={currentUser} />} />
+              <Route path="*" element={<ModulePlaceholder />} />
+            </Routes>
+          </main>
+        </div>
+
+        {/* Status Bar Footer */}
+        <Footer />
+
+        {/* Global Ctrl+K Command Search Overlay */}
+        <CommandPalette
+          isOpen={isCommandPaletteOpen}
+          onClose={() => setIsCommandPaletteOpen(false)}
+        />
       </div>
-
-      {/* Status Bar Footer */}
-      <Footer />
-
-      {/* Global Ctrl+K Command Search Overlay */}
-      <CommandPalette
-        isOpen={isCommandPaletteOpen}
-        onClose={() => setIsCommandPaletteOpen(false)}
-      />
-    </div>
+    </WorkQueueProvider>
   )
 }
 

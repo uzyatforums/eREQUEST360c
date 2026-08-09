@@ -11,8 +11,9 @@ from src.models import (
     WorkItemRead,
     WorkItemPayloadRead,
     WorkItemActionRead,
+    PendingCountResponse,
 )
-from src.api.auth import get_current_user
+from src.api.auth import get_current_user, require_permission
 from src.api.maker_checker_service import MakerCheckerService
 
 router = APIRouter(prefix="/maker-checker", tags=["maker-checker"])
@@ -30,6 +31,19 @@ def submit_request(
     current_user: UserInfo = Depends(get_current_user),
 ):
     return MakerCheckerService.submit(db, current_user, payload)
+
+
+@router.get(
+    "/pending/count",
+    response_model=PendingCountResponse,
+    summary="Retrieve pending work item count for tenant",
+)
+def get_pending_count(
+    db: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    count = MakerCheckerService.count_pending(db, current_user)
+    return PendingCountResponse(count=count)
 
 
 @router.get(
@@ -94,6 +108,7 @@ def approve_request(
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    require_permission(db, current_user, "request.approve")
     remarks = action_req.remarks if action_req else None
     return MakerCheckerService.approve(db, current_user, id, remarks)
 
@@ -109,6 +124,7 @@ def reject_request(
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    require_permission(db, current_user, "request.approve")
     remarks = action_req.remarks if action_req else None
     return MakerCheckerService.reject(db, current_user, id, remarks)
 

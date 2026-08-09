@@ -114,6 +114,13 @@ export const apiService = {
   },
 
   /**
+   * Fetches active IAM permissions for current user from /auth/permissions.
+   */
+  async getIAMPermissions(): Promise<IAMPermission[]> {
+    return apiClient<IAMPermission[]>('/auth/permissions')
+  },
+
+  /**
    * Fetches card types from /config/card-types.
    */
   async getCardTypes(): Promise<CardType[]> {
@@ -228,42 +235,53 @@ export const apiService = {
     ]
   },
 
-  /**
-   * Creates a card programme via POST /config/card-programmes.
-   */
-  async createCardProgramme(payload: Partial<CardProgramme>, tenantId: number = 100): Promise<CardProgramme> {
-    const res = await apiClient<CardProgramme>('/config/card-programmes', {
+  async createCardProgramme(payload: Partial<CardProgramme>, tenantId: number = 1): Promise<any> {
+    return apiClient<any>('/config/card-programmes', {
       method: 'POST',
       body: JSON.stringify({
         client_id: tenantId,
         ...payload,
       }),
     })
-    return { ...payload, ...res }
   },
 
   /**
    * Updates a card programme via PUT /config/card-programmes/{id}.
    */
-  async updateCardProgramme(id: number, payload: Partial<CardProgramme>): Promise<CardProgramme> {
-    const res = await apiClient<CardProgramme>(`/config/card-programmes/${id}`, {
+  async updateCardProgramme(id: number, payload: Partial<CardProgramme>): Promise<any> {
+    return apiClient<any>(`/config/card-programmes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     })
-    return { ...payload, ...res, id }
+  },
+
+  /**
+   * Activates a card programme via POST /config/card-programmes/{id}/activate.
+   */
+  async activateCardProgramme(id: number): Promise<any> {
+    return apiClient<any>(`/config/card-programmes/${id}/activate`, {
+      method: 'POST',
+    })
+  },
+
+  /**
+   * Deactivates a card programme via POST /config/card-programmes/{id}/deactivate.
+   */
+  async deactivateCardProgramme(id: number): Promise<any> {
+    return apiClient<any>(`/config/card-programmes/${id}/deactivate`, {
+      method: 'POST',
+    })
   },
 
   /**
    * Toggles card programme active status.
    */
-  async toggleCardProgrammeStatus(id: number, active: boolean, currentItem?: CardProgramme): Promise<CardProgramme> {
-    const payload: Partial<CardProgramme> = {
-      card_programme_code: currentItem?.card_programme_code || '',
-      card_programme_name: currentItem?.card_programme_name || '',
-      card_type: currentItem?.card_type || 'VERVE',
-      active,
+  async toggleCardProgrammeStatus(id: number, active: boolean, currentItem?: CardProgramme): Promise<any> {
+    if (active) {
+      return this.activateCardProgramme(id)
+    } else {
+      return this.deactivateCardProgramme(id)
     }
-    return this.updateCardProgramme(id, payload)
   },
 
   /**
@@ -286,8 +304,17 @@ export const apiService = {
   // CARD SEGMENTS API (SCR-004)
   // ==========================================
 
-  async getCardSegments(): Promise<import('../types').CardSegment[]> {
-    return apiClient<import('../types').CardSegment[]>('/config/card-segments')
+  async getCardSegments(params?: { active?: boolean; q?: string }): Promise<import('../types').CardSegment[]> {
+    const queryParams = new URLSearchParams()
+    if (params?.active !== undefined) {
+      queryParams.append('active', String(params.active))
+    }
+    if (params?.q) {
+      queryParams.append('q', params.q)
+    }
+    const queryString = queryParams.toString()
+    const url = `/config/card-segments${queryString ? `?${queryString}` : ''}`
+    return apiClient<import('../types').CardSegment[]>(url)
   },
 
   async getCardSegmentById(id: number): Promise<import('../types').CardSegment> {
@@ -341,6 +368,44 @@ export const apiService = {
     return apiClient<any>(`/config/card-segments/${segmentId}/programmes/reorder`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    })
+  },
+
+  // ==========================================
+  // MAKER / CHECKER WORK QUEUE API
+  // ==========================================
+
+  async getPendingWorkItemCount(): Promise<{ count: number }> {
+    return apiClient<{ count: number }>('/maker-checker/pending/count')
+  },
+
+  async getPendingWorkItems(): Promise<import('../types').WorkItemRead[]> {
+    return apiClient<import('../types').WorkItemRead[]>('/maker-checker/pending')
+  },
+
+  async getWorkItemById(id: number): Promise<import('../types').WorkItemRead> {
+    return apiClient<import('../types').WorkItemRead>(`/maker-checker/${id}`)
+  },
+
+  async getWorkItemPayload(id: number): Promise<import('../types').WorkItemPayloadRead> {
+    return apiClient<import('../types').WorkItemPayloadRead>(`/maker-checker/${id}/payload`)
+  },
+
+  async getWorkItemHistory(id: number): Promise<import('../types').WorkItemActionRead[]> {
+    return apiClient<import('../types').WorkItemActionRead[]>(`/maker-checker/${id}/history`)
+  },
+
+  async approveWorkItem(id: number, remarks?: string): Promise<import('../types').WorkItemRead> {
+    return apiClient<import('../types').WorkItemRead>(`/maker-checker/${id}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ remarks }),
+    })
+  },
+
+  async rejectWorkItem(id: number, remarks?: string): Promise<import('../types').WorkItemRead> {
+    return apiClient<import('../types').WorkItemRead>(`/maker-checker/${id}/reject`, {
+      method: 'POST',
+      body: JSON.stringify({ remarks }),
     })
   },
 }

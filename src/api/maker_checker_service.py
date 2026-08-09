@@ -4,7 +4,9 @@ import time
 from datetime import datetime
 from typing import Optional, Any
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError, OperationalError, DatabaseError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import FlushError
 
 from src.db_models import MakerCheckerWorkItem, MakerCheckerWorkItemPayload, MakerCheckerWorkItemAction
 from src.models import (
@@ -12,6 +14,7 @@ from src.models import (
     MakerCheckerSubmitRequest,
     MakerCheckerResubmitRequest,
 )
+from src.api.auth import require_permission
 from src.api.maker_checker_repository import MakerCheckerRepository
 from src.api.maker_checker_constants import (
     WorkItemStatus,
@@ -19,6 +22,8 @@ from src.api.maker_checker_constants import (
     IGNORED_CHANGE_SUMMARY_FIELDS,
     TRANSITION_MAP,
 )
+from src.api.entity_execution_dispatcher import EntityExecutionDispatcher
+import src.api.entity_executors  # Ensure executors are registered
 
 logger = logging.getLogger("maker_checker")
 if not logger.handlers:
@@ -97,6 +102,16 @@ class MakerCheckerService:
                 detail=f"Invalid or inactive entity_type_code ('{req.entity_type_code}') or operation_code ('{req.operation_code}')",
             )
 
+        # Generic Protection: Ensure at most ONE PENDING work item exists for an entity
+        if req.entity_id and req.entity_id > 0:
+            if MakerCheckerRepository.has_pending_for_entity(
+                db, user.client_id, req.entity_type_code, req.entity_id
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="A pending configuration change already exists for this entity.",
+                )
+
         before_str: Optional[str] = None
         if req.before_payload is not None:
             before_str = (
@@ -151,9 +166,19 @@ class MakerCheckerService:
                 f"operation={req.operation_code}, transition=NONE->PENDING, duration_ms={duration_ms:.2f}"
             )
             return work_item
+        except (IntegrityError, FlushError, OperationalError, DatabaseError):
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A pending configuration change already exists for this entity.",
+            )
         except Exception:
             db.rollback()
             raise
+
+    @staticmethod
+    def count_pending(db: Session, user: UserInfo) -> int:
+        return MakerCheckerRepository.count_pending(db, user.client_id)
 
     @staticmethod
     def get_pending(db: Session, user: UserInfo) -> list[MakerCheckerWorkItem]:
@@ -216,6 +241,9 @@ class MakerCheckerService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Unsupported transition operation '{operation_code}'",
             )
+
+        if operation_code in (WorkItemOperation.APPROVE, WorkItemOperation.REJECT):
+            require_permission(db, user, "request.approve")
 
         work_item = MakerCheckerRepository.get_work_item_by_id(
             db, work_item_id, user.client_id, lock_for_update=True
@@ -290,6 +318,16 @@ class MakerCheckerService:
         )
 
         try:
+            # If operation is APPROVE, dispatch payload to domain entity executor before commit
+            if operation_code == WorkItemOperation.APPROVE:
+                payload = MakerCheckerRepository.get_payload_by_work_item_id(db, work_item.id)
+                EntityExecutionDispatcher.dispatch(
+                    db=db,
+                    work_item=work_item,
+                    payload=payload,
+                    checker_user_id=user.user_id,
+                )
+
             db.commit()
             db.refresh(work_item)
             duration_ms = (time.perf_counter() - start_time) * 1000

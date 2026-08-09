@@ -192,3 +192,39 @@ def test_programme_assignment_and_reorder_and_unassign():
     progs3 = res_list3.json()
     p901_3 = next(p for p in progs3 if p["card_programme_id"] == 901)
     assert p901_3["priority"] == 1
+
+
+def test_list_card_segments_active_filter():
+    headers = get_auth_header()
+
+    # Create active segment
+    client.post("/config/card-segments", json={"segment_code": "ACT1", "segment_name": "Active Filter Segment", "priority": 10}, headers=headers)
+
+    # Create another segment and deactivate it directly in DB
+    db = SessionLocal()
+    inact_seg = CardSegment(client_id=1, segment_code="INACT1", segment_name="Inactive Filter Segment", priority=11, active=False, created_by="test")
+    db.add(inact_seg)
+    db.commit()
+    db.close()
+
+    # 1. Default (active parameter omitted) -> Returns ALL segments (both active and inactive)
+    res_all = client.get("/config/card-segments", headers=headers)
+    assert res_all.status_code == 200
+    all_codes = [s["segment_code"] for s in res_all.json()]
+    assert "ACT1" in all_codes
+    assert "INACT1" in all_codes
+
+    # 2. active=true -> Returns active segments only
+    res_act = client.get("/config/card-segments?active=true", headers=headers)
+    assert res_act.status_code == 200
+    act_codes = [s["segment_code"] for s in res_act.json()]
+    assert "ACT1" in act_codes
+    assert "INACT1" not in act_codes
+
+    # 3. active=false -> Returns inactive segments only
+    res_inact = client.get("/config/card-segments?active=false", headers=headers)
+    assert res_inact.status_code == 200
+    inact_codes = [s["segment_code"] for s in res_inact.json()]
+    assert "INACT1" in inact_codes
+    assert "ACT1" not in inact_codes
+

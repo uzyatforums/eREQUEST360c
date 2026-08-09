@@ -5,6 +5,7 @@ import { apiService } from '../services/api'
 import { useToast } from '../components/ui/toast'
 import { Dialog } from '../components/ui/dialog'
 import { Loader2 } from 'lucide-react'
+import { useWorkQueue } from '../context/work-queue-context'
 
 // Page Components
 import { CardProgrammesList } from './card-programmes/card-programmes-list'
@@ -162,6 +163,7 @@ const ChildWorkspaceWrapper: React.FC<{
 
 export const CardProgrammesPage: React.FC<CardProgrammesPageProps> = ({ currentUser }) => {
   const { toast } = useToast()
+  const { refreshPendingCount } = useWorkQueue()
   const [programmes, setProgrammes] = React.useState<CardProgramme[]>([])
   const [cardTypes, setCardTypes] = React.useState<CardType[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
@@ -207,31 +209,22 @@ export const CardProgrammesPage: React.FC<CardProgrammesPageProps> = ({ currentU
     if (!toggleItem) return
     setIsToggling(true)
     try {
-      if (isMakerOnly) {
-        const workItem = await apiService.submitMakerCheckerWorkItem({
-          entity_type: 'card_programmes',
-          entity_id: toggleItem.id,
-          operation: 'UPDATE',
-          maker_remarks: toggleRemarks || `Toggle status to ${!toggleItem.active} for ${toggleItem.card_programme_name}`,
-          payload: {
-            ...toggleItem,
-            active: !toggleItem.active,
-          },
-        })
+      const res = await apiService.toggleCardProgrammeStatus(toggleItem.id, !toggleItem.active, toggleItem)
+      if (res && res.status === 'PENDING_APPROVAL') {
         toast({
-          title: 'Maker-Checker Item Submitted',
-          description: `Status change for '${toggleItem.card_programme_name}' submitted for review (Work Item #${workItem.work_item_id}).`,
+          title: 'Submitted for Approval',
+          description: `Status change for '${toggleItem.card_programme_name}' submitted for review (Work Item #${res.work_item_id}).`,
           variant: 'info',
         })
       } else {
-        const updated = await apiService.toggleCardProgrammeStatus(toggleItem.id, !toggleItem.active, toggleItem)
         toast({
-          title: updated.active ? 'Card Programme Activated' : 'Card Programme Deactivated',
-          description: `Programme '${updated.card_programme_name}' is now ${updated.active ? 'active' : 'inactive'}.`,
-          variant: updated.active ? 'success' : 'info',
+          title: !toggleItem.active ? 'Card Programme Activated' : 'Card Programme Deactivated',
+          description: `Programme '${toggleItem.card_programme_name}' status change requested.`,
+          variant: 'success',
         })
-        fetchProgrammes()
       }
+      fetchProgrammes()
+      await refreshPendingCount()
     } catch (err: any) {
       toast({
         title: 'Status Update Failed',

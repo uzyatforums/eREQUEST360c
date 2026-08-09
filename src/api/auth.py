@@ -192,6 +192,31 @@ def get_iam_permissions(
     return db.query(Permission).filter(Permission.permission_code.in_(codes), Permission.active == True).all()
 
 
+def user_has_permission(db: Session, current_user: UserInfo, permission_code: str) -> bool:
+    if "super_admin" in current_user.roles:
+        return True
+    if not current_user.roles:
+        return False
+    count = (
+        db.query(RolePermission.permission_code)
+        .filter(
+            RolePermission.role_code.in_(current_user.roles),
+            RolePermission.permission_code == permission_code,
+            RolePermission.active == True,
+        )
+        .count()
+    )
+    return count > 0
+
+
+def require_permission(db: Session, current_user: UserInfo, permission_code: str):
+    if not user_has_permission(db, current_user, permission_code):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Permission denied: Requires '{permission_code}' permission",
+        )
+
+
 users_router = APIRouter(prefix="/users", tags=["users"])
 
 

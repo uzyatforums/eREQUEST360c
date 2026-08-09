@@ -59,6 +59,8 @@ def seed_data(db: Session):
         {"role_code": "branch_authorizer", "role_name": "Branch Authorizer", "description": "Branch level request authorizer", "is_maker": False, "is_checker": True, "role_scope": "BRANCH"},
         {"role_code": "operations_admin_maker", "role_name": "Operations Admin Maker", "description": "Operations maker", "is_maker": True, "is_checker": False, "role_scope": "HEAD_OFFICE"},
         {"role_code": "operations_admin_checker", "role_name": "Operations Admin Checker", "description": "Operations checker", "is_maker": False, "is_checker": True, "role_scope": "HEAD_OFFICE"},
+        {"role_code": "control_maker", "role_name": "Control Maker", "description": "Control Maker Profile for Configuration Workflows", "is_maker": True, "is_checker": False, "role_scope": "HEAD_OFFICE"},
+        {"role_code": "control_checker", "role_name": "Control Checker", "description": "Control Checker Profile for Configuration Workflows", "is_maker": False, "is_checker": True, "role_scope": "HEAD_OFFICE"},
         {"role_code": "super_admin", "role_name": "Super Admin", "description": "Super admin access", "is_maker": True, "is_checker": True, "role_scope": "HEAD_OFFICE"},
     ]
     roles_added = 0
@@ -149,6 +151,15 @@ def seed_data(db: Session):
         {"role_code": "operations_admin_checker", "permission_code": "request.approve"},
         {"role_code": "operations_admin_checker", "permission_code": "request.view"},
         {"role_code": "operations_admin_checker", "permission_code": "config.manage"},
+        # control_maker
+        {"role_code": "control_maker", "permission_code": "config.view"},
+        {"role_code": "control_maker", "permission_code": "config.manage"},
+        {"role_code": "control_maker", "permission_code": "request.create"},
+        {"role_code": "control_maker", "permission_code": "request.view"},
+        # control_checker
+        {"role_code": "control_checker", "permission_code": "config.view"},
+        {"role_code": "control_checker", "permission_code": "request.approve"},
+        {"role_code": "control_checker", "permission_code": "request.view"},
     ]
     rp_added = 0
     for rp in role_perms:
@@ -167,7 +178,7 @@ def seed_data(db: Session):
     users = [
         {
             "user_id": "admin",
-            "client_id": apex_tenant_id,
+            "client_id": sys_tenant_id,
             "branch_id": "001",
             "username": "admin",
             "email": "admin@apexmfb.com",
@@ -178,7 +189,7 @@ def seed_data(db: Session):
         },
         {
             "user_id": "submitter1",
-            "client_id": apex_tenant_id,
+            "client_id": sys_tenant_id,
             "branch_id": "001",
             "username": "submitter1",
             "email": "sub1@apexmfb.com",
@@ -189,12 +200,34 @@ def seed_data(db: Session):
         },
         {
             "user_id": "authorizer1",
-            "client_id": apex_tenant_id,
+            "client_id": sys_tenant_id,
             "branch_id": "001",
             "username": "authorizer1",
             "email": "auth1@apexmfb.com",
             "password_hash": hash_password("password123"),
             "role_code": "branch_authorizer",
+            "active": True,
+            "created_by": "system",
+        },
+        {
+            "user_id": "controlm",
+            "client_id": sys_tenant_id,
+            "branch_id": "001",
+            "username": "controlm",
+            "email": "controlm@apexmfb.com",
+            "password_hash": hash_password("password123"),
+            "role_code": "control_maker",
+            "active": True,
+            "created_by": "system",
+        },
+        {
+            "user_id": "controlc",
+            "client_id": sys_tenant_id,
+            "branch_id": "001",
+            "username": "controlc",
+            "email": "controlc@apexmfb.com",
+            "password_hash": hash_password("password123"),
+            "role_code": "control_checker",
             "active": True,
             "created_by": "system",
         }

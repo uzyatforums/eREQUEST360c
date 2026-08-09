@@ -14,6 +14,7 @@ import {
   Coins,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
+import { useWorkQueue } from '../../context/work-queue-context'
 
 interface SidebarProps {
   activeRoute?: string
@@ -23,6 +24,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => {
   const location = useLocation()
   const navigate = useNavigate()
+  const { pendingCount } = useWorkQueue()
   const [configOpen, setConfigOpen] = React.useState(true)
 
   const currentPath = location.pathname || activeRoute || '/card-programmes'
@@ -35,8 +37,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
   }
 
   const isRouteActive = (route: string) => {
-    if (route === '/card-programmes') {
-      return currentPath.startsWith('/card-programmes')
+    if (route === '/card-programmes' || route === '/card-segments' || route === '/maker-checker') {
+      return currentPath.startsWith(route)
     }
     return currentPath === route
   }
@@ -48,7 +50,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
       label: 'Maker-Checker Queue',
       route: '/maker-checker',
       icon: ShieldCheck,
-      badge: '2',
+      badge: pendingCount > 0 ? String(pendingCount) : undefined,
     },
   ]
 

@@ -14,8 +14,10 @@ import {
   ShieldAlert,
   ChevronRight,
   CheckCircle2,
+  Clock,
 } from 'lucide-react'
 import { CardProgramme, UserInfo } from '../../types'
+import { apiService } from '../../services/api'
 import { PageHeader } from '../../components/shared/page-header'
 import { StatusBadge } from '../../components/ui/status-badge'
 import { Button } from '../../components/ui/button'
@@ -41,9 +43,32 @@ export const CardProgrammeDetails: React.FC<CardProgrammeDetailsProps> = ({
 }) => {
   const navigate = useNavigate()
 
-  const canManage = currentUser.roles.some((r) =>
-    ['super_admin', 'operations_admin_maker', 'operations_admin_checker'].includes(r)
-  )
+  const [canManage, setCanManage] = React.useState<boolean>(false)
+
+  React.useEffect(() => {
+    let mounted = true
+    apiService
+      .getIAMPermissions()
+      .then((perms) => {
+        if (mounted) {
+          const hasManage = perms.some((p) => p.permission_code === 'config.manage')
+          const isSuperAdmin = currentUser.roles.includes('super_admin')
+          setCanManage(hasManage || isSuperAdmin)
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setCanManage(
+            currentUser.roles.some((r) =>
+              ['super_admin', 'control_maker', 'operations_admin_maker', 'operations_admin_checker'].includes(r)
+            )
+          )
+        }
+      })
+    return () => {
+      mounted = false
+    }
+  }, [currentUser.roles])
 
   const handleEdit = () => {
     if (onEdit) onEdit()
@@ -95,6 +120,23 @@ export const CardProgrammeDetails: React.FC<CardProgrammeDetailsProps> = ({
         ]}
       />
 
+      {/* Pending Change Banner */}
+      {programme.has_pending_change && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-center justify-between gap-4 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <Clock className="h-5 w-5 text-amber-600 animate-pulse shrink-0" />
+            <div>
+              <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                Pending Approval Protection Active (Work Item #{programme.pending_work_item_id})
+              </h4>
+              <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                A {programme.pending_operation_code || 'configuration'} request is currently awaiting Checker review. Further mutations are disabled until approved or rejected.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header with Actions */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-6 shadow-2xs">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -127,20 +169,38 @@ export const CardProgrammeDetails: React.FC<CardProgrammeDetailsProps> = ({
           <div className="flex flex-wrap items-center gap-2.5">
             {canManage && (
               <>
-                <Tooltip content="Edit Card Programme Specification">
-                  <Button variant="primary" size="sm" onClick={handleEdit} className="gap-1.5 text-xs">
-                    <Edit2 className="h-3.5 w-3.5" />
-                    Edit Card Programme
-                  </Button>
-                </Tooltip>
-
-                {onToggleActive && (
-                  <Tooltip content={programme.active ? 'Deactivate Card Programme' : 'Activate Card Programme'}>
-                    <Button variant="secondary" size="sm" onClick={onToggleActive} className="gap-1.5 text-xs">
-                      {programme.active ? <ToggleLeft className="h-3.5 w-3.5 text-amber-600" /> : <ToggleRight className="h-3.5 w-3.5 text-emerald-600" />}
-                      {programme.active ? 'Deactivate' : 'Activate'}
+                {programme.has_pending_change ? (
+                  <Tooltip content={`A pending change (Work Item #${programme.pending_work_item_id}) is awaiting approval`}>
+                    <Button variant="primary" size="sm" disabled className="gap-1.5 text-xs opacity-50 cursor-not-allowed">
+                      <Edit2 className="h-3.5 w-3.5" />
+                      Edit Card Programme
                     </Button>
                   </Tooltip>
+                ) : (
+                  <Tooltip content="Edit Card Programme Specification">
+                    <Button variant="primary" size="sm" onClick={handleEdit} className="gap-1.5 text-xs">
+                      <Edit2 className="h-3.5 w-3.5" />
+                      Edit Card Programme
+                    </Button>
+                  </Tooltip>
+                )}
+
+                {onToggleActive && (
+                  programme.has_pending_change ? (
+                    <Tooltip content={`A pending change (Work Item #${programme.pending_work_item_id}) is awaiting approval`}>
+                      <Button variant="secondary" size="sm" disabled className="gap-1.5 text-xs opacity-50 cursor-not-allowed">
+                        <Clock className="h-3.5 w-3.5 text-amber-500" />
+                        Pending Approval
+                      </Button>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip content={programme.active ? 'Deactivate Card Programme' : 'Activate Card Programme'}>
+                      <Button variant="secondary" size="sm" onClick={onToggleActive} className="gap-1.5 text-xs">
+                        {programme.active ? <ToggleLeft className="h-3.5 w-3.5 text-amber-600" /> : <ToggleRight className="h-3.5 w-3.5 text-emerald-600" />}
+                        {programme.active ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    </Tooltip>
+                  )
                 )}
               </>
             )}

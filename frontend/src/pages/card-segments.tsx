@@ -10,6 +10,7 @@ import {
   ArrowUp,
   ArrowDown,
   Info,
+  Clock,
 } from 'lucide-react'
 import { CardSegment, CardSegmentProgrammeRead, CardProgramme, UserInfo } from '../types'
 import { apiService } from '../services/api'
@@ -22,6 +23,8 @@ import { Input } from '../components/ui/input'
 import { Select } from '../components/ui/select'
 import { useToast } from '../components/ui/toast'
 import { SortableHeader, SortOrder } from '../components/ui/sortable-header'
+import { useWorkQueue } from '../context/work-queue-context'
+import { Dialog } from '../components/ui/dialog'
 
 export interface CardSegmentsPageProps {
   currentUser: UserInfo
@@ -29,10 +32,12 @@ export interface CardSegmentsPageProps {
 
 export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser }) => {
   const { toast } = useToast()
+  const { refreshPendingCount } = useWorkQueue()
 
   const [segments, setSegments] = React.useState<CardSegment[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [searchQuery, setSearchQuery] = React.useState('')
+  const [activeFilter, setActiveFilter] = React.useState<'all' | 'active' | 'inactive'>('all')
 
   // Sorting
   const [sortField, setSortField] = React.useState<string | null>('priority')
@@ -49,29 +54,62 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
   // Inspector Drawer
   const [inspectingSegment, setInspectingSegment] = React.useState<CardSegment | null>(null)
 
+  // Confirmation Modal state for Toggle Active
+  const [toggleSegment, setToggleSegment] = React.useState<CardSegment | null>(null)
+  const [isToggling, setIsToggling] = React.useState(false)
+
+  // Permission state
+  const [canManage, setCanManage] = React.useState<boolean>(false)
+
+  React.useEffect(() => {
+    let mounted = true
+    apiService
+      .getIAMPermissions()
+      .then((perms) => {
+        if (mounted) {
+          const hasManage = perms.some((p) => p.permission_code === 'config.manage')
+          const isSuperAdmin = currentUser.roles.includes('super_admin')
+          setCanManage(hasManage || isSuperAdmin)
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setCanManage(
+            currentUser.roles.some((r) =>
+              ['super_admin', 'control_maker', 'operations_admin_maker', 'operations_admin_checker'].includes(r)
+            )
+          )
+        }
+      })
+    return () => {
+      mounted = false
+    }
+  }, [currentUser])
+
   // Programme Assignment Drawer
   const [managingSegment, setManagingSegment] = React.useState<CardSegment | null>(null)
   const [assignedProgrammes, setAssignedProgrammes] = React.useState<CardSegmentProgrammeRead[]>([])
   const [availableProgrammes, setAvailableProgrammes] = React.useState<CardProgramme[]>([])
   const [selectedProgrammeId, setSelectedProgrammeId] = React.useState<string>('')
-  const [assignDescription, setAssignDescription] = React.useState<string>('')
+  const [assignDescription, setAssignDescription] = React.useState('')
   const [isAssigning, setIsAssigning] = React.useState(false)
 
   const fetchSegments = React.useCallback(async () => {
     setIsLoading(true)
     try {
-      const data = await apiService.getCardSegments()
+      const activeParam = activeFilter === 'active' ? true : activeFilter === 'inactive' ? false : undefined
+      const data = await apiService.getCardSegments({ active: activeParam })
       setSegments(data)
     } catch {
       toast({
-        title: 'Error Loading Segments',
-        description: 'Failed to retrieve card segments master list.',
+        title: 'Error',
+        description: 'Failed to load card segments.',
         variant: 'destructive',
       })
     } finally {
       setIsLoading(false)
     }
-  }, [toast])
+  }, [activeFilter, toast])
 
   React.useEffect(() => {
     fetchSegments()
@@ -192,6 +230,7 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
       }
       setIsFormDrawerOpen(false)
       fetchSegments()
+      await refreshPendingCount()
     } catch (err: any) {
       toast({
         title: 'Save Failed',
@@ -203,31 +242,37 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
     }
   }
 
-  // Toggle Activate / Deactivate
-  const handleToggleActive = async (seg: CardSegment) => {
+  // Confirm Toggle Activate / Deactivate Handler
+  const handleConfirmToggle = async () => {
+    if (!toggleSegment) return
+    setIsToggling(true)
     try {
-      if (seg.active) {
-        const res = await apiService.deactivateCardSegment(seg.id)
+      if (toggleSegment.active) {
+        const res = await apiService.deactivateCardSegment(toggleSegment.id)
         if (res.status === 'PENDING_APPROVAL') {
           toast({ title: 'Submitted for Approval', description: `Deactivation submitted.` })
         } else {
-          toast({ title: 'Segment Deactivated', description: `Deactivated '${seg.segment_code}'.` })
+          toast({ title: 'Segment Deactivated', description: `Deactivated '${toggleSegment.segment_code}'.` })
         }
       } else {
-        const res = await apiService.activateCardSegment(seg.id)
+        const res = await apiService.activateCardSegment(toggleSegment.id)
         if (res.status === 'PENDING_APPROVAL') {
           toast({ title: 'Submitted for Approval', description: `Activation submitted.` })
         } else {
-          toast({ title: 'Segment Activated', description: `Activated '${seg.segment_code}'.` })
+          toast({ title: 'Segment Activated', description: `Activated '${toggleSegment.segment_code}'.` })
         }
       }
       fetchSegments()
+      await refreshPendingCount()
     } catch (err: any) {
       toast({
         title: 'Status Update Failed',
         description: err.message || 'Could not update segment status.',
         variant: 'destructive',
       })
+    } finally {
+      setIsToggling(false)
+      setToggleSegment(null)
     }
   }
 
@@ -277,6 +322,7 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
       setAssignDescription('')
       fetchAssignedProgrammes(managingSegment.id)
       fetchSegments()
+      await refreshPendingCount()
     } catch (err: any) {
       toast({
         title: 'Assignment Failed',
@@ -299,6 +345,7 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
       }
       fetchAssignedProgrammes(managingSegment.id)
       fetchSegments()
+      await refreshPendingCount()
     } catch (err: any) {
       toast({
         title: 'Removal Failed',
@@ -316,6 +363,7 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
         direction,
       })
       fetchAssignedProgrammes(managingSegment.id)
+      await refreshPendingCount()
     } catch (err: any) {
       toast({
         title: 'Reorder Failed',
@@ -347,24 +395,41 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
               <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
-            <Button variant="primary" size="sm" onClick={handleOpenCreate}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Card Segment
-            </Button>
+            {canManage && (
+              <Button variant="primary" size="sm" onClick={handleOpenCreate}>
+                <Plus className="w-4 h-4 mr-2" />
+                New Card Segment
+              </Button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Control Bar: Search & Stats */}
+      {/* Control Bar: Search & Status Filter & Stats */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card p-4 rounded-xl border shadow-sm">
-        <div className="relative w-full sm:w-80">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search segment code or name..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search segment code or name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Status:</span>
+            <Select
+              value={activeFilter}
+              onChange={(e) => setActiveFilter(e.target.value as 'all' | 'active' | 'inactive')}
+              className="w-32 text-xs"
+              options={[
+                { label: 'All', value: 'all' },
+                { label: 'Active', value: 'active' },
+                { label: 'Inactive', value: 'inactive' },
+              ]}
+            />
+          </div>
         </div>
         <div className="flex items-center gap-6 text-sm text-muted-foreground w-full sm:w-auto justify-end">
           <div>
@@ -372,6 +437,9 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
           </div>
           <div>
             Active: <span className="font-semibold text-emerald-600">{segments.filter((s) => s.active).length}</span>
+          </div>
+          <div>
+            Inactive: <span className="font-semibold text-amber-600">{segments.filter((s) => !s.active).length}</span>
           </div>
         </div>
       </div>
@@ -430,7 +498,17 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
                       </Button>
                     </td>
                     <td className="px-4 py-3">
-                      <StatusBadge status={seg.active ? 'ACTIVE' : 'INACTIVE'} />
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={seg.active ? 'ACTIVE' : 'INACTIVE'} />
+                        {seg.has_pending_change && (
+                          <Tooltip content={`Pending approval: ${seg.pending_operation_code || 'Change'} (Work Item #${seg.pending_work_item_id})`}>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300">
+                              <Clock className="w-3 h-3 mr-1 animate-pulse" />
+                              Pending
+                            </span>
+                          </Tooltip>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -445,18 +523,33 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
                           </Button>
                         </Tooltip>
 
-                        <Tooltip content="Edit Card Segment">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                            onClick={() => handleOpenEdit(seg)}
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                        </Tooltip>
+                        {canManage && (
+                          seg.has_pending_change ? (
+                            <Tooltip content={`A pending change (Work Item #${seg.pending_work_item_id}) is awaiting approval`}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled
+                                className="h-8 w-8 text-muted-foreground opacity-50 cursor-not-allowed"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                            </Tooltip>
+                          ) : (
+                            <Tooltip content="Edit Card Segment">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                onClick={() => handleOpenEdit(seg)}
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                            </Tooltip>
+                          )
+                        )}
 
-                        <Tooltip content="Manage Card Programmes">
+                        <Tooltip content={canManage ? "Manage Card Programmes" : "View Card Programmes"}>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -467,16 +560,31 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
                           </Button>
                         </Tooltip>
 
-                        <Tooltip content={seg.active ? 'Deactivate Segment' : 'Activate Segment'}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className={`h-8 w-8 ${seg.active ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
-                            onClick={() => handleToggleActive(seg)}
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </Button>
-                        </Tooltip>
+                        {canManage && (
+                          seg.has_pending_change ? (
+                            <Tooltip content={`A pending change (Work Item #${seg.pending_work_item_id}) is awaiting approval`}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                disabled
+                                className="h-8 w-8 text-amber-500 opacity-50 cursor-not-allowed"
+                              >
+                                <Clock className="w-4 h-4" />
+                              </Button>
+                            </Tooltip>
+                          ) : (
+                            <Tooltip content={seg.active ? 'Deactivate Segment' : 'Activate Segment'}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className={`h-8 w-8 ${seg.active ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50'}`}
+                                onClick={() => setToggleSegment(seg)}
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </Button>
+                            </Tooltip>
+                          )
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -617,49 +725,51 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
       <Sheet
         isOpen={!!managingSegment}
         onClose={() => setManagingSegment(null)}
-        title={`Programme Selection Assignment: ${managingSegment?.segment_code}`}
-        description={`Manage ordered list of card programmes assigned to '${managingSegment?.segment_name}'. Selection priority determines auto-allocation order for requests.`}
+        title={canManage ? `Programme Selection Assignment: ${managingSegment?.segment_code}` : `Assigned Programmes: ${managingSegment?.segment_code}`}
+        description={canManage ? `Manage ordered list of card programmes assigned to '${managingSegment?.segment_name}'. Selection priority determines auto-allocation order for requests.` : `View ordered list of card programmes assigned to '${managingSegment?.segment_name}'.`}
       >
         {managingSegment && (
           <div className="space-y-6 pt-4 text-sm">
             {/* Add Programme Box */}
-            <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 space-y-3">
-              <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
-                <Plus className="w-4 h-4" /> Assign Card Programme
-              </h4>
-              <div className="space-y-2">
-                <Select
-                  value={selectedProgrammeId}
-                  onChange={(e) => setSelectedProgrammeId(e.target.value)}
-                  options={
-                    availableProgrammes.length > 0
-                      ? availableProgrammes.map((p) => ({
-                          value: String(p.id),
-                          label: `${p.card_programme_code} - ${p.card_programme_name} (${p.card_type})`,
-                        }))
-                      : [{ value: '', label: 'No additional active programmes available' }]
-                  }
-                  disabled={availableProgrammes.length === 0}
-                />
+            {canManage && (
+              <div className="bg-primary/5 p-4 rounded-xl border border-primary/20 space-y-3">
+                <h4 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                  <Plus className="w-4 h-4" /> Assign Card Programme
+                </h4>
+                <div className="space-y-2">
+                  <Select
+                    value={selectedProgrammeId}
+                    onChange={(e) => setSelectedProgrammeId(e.target.value)}
+                    options={
+                      availableProgrammes.length > 0
+                        ? availableProgrammes.map((p) => ({
+                            value: String(p.id),
+                            label: `${p.card_programme_code} - ${p.card_programme_name} (${p.card_type})`,
+                          }))
+                        : [{ value: '', label: 'No additional active programmes available' }]
+                    }
+                    disabled={availableProgrammes.length === 0}
+                  />
 
-                <Input
-                  placeholder="Optional assignment description / notes..."
-                  value={assignDescription}
-                  onChange={(e) => setAssignDescription(e.target.value)}
-                  disabled={availableProgrammes.length === 0}
-                />
+                  <Input
+                    placeholder="Optional assignment description / notes..."
+                    value={assignDescription}
+                    onChange={(e) => setAssignDescription(e.target.value)}
+                    disabled={availableProgrammes.length === 0}
+                  />
 
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="w-full mt-2"
-                  onClick={handleAssignProgramme}
-                  disabled={!selectedProgrammeId || availableProgrammes.length === 0 || isAssigning}
-                >
-                  {isAssigning ? 'Assigning...' : 'Assign Programme to Segment'}
-                </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={handleAssignProgramme}
+                    disabled={!selectedProgrammeId || availableProgrammes.length === 0 || isAssigning}
+                  >
+                    {isAssigning ? 'Assigning...' : 'Assign Programme to Segment'}
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Assigned Programmes List */}
             <div className="space-y-3">
@@ -693,42 +803,44 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1">
-                        <Tooltip content="Move Up Priority">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            onClick={() => handleReorder(item.card_programme_id, 'UP')}
-                            disabled={idx === 0}
-                          >
-                            <ArrowUp className="w-3.5 h-3.5" />
-                          </Button>
-                        </Tooltip>
+                      {canManage && (
+                        <div className="flex items-center gap-1">
+                          <Tooltip content="Move Up Priority">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleReorder(item.card_programme_id, 'UP')}
+                              disabled={idx === 0}
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </Button>
+                          </Tooltip>
 
-                        <Tooltip content="Move Down Priority">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            onClick={() => handleReorder(item.card_programme_id, 'DOWN')}
-                            disabled={idx === assignedProgrammes.length - 1}
-                          >
-                            <ArrowDown className="w-3.5 h-3.5" />
-                          </Button>
-                        </Tooltip>
+                          <Tooltip content="Move Down Priority">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              onClick={() => handleReorder(item.card_programme_id, 'DOWN')}
+                              disabled={idx === assignedProgrammes.length - 1}
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </Button>
+                          </Tooltip>
 
-                        <Tooltip content="Unassign Programme">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-red-600 hover:bg-red-50"
-                            onClick={() => handleRemoveProgramme(item.card_programme_id)}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </Tooltip>
-                      </div>
+                          <Tooltip content="Unassign Programme">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-600 hover:bg-red-50"
+                              onClick={() => handleRemoveProgramme(item.card_programme_id)}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </Tooltip>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -743,6 +855,23 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
           </div>
         )}
       </Sheet>
+
+      {/* Activate / Deactivate Confirmation Dialog */}
+      <Dialog
+        isOpen={!!toggleSegment}
+        onClose={() => setToggleSegment(null)}
+        onConfirm={handleConfirmToggle}
+        title={toggleSegment?.active ? `Deactivate Card Segment ${toggleSegment?.segment_code}?` : `Activate Card Segment ${toggleSegment?.segment_code}?`}
+        description={
+          toggleSegment?.active
+            ? `Are you sure you want to deactivate '${toggleSegment?.segment_name}'? This will submit a deactivation request for review. Deactivating this segment will restrict card allocations.`
+            : `Are you sure you want to activate '${toggleSegment?.segment_name}'? This will submit an activation request for review.`
+        }
+        confirmText={toggleSegment?.active ? 'Deactivate Segment' : 'Activate Segment'}
+        cancelText="Cancel"
+        variant={toggleSegment?.active ? 'destructive' : 'primary'}
+        isLoading={isToggling}
+      />
     </div>
   )
 }

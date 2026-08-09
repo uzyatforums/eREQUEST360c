@@ -46,6 +46,9 @@ export interface CardProgramme {
   segment_count?: number;
   charge_header_count?: number;
   charge_header_name?: string;
+  has_pending_change?: boolean;
+  pending_work_item_id?: number | null;
+  pending_operation_code?: string | null;
 }
 
 export interface CardProgrammeSegment {
@@ -70,6 +73,9 @@ export interface CardSegment {
   last_modified_by?: string | null;
   last_modified_date?: string | null;
   assigned_programmes_count?: number;
+  has_pending_change?: boolean;
+  pending_work_item_id?: number | null;
+  pending_operation_code?: string | null;
 }
 
 export interface CardSegmentProgrammeRead {
@@ -162,4 +168,46 @@ export interface CardProgrammeFormData {
   card_programme_name: string;
   card_type: string;
   active: boolean;
+}
+
+export interface WorkItemRead {
+  id: number;
+  work_item_number: string;
+  client_id: number;
+  entity_type_code: string;
+  entity_id: number;
+  operation_code: string;
+  status_code: string;
+  checker_user_id?: string | null;
+  approved_date?: string | null;
+  rejected_date?: string | null;
+  cancelled_date?: string | null;
+  active: boolean;
+  created_by: string;
+  created_date: string;
+  last_modified_by?: string | null;
+  last_modified_date?: string | null;
+}
+
+export interface WorkItemPayloadRead {
+  work_item_id: number;
+  entity_name?: string | null;
+  before_payload?: string | null;
+  after_payload: string;
+  created_by: string;
+  created_date: string;
+}
+
+export interface WorkItemActionRead {
+  id: number;
+  work_item_id: number;
+  action_sequence: number;
+  operation_code: string;
+  status_code: string;
+  action_by: string;
+  remarks?: string | null;
+  action_date: string;
+  created_by: string;
+  created_date: string;
+  change_summary?: string | null;
 }

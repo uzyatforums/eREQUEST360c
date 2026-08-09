@@ -10,8 +10,10 @@ import {
   ToggleLeft,
   ToggleRight,
   Filter,
+  Clock,
 } from 'lucide-react'
 import { CardProgramme, UserInfo, CardType } from '../../types'
+import { apiService } from '../../services/api'
 import { PageHeader } from '../../components/shared/page-header'
 import { StatusBadge } from '../../components/ui/status-badge'
 import { Button } from '../../components/ui/button'
@@ -145,9 +147,32 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
     getKey: (p) => p.id,
   })
 
-  const canManage = currentUser.roles.some((r) =>
-    ['super_admin', 'operations_admin_maker', 'operations_admin_checker'].includes(r)
-  )
+  const [canManage, setCanManage] = React.useState<boolean>(false)
+
+  React.useEffect(() => {
+    let mounted = true
+    apiService
+      .getIAMPermissions()
+      .then((perms) => {
+        if (mounted) {
+          const hasManage = perms.some((p) => p.permission_code === 'config.manage')
+          const isSuperAdmin = currentUser.roles.includes('super_admin')
+          setCanManage(hasManage || isSuperAdmin)
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setCanManage(
+            currentUser.roles.some((r) =>
+              ['super_admin', 'control_maker', 'operations_admin_maker', 'operations_admin_checker'].includes(r)
+            )
+          )
+        }
+      })
+    return () => {
+      mounted = false
+    }
+  }, [currentUser.roles])
 
   return (
     <div className="space-y-6">
@@ -436,9 +461,19 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
                         #{prog.sequence || prog.id}
                       </td>
 
-                      {/* Status */}
+                      {/* Status & Pending Badge */}
                       <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                        <StatusBadge status={prog.active} />
+                        <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                          <StatusBadge status={prog.active ? 'ACTIVE' : 'INACTIVE'} />
+                          {prog.has_pending_change && (
+                            <Tooltip content={`Pending approval: ${prog.pending_operation_code || 'Change'} (Work Item #${prog.pending_work_item_id})`}>
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300">
+                                <Clock className="w-2.5 h-2.5 mr-1 animate-pulse" />
+                                Pending (#{prog.pending_work_item_id})
+                              </span>
+                            </Tooltip>
+                          )}
+                        </div>
                       </td>
 
                       {/* Segments Count */}
@@ -479,40 +514,73 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
 
                           {canManage && (
                             <>
-                              <Tooltip content="Edit Card Programme">
-                                <button
-                                  onClick={() => handleEdit(prog)}
-                                  className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/60 text-blue-600 dark:text-blue-400 transition-colors"
-                                >
-                                  <Edit2 className="h-3.5 w-3.5" />
-                                </button>
-                              </Tooltip>
+                              {prog.has_pending_change ? (
+                                <Tooltip content={`A pending change (Work Item #${prog.pending_work_item_id}) is awaiting approval`}>
+                                  <button
+                                    disabled
+                                    className="p-1.5 rounded-md text-slate-400 opacity-50 cursor-not-allowed"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </Tooltip>
+                              ) : (
+                                <Tooltip content="Edit Card Programme">
+                                  <button
+                                    onClick={() => handleEdit(prog)}
+                                    className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/60 text-blue-600 dark:text-blue-400 transition-colors"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </Tooltip>
+                              )}
 
-                              <Tooltip content="Copy Specification (Create New)">
-                                <button
-                                  onClick={() => handleCopy(prog)}
-                                  className="p-1.5 rounded-md hover:bg-purple-50 dark:hover:bg-purple-950/60 text-purple-600 dark:text-purple-400 transition-colors"
-                                >
-                                  <Copy className="h-3.5 w-3.5" />
-                                </button>
-                              </Tooltip>
+                              {prog.has_pending_change ? (
+                                <Tooltip content={`A pending change (Work Item #${prog.pending_work_item_id}) is awaiting approval`}>
+                                  <button
+                                    disabled
+                                    className="p-1.5 rounded-md text-slate-400 opacity-50 cursor-not-allowed"
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </button>
+                                </Tooltip>
+                              ) : (
+                                <Tooltip content="Copy Specification (Create New)">
+                                  <button
+                                    onClick={() => handleCopy(prog)}
+                                    className="p-1.5 rounded-md hover:bg-purple-50 dark:hover:bg-purple-950/60 text-purple-600 dark:text-purple-400 transition-colors"
+                                  >
+                                    <Copy className="h-3.5 w-3.5" />
+                                  </button>
+                                </Tooltip>
+                              )}
 
-                              <Tooltip content={prog.active ? 'Deactivate Card Programme' : 'Activate Card Programme'}>
-                                <button
-                                  onClick={() => handleToggleActive(prog)}
-                                  className={`p-1.5 rounded-md transition-colors ${
-                                    prog.active
-                                      ? 'hover:bg-amber-50 dark:hover:bg-amber-950/60 text-amber-600 dark:text-amber-400'
-                                      : 'hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
-                                  }`}
-                                >
-                                  {prog.active ? (
-                                    <ToggleLeft className="h-3.5 w-3.5" />
-                                  ) : (
-                                    <ToggleRight className="h-3.5 w-3.5" />
-                                  )}
-                                </button>
-                              </Tooltip>
+                              {prog.has_pending_change ? (
+                                <Tooltip content={`A pending change (Work Item #${prog.pending_work_item_id}) is awaiting approval`}>
+                                  <button
+                                    disabled
+                                    className="p-1.5 rounded-md text-amber-500 opacity-50 cursor-not-allowed"
+                                  >
+                                    <Clock className="h-3.5 w-3.5" />
+                                  </button>
+                                </Tooltip>
+                              ) : (
+                                <Tooltip content={prog.active ? 'Deactivate Card Programme' : 'Activate Card Programme'}>
+                                  <button
+                                    onClick={() => handleToggleActive(prog)}
+                                    className={`p-1.5 rounded-md transition-colors ${
+                                      prog.active
+                                        ? 'hover:bg-amber-50 dark:hover:bg-amber-950/60 text-amber-600 dark:text-amber-400'
+                                        : 'hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'
+                                    }`}
+                                  >
+                                    {prog.active ? (
+                                      <ToggleLeft className="h-3.5 w-3.5" />
+                                    ) : (
+                                      <ToggleRight className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
+                                </Tooltip>
+                              )}
                             </>
                           )}
                         </div>

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import datetime
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from src.db import get_db
 from src.models import (
@@ -30,6 +32,7 @@ from src.models import (
     InstantCardTypeRead,
     InstantInventoryMovementTypeRead,
     LocalEmailRecipientRead,
+    ConfigExecutionResult,
 )
 from src.db_models import (
     Client,
@@ -56,8 +59,12 @@ from src.db_models import (
     InstantCardType,
     InstantInventoryMovementType,
     LocalEmailRecipient,
+    MakerCheckerWorkItem,
 )
-from src.api.auth import get_current_user
+from src.api.auth import get_current_user, require_permission
+from src.api.config_orchestrator import ConfigurationOrchestrator
+from src.api.maker_checker_constants import WorkItemStatus
+from src.api.audit_service import log_audit_event
 
 router = APIRouter(prefix="/config", tags=["config"])
 
@@ -78,13 +85,38 @@ def get_clients(
 
 @router.get("/card-programmes", response_model=list[CardProgrammeRead])
 def get_card_programmes(
+    active: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
-    # Enforce tenant scoping
-    if "super_admin" in current_user.roles:
-        return db.query(CardProgramme).all()
-    return db.query(CardProgramme).filter(CardProgramme.client_id == current_user.client_id).all()
+    query = db.query(CardProgramme)
+    if "super_admin" not in current_user.roles:
+        query = query.filter(CardProgramme.client_id == current_user.client_id)
+    if active is not None:
+        query = query.filter(CardProgramme.active == active)
+    programmes = query.all()
+
+    # Query active pending work items for CARD_PROGRAMME
+    pending_query = db.query(MakerCheckerWorkItem).filter(
+        MakerCheckerWorkItem.entity_type_code == "CARD_PROGRAMME",
+        MakerCheckerWorkItem.status_code == WorkItemStatus.PENDING,
+    )
+    if "super_admin" not in current_user.roles:
+        pending_query = pending_query.filter(MakerCheckerWorkItem.client_id == current_user.client_id)
+    pending_items = pending_query.all()
+    pending_map = {wi.entity_id: wi for wi in pending_items}
+
+    result: list[CardProgrammeRead] = []
+    for prog in programmes:
+        read_obj = CardProgrammeRead.model_validate(prog)
+        wi = pending_map.get(prog.id)
+        if wi:
+            read_obj.has_pending_change = True
+            read_obj.pending_work_item_id = wi.id
+            read_obj.pending_operation_code = wi.operation_code
+        result.append(read_obj)
+
+    return result
 
 
 @router.get("/card-programmes/{id}", response_model=CardProgrammeRead)
@@ -99,22 +131,31 @@ def get_card_programme_by_id(
     obj = query.first()
     if not obj:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Card programme #{id} not found")
-    return obj
+
+    read_obj = CardProgrammeRead.model_validate(obj)
+    wi_query = db.query(MakerCheckerWorkItem).filter(
+        MakerCheckerWorkItem.entity_type_code == "CARD_PROGRAMME",
+        MakerCheckerWorkItem.entity_id == id,
+        MakerCheckerWorkItem.status_code == WorkItemStatus.PENDING,
+    )
+    if "super_admin" not in current_user.roles:
+        wi_query = wi_query.filter(MakerCheckerWorkItem.client_id == current_user.client_id)
+    wi = wi_query.first()
+    if wi:
+        read_obj.has_pending_change = True
+        read_obj.pending_work_item_id = wi.id
+        read_obj.pending_operation_code = wi.operation_code
+
+    return read_obj
 
 
-@router.post("/card-programmes", response_model=CardProgrammeRead, status_code=status.HTTP_201_CREATED)
+@router.post("/card-programmes", response_model=ConfigExecutionResult, status_code=status.HTTP_201_CREATED)
 def create_card_programme(
     payload: CardProgrammeCreate,
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
-    # Permission check
-    is_admin = "super_admin" in current_user.roles or any(
-        r in current_user.roles
-        for r in ["operations_admin_maker", "operations_admin_checker", "internal_control_maker", "internal_control_checker"]
-    )
-    if not is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied to create card programmes")
+    require_permission(db, current_user, "config.manage")
 
     target_client_id = payload.client_id if ("super_admin" in current_user.roles and payload.client_id) else current_user.client_id
 
@@ -137,41 +178,47 @@ def create_card_programme(
                 detail=f"Invalid card type brand code '{payload.card_type}'."
             )
 
-    obj_data = payload.model_dump(exclude_unset=True)
-    obj_data["client_id"] = target_client_id
-    obj_data["card_programme_code"] = payload.card_programme_code.upper()
-    obj_data["created_by"] = current_user.username
-    obj_data.setdefault("priority", 1)
+    def _commit_create(s: Session, data: dict):
+        obj_data = payload.model_dump(exclude_unset=True)
+        obj_data["client_id"] = target_client_id
+        obj_data["card_programme_code"] = payload.card_programme_code.upper()
+        obj_data["created_by"] = current_user.username
+        obj_data.setdefault("priority", 1)
 
-    obj = CardProgramme(**obj_data)
-    db.add(obj)
+        obj = CardProgramme(**obj_data)
+        s.add(obj)
+        s.flush()
+        log_audit_event(
+            db=s,
+            entity_type="CARD_PROGRAMME",
+            entity_id=obj.id,
+            event_code="CARD_PROGRAMME_CREATED",
+            performed_by=current_user.username,
+            remarks=f"Created Card Programme '{obj.card_programme_code}' - '{obj.card_programme_name}'",
+        )
+        return obj.id
 
-    from sqlalchemy.exc import IntegrityError
-    try:
-        db.commit()
-        db.refresh(obj)
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Database constraint violation: {str(exc.orig)}"
-        ) from exc
-    return obj
+    return ConfigurationOrchestrator.execute_change(
+        db=db,
+        user=current_user,
+        entity_type_code="CARD_PROGRAMME",
+        entity_id=0,
+        operation_code="CREATE",
+        entity_name=payload.card_programme_name.strip(),
+        before_payload=None,
+        after_payload=payload.model_dump(exclude_none=True),
+        commit_callback=_commit_create,
+    )
 
 
-@router.put("/card-programmes/{id}", response_model=CardProgrammeRead)
+@router.put("/card-programmes/{id}", response_model=ConfigExecutionResult)
 def update_card_programme(
     id: int,
     payload: CardProgrammeUpdate,
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
-    is_admin = "super_admin" in current_user.roles or any(
-        r in current_user.roles
-        for r in ["operations_admin_maker", "operations_admin_checker", "internal_control_maker", "internal_control_checker"]
-    )
-    if not is_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied to update card programmes")
+    require_permission(db, current_user, "config.manage")
 
     query = db.query(CardProgramme).filter(CardProgramme.id == id)
     if "super_admin" not in current_user.roles:
@@ -190,26 +237,133 @@ def update_card_programme(
                 detail=f"Invalid card type brand code '{update_dict['card_type']}'."
             )
 
-    for field, val in update_dict.items():
-        if hasattr(obj, field):
-            setattr(obj, field, val)
+    before_snapshot = {
+        "id": obj.id,
+        "client_id": obj.client_id,
+        "card_programme_code": obj.card_programme_code,
+        "card_programme_name": obj.card_programme_name,
+        "card_type": obj.card_type,
+        "active": obj.active,
+        "priority": obj.priority,
+    }
 
-    from datetime import datetime
-    from sqlalchemy.exc import IntegrityError
+    def _commit_update(s: Session, data: dict):
+        prog = s.query(CardProgramme).filter(CardProgramme.id == id).first()
+        if not prog:
+            return
+        for field, val in data.items():
+            if hasattr(prog, field):
+                setattr(prog, field, val)
+        prog.last_modified_by = current_user.username
+        prog.last_modified_date = datetime.utcnow()
+        log_audit_event(
+            db=s,
+            entity_type="CARD_PROGRAMME",
+            entity_id=prog.id,
+            event_code="CARD_PROGRAMME_UPDATED",
+            performed_by=current_user.username,
+            remarks=f"Updated Card Programme '{prog.card_programme_code}'",
+        )
 
-    obj.last_modified_by = current_user.username
-    obj.last_modified_date = datetime.now()
+    return ConfigurationOrchestrator.execute_change(
+        db=db,
+        user=current_user,
+        entity_type_code="CARD_PROGRAMME",
+        entity_id=id,
+        operation_code="UPDATE",
+        entity_name=obj.card_programme_name,
+        before_payload=before_snapshot,
+        after_payload=update_dict,
+        commit_callback=_commit_update,
+    )
 
-    try:
-        db.commit()
-        db.refresh(obj)
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Database constraint violation while saving card programme."
-        ) from exc
-    return obj
+
+@router.post("/card-programmes/{id}/activate", response_model=ConfigExecutionResult)
+def activate_card_programme(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_permission(db, current_user, "config.manage")
+
+    query = db.query(CardProgramme).filter(CardProgramme.id == id)
+    if "super_admin" not in current_user.roles:
+        query = query.filter(CardProgramme.client_id == current_user.client_id)
+
+    obj = query.first()
+    if not obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card programme record not found")
+
+    def _commit_activate(s: Session, _):
+        prog = s.query(CardProgramme).filter(CardProgramme.id == id).first()
+        if prog:
+            prog.active = True
+            prog.last_modified_by = current_user.username
+            prog.last_modified_date = datetime.utcnow()
+            log_audit_event(
+                db=s,
+                entity_type="CARD_PROGRAMME",
+                entity_id=prog.id,
+                event_code="CARD_PROGRAMME_ACTIVATED",
+                performed_by=current_user.username,
+                remarks=f"Activated Card Programme '{prog.card_programme_code}'",
+            )
+
+    return ConfigurationOrchestrator.execute_change(
+        db=db,
+        user=current_user,
+        entity_type_code="CARD_PROGRAMME",
+        entity_id=id,
+        operation_code="ACTIVATE",
+        entity_name=obj.card_programme_name,
+        before_payload={"active": obj.active},
+        after_payload={"active": True},
+        commit_callback=_commit_activate,
+    )
+
+
+@router.post("/card-programmes/{id}/deactivate", response_model=ConfigExecutionResult)
+def deactivate_card_programme(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
+):
+    require_permission(db, current_user, "config.manage")
+
+    query = db.query(CardProgramme).filter(CardProgramme.id == id)
+    if "super_admin" not in current_user.roles:
+        query = query.filter(CardProgramme.client_id == current_user.client_id)
+
+    obj = query.first()
+    if not obj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card programme record not found")
+
+    def _commit_deactivate(s: Session, _):
+        prog = s.query(CardProgramme).filter(CardProgramme.id == id).first()
+        if prog:
+            prog.active = False
+            prog.last_modified_by = current_user.username
+            prog.last_modified_date = datetime.utcnow()
+            log_audit_event(
+                db=s,
+                entity_type="CARD_PROGRAMME",
+                entity_id=prog.id,
+                event_code="CARD_PROGRAMME_DEACTIVATED",
+                performed_by=current_user.username,
+                remarks=f"Deactivated Card Programme '{prog.card_programme_code}'",
+            )
+
+    return ConfigurationOrchestrator.execute_change(
+        db=db,
+        user=current_user,
+        entity_type_code="CARD_PROGRAMME",
+        entity_id=id,
+        operation_code="DEACTIVATE",
+        entity_name=obj.card_programme_name,
+        before_payload={"active": obj.active},
+        after_payload={"active": False},
+        commit_callback=_commit_deactivate,
+    )
 
 
 

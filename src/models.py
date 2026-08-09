@@ -200,6 +200,9 @@ class CardProgrammeRead(BaseModel):
     segment_count: Optional[int] = 2
     charge_header_count: Optional[int] = 1
     charge_header_name: Optional[str] = None
+    has_pending_change: Optional[bool] = False
+    pending_work_item_id: Optional[int] = None
+    pending_operation_code: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -229,6 +232,10 @@ class CardSegmentRead(BaseModel):
     created_date: Optional[datetime] = None
     last_modified_by: Optional[str] = None
     last_modified_date: Optional[datetime] = None
+    assigned_programmes_count: Optional[int] = 0
+    has_pending_change: Optional[bool] = False
+    pending_work_item_id: Optional[int] = None
+    pending_operation_code: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -623,6 +630,10 @@ class WorkItemPayloadRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class PendingCountResponse(BaseModel):
+    count: int
 
 
 class WorkItemActionRead(BaseModel):

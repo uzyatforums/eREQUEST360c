@@ -124,7 +124,8 @@ def log_audit_event(
     remarks: Optional[str] = None,
     correlation_id: Optional[str] = None,
     snapshot_data: Optional[dict] = None,
-    changes: Optional[dict] = None  # Formatted as: {column_name: (old_value, new_value)}
+    changes: Optional[dict] = None,  # Formatted as: {column_name: (old_value, new_value)}
+    commit: bool = True,
 ):
     try:
         # 1. Resolve or create event_type_id dynamically
@@ -142,7 +143,7 @@ def log_audit_event(
 
         # 2. Insert record into audit_events
         event = AuditEvent(
-            entity_type=entity_type,
+            entity_type=event_type.event_code,
             entity_id=entity_id,
             event_type_id=event_type.event_type_id,
             event_source="API",
@@ -170,7 +171,7 @@ def log_audit_event(
         # 4. Create AuditSnapshot if snapshot_data is provided
         if snapshot_data:
             snapshot = AuditSnapshot(
-                entity_type=entity_type,
+                entity_type=event_type.event_code,
                 entity_id=entity_id,
                 snapshot_data=json.dumps(snapshot_data),
                 event_id=event.event_id,
@@ -178,7 +179,10 @@ def log_audit_event(
             )
             db.add(snapshot)
             
-        db.commit()
+        if commit:
+            db.commit()
+        else:
+            db.flush()
     except Exception as exc:
         print(f"[log_audit_event] Failed to log audit event: {exc}")
         # Re-raise so that errors in audits can be caught or roll back parent transactions

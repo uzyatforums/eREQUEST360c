@@ -69,8 +69,8 @@ def test_create_card_programme():
     res = client.post("/config/card-programmes", json=payload, headers=headers)
     assert res.status_code == 201
     data = res.json()
-    assert data["card_programme_code"] == "TEST_CARD_PROG"
-    assert data["issuance_fee"] == 1200.0
+    assert data["status"] == "PENDING_APPROVAL"
+    assert data["work_item_id"] is not None
 
 
 def test_update_card_programme():
@@ -83,5 +83,5 @@ def test_update_card_programme():
     res = client.put("/config/card-programmes/1", json=payload, headers=headers)
     assert res.status_code == 200
     data = res.json()
-    assert data["card_programme_name"] == "Apex Verve Classic Updated"
-    assert data["issuance_fee"] == 1300.0
+    assert data["status"] == "PENDING_APPROVAL"
+    assert data["work_item_id"] is not None

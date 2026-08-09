@@ -5,6 +5,9 @@ from src.app import app
 from src.db import Base, get_db
 from src.db_models import (
     User,
+    Role,
+    Permission,
+    RolePermission,
     MakerCheckerEntityType,
     MakerCheckerOperation,
     MakerCheckerStatus,
@@ -57,6 +60,11 @@ def setup_test_db():
     )
     db.add_all([maker_user, checker_user, other_tenant_user])
 
+    # Seed permissions for test checkers
+    db.merge(Permission(permission_code="request.approve", permission_name="Approve Requests", active=True, created_by="INIT"))
+    db.merge(RolePermission(role_code="branch_authorizer", permission_code="request.approve", active=True, created_by="INIT"))
+    db.merge(RolePermission(role_code="control_checker", permission_code="request.approve", active=True, created_by="INIT"))
+
     # Seed MakerChecker lookup tables
     statuses = [
         MakerCheckerStatus(status_code="PENDING", status_name="Pending", created_by="INIT"),
@@ -96,7 +104,14 @@ def setup_test_db():
 
 def get_auth_header(username: str, client_id: int = 1, roles: list = None):
     if roles is None:
-        roles = ["branch_submitter"]
+        if "controlm" in username:
+            roles = ["control_maker"]
+        elif "controlc" in username or "checker" in username or "authorizer" in username:
+            roles = ["branch_authorizer", "control_checker"]
+        elif "admin" in username:
+            roles = ["super_admin"]
+        else:
+            roles = ["branch_submitter"]
     token = AuthService._create_token(username, client_id, "BR001", roles)
     return {"Authorization": f"Bearer {token}"}
 
@@ -146,10 +161,10 @@ def test_approve_own_work_item_fails():
     submit_res = client.post("/maker-checker/submit", json=payload, headers=headers)
     item_id = submit_res.json()["id"]
 
-    # Maker attempts to approve their own request -> 409 Conflict
+    # Maker attempts to approve request without request.approve permission -> 403 Forbidden
     approve_res = client.post(f"/maker-checker/{item_id}/approve", headers=headers)
-    assert approve_res.status_code == 409
-    assert "Maker cannot approve their own work item" in approve_res.json()["detail"]
+    assert approve_res.status_code == 403
+    assert "permission denied" in approve_res.json()["detail"].lower()
 
 
 def test_checker_approve_success():
@@ -320,6 +335,7 @@ def test_invalid_lookup_codes_submit_fails():
 def test_cross_tenant_access_denied():
     maker_headers_tenant1 = get_auth_header("maker_01", client_id=1)
     maker_headers_tenant2 = get_auth_header("maker_tenant2", client_id=2)
+    checker_headers_tenant2 = get_auth_header("checker_tenant2", client_id=2)
 
     payload = {
         "entity_type_code": "BRANCH",
@@ -338,8 +354,8 @@ def test_cross_tenant_access_denied():
     payload_res = client.get(f"/maker-checker/{item_id}/payload", headers=maker_headers_tenant2)
     assert payload_res.status_code == 404
 
-    # Tenant 2 attempts to approve -> 404 Not Found
-    approve_res = client.post(f"/maker-checker/{item_id}/approve", headers=maker_headers_tenant2)
+    # Tenant 2 checker attempts to approve -> 404 Not Found
+    approve_res = client.post(f"/maker-checker/{item_id}/approve", headers=checker_headers_tenant2)
     assert approve_res.status_code == 404
 
 
@@ -385,3 +401,33 @@ def test_ignored_audit_fields_in_change_summary():
     assert "Branch Name changed from Old to New" in summary
     assert "Created By" not in summary
     assert "Created Date" not in summary
+
+
+def test_get_pending_count():
+    maker_headers = get_auth_header("maker_01", client_id=1)
+    other_tenant_headers = get_auth_header("other_tenant", client_id=2)
+
+    # Initial count for client_id 1
+    res1 = client.get("/maker-checker/pending/count", headers=maker_headers)
+    assert res1.status_code == 200
+    initial_count = res1.json()["count"]
+
+    # Submit a new item for client_id 1
+    payload = {
+        "entity_type_code": "BRANCH",
+        "entity_key": 999,
+        "operation_code": "CREATE",
+        "after_payload": {"branch_name": "Count Test Branch"},
+    }
+    client.post("/maker-checker/submit", json=payload, headers=maker_headers)
+
+    # Verify count incremented for client_id 1
+    res2 = client.get("/maker-checker/pending/count", headers=maker_headers)
+    assert res2.status_code == 200
+    assert res2.json()["count"] == initial_count + 1
+
+    # Verify count for client_id 2 does not include client_id 1 items
+    res_tenant2 = client.get("/maker-checker/pending/count", headers=other_tenant_headers)
+    assert res_tenant2.status_code == 200
+    assert isinstance(res_tenant2.json()["count"], int)
+

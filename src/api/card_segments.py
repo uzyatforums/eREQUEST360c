@@ -8,7 +8,9 @@ from src.db_models import (
     CardSegment,
     CardSegmentProgramme,
     CardProgramme,
+    MakerCheckerWorkItem,
 )
+from src.api.maker_checker_constants import WorkItemStatus
 from src.models import (
     UserInfo,
     CardSegmentCreate,
@@ -19,7 +21,7 @@ from src.models import (
     CardSegmentProgrammeReorder,
     ConfigExecutionResult,
 )
-from src.api.auth import get_current_user
+from src.api.auth import get_current_user, require_permission
 from src.api.branch_context_service import BranchContextService, get_branch_context
 from src.api.config_orchestrator import ConfigurationOrchestrator
 from src.api.audit_service import log_audit_event
@@ -48,19 +50,44 @@ def _resequence_brand_programmes(db: Session, client_id: int, segment_id: int, c
 @router.get("", response_model=List[CardSegmentRead])
 def list_card_segments(
     q: Optional[str] = None,
-    include_inactive: bool = False,
+    active: Optional[bool] = Query(None),
     branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
 ):
-    query = db.query(CardSegment).filter(CardSegment.client_id == branch_service.get_client_id())
-    if not include_inactive:
-        query = query.filter(CardSegment.active == True)
+    client_id = branch_service.get_client_id()
+    query = db.query(CardSegment).filter(CardSegment.client_id == client_id)
+    if active is not None:
+        query = query.filter(CardSegment.active == active)
     if q:
         search_term = f"%{q.strip()}%"
         query = query.filter(
             (CardSegment.segment_code.ilike(search_term)) | (CardSegment.segment_name.ilike(search_term))
         )
-    return query.order_by(CardSegment.priority.asc(), CardSegment.segment_code.asc()).all()
+    segments = query.order_by(CardSegment.priority.asc(), CardSegment.segment_code.asc()).all()
+
+    # Query active pending work items for CARD_SEGMENT
+    pending_items = (
+        db.query(MakerCheckerWorkItem)
+        .filter(
+            MakerCheckerWorkItem.client_id == client_id,
+            MakerCheckerWorkItem.entity_type_code == "CARD_SEGMENT",
+            MakerCheckerWorkItem.status_code == WorkItemStatus.PENDING,
+        )
+        .all()
+    )
+    pending_map = {wi.entity_id: wi for wi in pending_items}
+
+    result: List[CardSegmentRead] = []
+    for seg in segments:
+        read_obj = CardSegmentRead.model_validate(seg)
+        wi = pending_map.get(seg.id)
+        if wi:
+            read_obj.has_pending_change = True
+            read_obj.pending_work_item_id = wi.id
+            read_obj.pending_operation_code = wi.operation_code
+        result.append(read_obj)
+
+    return result
 
 
 @router.get("/{segment_id}", response_model=CardSegmentRead)
@@ -69,14 +96,32 @@ def get_card_segment(
     branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
 ):
+    client_id = branch_service.get_client_id()
     segment = (
         db.query(CardSegment)
-        .filter(CardSegment.id == segment_id, CardSegment.client_id == branch_service.get_client_id())
+        .filter(CardSegment.id == segment_id, CardSegment.client_id == client_id)
         .first()
     )
     if not segment:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Card Segment not found")
-    return segment
+
+    read_obj = CardSegmentRead.model_validate(segment)
+    wi = (
+        db.query(MakerCheckerWorkItem)
+        .filter(
+            MakerCheckerWorkItem.client_id == client_id,
+            MakerCheckerWorkItem.entity_type_code == "CARD_SEGMENT",
+            MakerCheckerWorkItem.entity_id == segment_id,
+            MakerCheckerWorkItem.status_code == WorkItemStatus.PENDING,
+        )
+        .first()
+    )
+    if wi:
+        read_obj.has_pending_change = True
+        read_obj.pending_work_item_id = wi.id
+        read_obj.pending_operation_code = wi.operation_code
+
+    return read_obj
 
 
 @router.post("", response_model=ConfigExecutionResult)
@@ -86,6 +131,7 @@ def create_card_segment(
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    require_permission(db, current_user, "config.manage")
     client_id = branch_service.get_client_id()
     code_upper = payload.segment_code.strip().upper()
     name_strip = payload.segment_name.strip()
@@ -157,6 +203,7 @@ def update_card_segment(
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    require_permission(db, current_user, "config.manage")
     client_id = branch_service.get_client_id()
     segment = (
         db.query(CardSegment)
@@ -246,6 +293,7 @@ def activate_card_segment(
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    require_permission(db, current_user, "config.manage")
     client_id = branch_service.get_client_id()
     segment = (
         db.query(CardSegment)
@@ -291,6 +339,7 @@ def deactivate_card_segment(
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    require_permission(db, current_user, "config.manage")
     client_id = branch_service.get_client_id()
     segment = (
         db.query(CardSegment)
@@ -379,6 +428,7 @@ def assign_programme_to_segment(
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    require_permission(db, current_user, "config.manage")
     client_id = branch_service.get_client_id()
 
     # BR-003: Inactive Card Segments cannot receive new assignments
@@ -485,6 +535,7 @@ def remove_programme_from_segment(
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    require_permission(db, current_user, "config.manage")
     client_id = branch_service.get_client_id()
     assignment = (
         db.query(CardSegmentProgramme, CardProgramme.card_type, CardProgramme.card_programme_code)
@@ -559,6 +610,7 @@ def reorder_programme_selection_order(
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
+    require_permission(db, current_user, "config.manage")
     client_id = branch_service.get_client_id()
     target_assign = (
         db.query(CardSegmentProgramme, CardProgramme.card_type)

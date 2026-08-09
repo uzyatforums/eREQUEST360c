@@ -22,6 +22,7 @@ import { Input } from '../../components/ui/input'
 import { Select } from '../../components/ui/select'
 import { Breadcrumb, BreadcrumbItem } from '../../components/ui/breadcrumb'
 import { useToast } from '../../components/ui/toast'
+import { useWorkQueue } from '../../context/work-queue-context'
 
 export interface CardProgrammeFormProps {
   currentUser: UserInfo
@@ -33,6 +34,7 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { toast } = useToast()
+  const { refreshPendingCount } = useWorkQueue()
 
   const isEditMode = !!id
   const programmeId = id ? parseInt(id, 10) : null
@@ -204,23 +206,47 @@ export const CardProgrammeForm: React.FC<CardProgrammeFormProps> = ({ currentUse
 
     try {
       if (isEditMode && editingProgramme) {
-        const updated = await apiService.updateCardProgramme(editingProgramme.id, payload)
-        toast({
-          title: 'Programme Specifications Updated',
-          description: `Card Programme '${cardProgrammeName}' parameters updated successfully.`,
-          variant: 'success',
-        })
-        if (onSaveSuccess) onSaveSuccess(updated)
-        navigate(`/card-programmes/${editingProgramme.id}`)
+        const res = await apiService.updateCardProgramme(editingProgramme.id, payload)
+        if (res && res.status === 'PENDING_APPROVAL') {
+          toast({
+            title: 'Submitted for Approval',
+            description: `Card Programme update submitted for review (Work Item #${res.work_item_id}).`,
+            variant: 'info',
+          })
+          if (onSaveSuccess) onSaveSuccess(res)
+          await refreshPendingCount()
+          navigate('/card-programmes')
+        } else {
+          toast({
+            title: 'Programme Specifications Updated',
+            description: `Card Programme '${cardProgrammeName}' parameters updated successfully.`,
+            variant: 'success',
+          })
+          if (onSaveSuccess) onSaveSuccess(res)
+          await refreshPendingCount()
+          navigate(`/card-programmes/${editingProgramme.id}`)
+        }
       } else {
-        const created = await apiService.createCardProgramme(payload)
-        toast({
-          title: 'Card Programme Created',
-          description: `New card programme '${cardProgrammeName}' created successfully.`,
-          variant: 'success',
-        })
-        if (onSaveSuccess) onSaveSuccess(created)
-        navigate(`/card-programmes/${created.id}`)
+        const res = await apiService.createCardProgramme(payload)
+        if (res && res.status === 'PENDING_APPROVAL') {
+          toast({
+            title: 'Submitted for Approval',
+            description: `New Card Programme submitted for review (Work Item #${res.work_item_id}).`,
+            variant: 'info',
+          })
+          if (onSaveSuccess) onSaveSuccess(res)
+          await refreshPendingCount()
+          navigate('/card-programmes')
+        } else {
+          toast({
+            title: 'Card Programme Created',
+            description: `New card programme '${cardProgrammeName}' created successfully.`,
+            variant: 'success',
+          })
+          if (onSaveSuccess) onSaveSuccess(res)
+          await refreshPendingCount()
+          navigate(`/card-programmes/${res.id || res.entity_id}`)
+        }
       }
     } catch (err: any) {
       toast({

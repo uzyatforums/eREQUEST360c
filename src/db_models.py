@@ -1,5 +1,5 @@
 import os
-from sqlalchemy import Column, Integer, String, DateTime, BigInteger, Boolean, Numeric, func, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, BigInteger, Boolean, Numeric, func, ForeignKey, Index, text
 from src.db import Base
 
 def schema_args(schema_name: str):
@@ -612,7 +612,19 @@ class MakerCheckerEntityType(Base):
 
 class MakerCheckerWorkItem(Base):
     __tablename__ = "work_items"
-    __table_args__ = schema_args("maker_checker")
+    __table_args__ = (
+        Index(
+            "uix_mc_work_items_unique_pending_entity",
+            "client_id",
+            "entity_type_code",
+            "entity_id",
+            unique=True,
+            postgresql_where=text("status_code = 'PENDING' AND entity_id > 0"),
+            mssql_where=text("status_code = 'PENDING' AND entity_id > 0"),
+            sqlite_where=text("status_code = 'PENDING' AND entity_id > 0"),
+        ),
+        schema_args("maker_checker"),
+    )
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     work_item_number = Column(String(30), nullable=False, unique=True)
