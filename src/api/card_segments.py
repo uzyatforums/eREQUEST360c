@@ -84,6 +84,7 @@ def list_card_segments(
         if wi:
             read_obj.has_pending_change = True
             read_obj.pending_work_item_id = wi.id
+            read_obj.pending_work_item_number = wi.work_item_number
             read_obj.pending_operation_code = wi.operation_code
         result.append(read_obj)
 
@@ -119,6 +120,7 @@ def get_card_segment(
     if wi:
         read_obj.has_pending_change = True
         read_obj.pending_work_item_id = wi.id
+        read_obj.pending_work_item_number = wi.work_item_number
         read_obj.pending_operation_code = wi.operation_code
 
     return read_obj

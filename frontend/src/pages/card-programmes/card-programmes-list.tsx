@@ -466,11 +466,16 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
                         <div className="flex items-center justify-center gap-1.5 flex-wrap">
                           <StatusBadge status={prog.active ? 'ACTIVE' : 'INACTIVE'} />
                           {prog.has_pending_change && (
-                            <Tooltip content={`Pending approval: ${prog.pending_operation_code || 'Change'} (Work Item #${prog.pending_work_item_id})`}>
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300">
-                                <Clock className="w-2.5 h-2.5 mr-1 animate-pulse" />
-                                Pending (#{prog.pending_work_item_id})
-                              </span>
+                            <Tooltip content={`Pending approval: ${prog.pending_operation_code || 'Change'} (${prog.pending_work_item_number || `Work Item #${prog.pending_work_item_id}`})`}>
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300">
+                                  <Clock className="w-2.5 h-2.5 mr-1 animate-pulse" />
+                                  Pending
+                                </span>
+                                <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
+                                  {prog.pending_work_item_number || (prog.pending_work_item_id ? `MC-${String(prog.pending_work_item_id).padStart(8, '0')}` : '')}
+                                </span>
+                              </div>
                             </Tooltip>
                           )}
                         </div>

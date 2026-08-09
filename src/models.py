@@ -202,6 +202,7 @@ class CardProgrammeRead(BaseModel):
     charge_header_name: Optional[str] = None
     has_pending_change: Optional[bool] = False
     pending_work_item_id: Optional[int] = None
+    pending_work_item_number: Optional[str] = None
     pending_operation_code: Optional[str] = None
 
     class Config:
@@ -235,6 +236,7 @@ class CardSegmentRead(BaseModel):
     assigned_programmes_count: Optional[int] = 0
     has_pending_change: Optional[bool] = False
     pending_work_item_id: Optional[int] = None
+    pending_work_item_number: Optional[str] = None
     pending_operation_code: Optional[str] = None
 
     class Config:

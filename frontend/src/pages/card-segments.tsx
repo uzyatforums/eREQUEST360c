@@ -501,11 +501,16 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
                       <div className="flex items-center gap-2">
                         <StatusBadge status={seg.active ? 'ACTIVE' : 'INACTIVE'} />
                         {seg.has_pending_change && (
-                          <Tooltip content={`Pending approval: ${seg.pending_operation_code || 'Change'} (Work Item #${seg.pending_work_item_id})`}>
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300">
-                              <Clock className="w-3 h-3 mr-1 animate-pulse" />
-                              Pending
-                            </span>
+                          <Tooltip content={`Pending approval: ${seg.pending_operation_code || 'Change'} (${seg.pending_work_item_number || `Work Item #${seg.pending_work_item_id}`})`}>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300">
+                                <Clock className="w-3 h-3 mr-1 animate-pulse" />
+                                Pending
+                              </span>
+                              <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 pl-1">
+                                {seg.pending_work_item_number || (seg.pending_work_item_id ? `MC-${String(seg.pending_work_item_id).padStart(8, '0')}` : '')}
+                              </span>
+                            </div>
                           </Tooltip>
                         )}
                       </div>

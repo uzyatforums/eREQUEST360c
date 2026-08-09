@@ -127,7 +127,7 @@ export const CardProgrammeDetails: React.FC<CardProgrammeDetailsProps> = ({
             <Clock className="h-5 w-5 text-amber-600 animate-pulse shrink-0" />
             <div>
               <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                Pending Approval Protection Active (Work Item #{programme.pending_work_item_id})
+                Pending Approval Protection Active ({programme.pending_work_item_number || `Work Item #${programme.pending_work_item_id}`})
               </h4>
               <p className="text-[11px] text-amber-700 dark:text-amber-300">
                 A {programme.pending_operation_code || 'configuration'} request is currently awaiting Checker review. Further mutations are disabled until approved or rejected.
@@ -165,13 +165,12 @@ export const CardProgrammeDetails: React.FC<CardProgrammeDetailsProps> = ({
             </div>
           </div>
 
-          {/* Action Bar */}
-          <div className="flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2 flex-wrap">
             {canManage && (
               <>
                 {programme.has_pending_change ? (
-                  <Tooltip content={`A pending change (Work Item #${programme.pending_work_item_id}) is awaiting approval`}>
-                    <Button variant="primary" size="sm" disabled className="gap-1.5 text-xs opacity-50 cursor-not-allowed">
+                  <Tooltip content={`A pending change (${programme.pending_work_item_number || `Work Item #${programme.pending_work_item_id}`}) is awaiting approval`}>
+                    <Button variant="outline" size="sm" disabled className="gap-1.5 text-xs opacity-50 cursor-not-allowed">
                       <Edit2 className="h-3.5 w-3.5" />
                       Edit Card Programme
                     </Button>
@@ -187,7 +186,7 @@ export const CardProgrammeDetails: React.FC<CardProgrammeDetailsProps> = ({
 
                 {onToggleActive && (
                   programme.has_pending_change ? (
-                    <Tooltip content={`A pending change (Work Item #${programme.pending_work_item_id}) is awaiting approval`}>
+                    <Tooltip content={`A pending change (${programme.pending_work_item_number || `Work Item #${programme.pending_work_item_id}`}) is awaiting approval`}>
                       <Button variant="secondary" size="sm" disabled className="gap-1.5 text-xs opacity-50 cursor-not-allowed">
                         <Clock className="h-3.5 w-3.5 text-amber-500" />
                         Pending Approval

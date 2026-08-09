@@ -48,6 +48,7 @@ export interface CardProgramme {
   charge_header_name?: string;
   has_pending_change?: boolean;
   pending_work_item_id?: number | null;
+  pending_work_item_number?: string | null;
   pending_operation_code?: string | null;
 }
 
@@ -75,6 +76,7 @@ export interface CardSegment {
   assigned_programmes_count?: number;
   has_pending_change?: boolean;
   pending_work_item_id?: number | null;
+  pending_work_item_number?: string | null;
   pending_operation_code?: string | null;
 }
 

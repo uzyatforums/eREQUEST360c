@@ -241,6 +241,7 @@ def test_maker_can_initiate_deactivate_and_pending_exposed(setup_governance_db):
     item = next(p for p in res.json() if p["id"] == prog.id)
     assert item["has_pending_change"] is True
     assert item["pending_work_item_id"] == work_item_id
+    assert item["pending_work_item_number"] == f"MC-{work_item_id:08d}"
     assert item["pending_operation_code"] == "DEACTIVATE"
 
     # Clean up pending item for next tests

@@ -90,6 +90,14 @@ def test_duplicate_deactivate_while_pending_rejected():
     res1 = client.post("/config/card-segments/101/deactivate", headers=headers)
     assert res1.status_code == 200
     assert res1.json()["status"] == "PENDING_APPROVAL"
+    wi_id = res1.json()["work_item_id"]
+
+    # Verify GET Card Segment exposes has_pending_change, pending_work_item_id, and pending_work_item_number
+    res_seg = client.get("/config/card-segments/101", headers=headers)
+    assert res_seg.status_code == 200
+    assert res_seg.json()["has_pending_change"] is True
+    assert res_seg.json()["pending_work_item_id"] == wi_id
+    assert res_seg.json()["pending_work_item_number"] == f"MC-{wi_id:08d}"
 
     # 2. Duplicate DEACTIVATE -> 409 Conflict
     res2 = client.post("/config/card-segments/101/deactivate", headers=headers)
