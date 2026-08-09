@@ -213,7 +213,7 @@ def require_permission(db: Session, current_user: UserInfo, permission_code: str
     if not user_has_permission(db, current_user, permission_code):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Permission denied: Requires '{permission_code}' permission",
+            detail="You do not have sufficient privileges to perform this action.",
         )
 
 

@@ -69,7 +69,7 @@ def test_submitter1_mutations_forbidden():
     # 1. Create segment
     res = client.post("/config/card-segments", json={"segment_code": "SUB1_SEG", "segment_name": "Submitter Seg", "priority": 99}, headers=headers)
     assert res.status_code == 403
-    assert "Permission denied" in res.json()["detail"]
+    assert "sufficient privileges" in res.json()["detail"].lower()
 
     # 2. Update segment
     res = client.put("/config/card-segments/1", json={"segment_name": "Attempt Update"}, headers=headers)
@@ -102,7 +102,7 @@ def test_controlc_mutations_forbidden():
 
     res = client.post("/config/card-segments/1/deactivate", headers=headers)
     assert res.status_code == 403
-    assert "Permission denied" in res.json()["detail"]
+    assert "sufficient privileges" in res.json()["detail"].lower()
 
 
 def test_controlm_mutations_allowed():

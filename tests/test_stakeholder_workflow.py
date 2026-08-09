@@ -162,7 +162,7 @@ def test_controlm_and_controlc_workflow():
     # Step 3: controlm CANNOT approve submission (Lacks request.approve permission -> 403 Forbidden)
     sod_res = client.post(f"/maker-checker/{work_item_id}/approve", headers=controlm_headers)
     assert sod_res.status_code == 403
-    assert "permission denied" in sod_res.json()["detail"].lower()
+    assert "sufficient privileges" in sod_res.json()["detail"].lower()
 
     # Step 4: controlc can approve it
     approve_res = client.post(f"/maker-checker/{work_item_id}/approve", headers=controlc_headers)

@@ -119,7 +119,7 @@ def test_user_without_request_approve_cannot_approve_another_users_work_item():
     # 2. controlm (lacks request.approve) attempts to approve admin's work item -> 403 Forbidden
     app_res = client.post(f"/maker-checker/{wi_id}/approve", json={"remarks": "Approve test"}, headers=maker_headers)
     assert app_res.status_code == 403
-    assert "permission denied" in app_res.json()["detail"].lower()
+    assert "sufficient privileges" in app_res.json()["detail"].lower()
 
 
 def test_user_without_request_approve_cannot_reject_another_users_work_item():
@@ -140,7 +140,7 @@ def test_user_without_request_approve_cannot_reject_another_users_work_item():
     # controlm attempts to reject -> 403 Forbidden
     rej_res = client.post(f"/maker-checker/{wi_id}/reject", json={"remarks": "Reject test"}, headers=maker_headers)
     assert rej_res.status_code == 403
-    assert "permission denied" in rej_res.json()["detail"].lower()
+    assert "sufficient privileges" in rej_res.json()["detail"].lower()
 
 
 def test_user_with_request_approve_can_approve_another_users_work_item():

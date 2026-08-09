@@ -291,7 +291,7 @@ def test_maker_cannot_self_approve(setup_governance_db):
     # controlm lacks request.approve permission -> 403 Forbidden
     res_app = client.post(f"/maker-checker/{wi_id}/approve", headers=maker_headers, json={"remarks": "Self approve"})
     assert res_app.status_code == 403
-    assert "permission denied" in res_app.json()["detail"].lower()
+    assert "sufficient privileges" in res_app.json()["detail"].lower()
 
     # Clean up
     db_session = SessionLocal()

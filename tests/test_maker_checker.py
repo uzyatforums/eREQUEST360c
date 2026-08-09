@@ -164,7 +164,7 @@ def test_approve_own_work_item_fails():
     # Maker attempts to approve request without request.approve permission -> 403 Forbidden
     approve_res = client.post(f"/maker-checker/{item_id}/approve", headers=headers)
     assert approve_res.status_code == 403
-    assert "permission denied" in approve_res.json()["detail"].lower()
+    assert "sufficient privileges" in approve_res.json()["detail"].lower()
 
 
 def test_checker_approve_success():
