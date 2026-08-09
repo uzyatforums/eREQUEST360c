@@ -1,8 +1,7 @@
-eREQUEST360 Implementation Roadmap
-==================================
+# eREQUEST360 Implementation Roadmap
 
-Foundation
-----------
+## Foundation
+
 [x] IAM / Authentication
 [x] Authorization / Permissions
 [x] Audit Framework
@@ -15,8 +14,8 @@ Foundation
 [ ] Notification Framework
 [ ] Dashboard
 
-Configuration Modules
----------------------
+## Configuration Modules
+
 [x] Branches
 [x] States
 [ ] Branch Clusters
@@ -41,8 +40,8 @@ Configuration Modules
 [ ] Processing Modes
 [ ] Miscellaneous Lookups
 
-Request Processing
-------------------
+## Request Processing
+
 [ ] New Request
 [ ] Request Validation
 [ ] Eligibility Engine
@@ -52,8 +51,8 @@ Request Processing
 [ ] State Machine
 [ ] Workflow History
 
-Card Lifecycle
---------------
+## Card Lifecycle
+
 [ ] Card Issuance
 [ ] Card Replacement
 [ ] Card Renewal
@@ -64,8 +63,8 @@ Card Lifecycle
 [ ] Card Acknowledgement
 [ ] Instant Card Processing
 
-Operations
-----------
+## Operations
+
 [ ] Charge Processing
 [ ] Notification Delivery
 [ ] Bulk Uploads
@@ -73,8 +72,8 @@ Operations
 [ ] Search
 [ ] Dashboard Metrics
 
-Administration
---------------
+## Administration
+
 [x] Users
 [x] Roles
 [x] Permissions
@@ -82,8 +81,20 @@ Administration
 [ ] Approval Policies UI
 [ ] System Parameters
 
-Backend APIs
-------------
+## Governance & Operational UX
+
+[x] Maker / Checker Approval Queue
+[x] Maker / Checker Approval Authorization
+[x] Maker / Checker Segregation of Duties
+[x] Activate / Deactivate Confirmation
+[x] Maker / Checker Pending Count Synchronization
+[ ] Work Item ID Display on Master Grids
+[ ] Master Grid → Maker / Checker Review Navigation
+[ ] Maker / Checker Target Row Focus / Highlight
+[ ] Status Filter — Active as Default
+
+## Backend APIs
+
 [x] Authentication API
 [x] Login Endpoint
 [x] Configuration Framework
@@ -97,8 +108,8 @@ Backend APIs
 [ ] Reporting APIs
 [ ] Notification APIs
 
-UI
---
+## UI
+
 [x] Design System
 [x] Navigation
 [x] Screen Registry
@@ -111,8 +122,8 @@ UI
 [ ] Card Lifecycle UI
 [ ] Dashboard UI
 
-Testing
--------
+## Testing
+
 [x] Maker / Checker Tests
 [x] Approval Policy Tests
 [x] Branch Tests
@@ -123,11 +134,88 @@ Testing
 [ ] End-to-End Tests
 [ ] Performance Tests
 
-Deployment
-----------
+## Deployment
+
 [ ] Production Configuration
 [ ] Logging
 [ ] Monitoring
 [ ] Backup Strategy
 [ ] Deployment Scripts
 [ ] Release v1.0
+
+## Future Phases / Backlog
+
+### Cross-Cutting UI Capabilities
+
+#### Grid Export — CSV
+
+**Status:** Planned  
+**Priority:** Medium
+
+Every applicable Master/List grid should provide a consistent
+"Export CSV" action, following the legacy application's behavior.
+
+Initial scope:
+
+- Card Segments Master
+- Card Programmes Master
+- Maker-Checker Approval Queue
+- Other applicable configuration and transaction grids
+
+Requirements:
+
+- Consistent "Export CSV" action across grids
+- Export respects the currently applied filters/search criteria
+- Export uses user-visible column names
+- Do not expose fields hidden for security reasons
+- Consider server-side export for large datasets
+
+**Implementation:** Future phase.
+
+### Operational UX
+
+#### Master Grid ↔ Maker / Checker Correlation
+
+**Status:** Planned  
+**Priority:** Medium
+
+Master grids should clearly expose the associated Maker / Checker
+Work Item ID for records with pending governance actions.
+
+Example:
+
+    Status: PENDING
+    Work Item: MC-00000033
+
+The Maker / Checker Approval Queue should expose the corresponding
+Target Entity Type and Target Entity ID.
+
+#### Master Grid → Maker / Checker Review
+
+**Status:** Planned  
+**Priority:** Medium
+
+For records with pending Maker / Checker actions, provide a
+"Review" action that navigates directly to the corresponding
+Maker / Checker work item.
+
+The Approval Queue should be able to focus/highlight the target
+work item when navigated to from a Master grid.
+
+The Approval Queue remains the authoritative location for
+Approve / Reject actions.
+
+#### Master Grid Status Filtering
+
+**Status:** Planned  
+**Priority:** Medium
+
+Review default filtering for Master screens.
+
+Preferred default:
+
+    Status: Active
+
+Pending changes must remain clearly visible and filterable so that
+users can distinguish the current effective state from a pending
+Maker / Checker change.
