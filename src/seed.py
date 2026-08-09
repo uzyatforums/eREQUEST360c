@@ -421,7 +421,7 @@ def seed_data(db: Session):
             db.add(LocalAccount(**la))
 
     req_statuses = [
-        {"status_code": "PENDING", "status_name": "Pending Settlement"},
+        {"status_code": "PENDING", "status_name": "Pending Approval"},
         {"status_code": "PENDING_APPROVAL", "status_name": "Pending Approval"},
         {"status_code": "PENDING_AUTHORIZATION", "status_name": "Pending Authorization"},
         {"status_code": "APPROVED", "status_name": "Approved"},

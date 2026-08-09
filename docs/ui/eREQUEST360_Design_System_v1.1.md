@@ -91,7 +91,7 @@ eREQUEST360 uses a curated HSL color palette engineered for high contrast (WCAG 
 
 | Status Code | Display Label | Badge Background | Text Color | Border Color | Icon (Lucide) |
 |-------------|---------------|------------------|------------|--------------|---------------|
-| `PENDING` | Pending Settlement | `bg-amber-50` | `text-amber-700` | `border-amber-200` | `Clock` |
+| `PENDING` | Pending Approval | `bg-amber-50` | `text-amber-700` | `border-amber-200` | `Clock` |
 | `PENDING_APPROVAL` | Pending Approval | `bg-amber-100` | `text-amber-800` | `border-amber-300` | `AlertCircle` |
 | `PENDING_AUTHORIZATION` | Pending Authorization | `bg-blue-50` | `text-blue-700` | `border-blue-200` | `ShieldAlert` |
 | `APPROVED` | Approved | `bg-emerald-50` | `text-emerald-700` | `border-emerald-200` | `CheckCircle2` |

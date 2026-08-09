@@ -32,7 +32,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, label, showIco
         return {
           bg: 'bg-amber-50 text-amber-700 border-amber-200',
           icon: Clock,
-          text: label || 'Pending Settlement',
+          text: label || 'Pending Approval',
         }
       case 'PENDING_APPROVAL':
         return {
