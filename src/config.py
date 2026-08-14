@@ -13,6 +13,9 @@ class Settings:
     def __init__(self):
         self.environment = os.getenv("ENVIRONMENT", "development")
         self.database_url = os.getenv("DATABASE_URL", "sqlite:///./dev.db")
+        self.session_inactivity_timeout_minutes = int(
+            os.getenv("SESSION_INACTIVITY_TIMEOUT_MINUTES", "5")
+        )
 
 
 settings = Settings()

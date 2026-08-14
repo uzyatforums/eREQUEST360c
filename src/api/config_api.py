@@ -14,8 +14,6 @@ from src.models import (
     ClientCardPolicyRead,
     ClientCardPolicyUpdate,
     CardTypeRead,
-    CardChargesHeaderRead,
-    CardChargeEntryRead,
     CardSegmentProgrammeChargeRead,
     LocalAccountRead,
     RequestStatusRead,
@@ -41,8 +39,6 @@ from src.db_models import (
     CardSegment,
     ClientCardPolicy,
     CardType,
-    CardChargesHeader,
-    CardChargeEntry,
     CardSegmentProgrammeCharge,
     LocalAccount,
     RequestStatus,
@@ -435,43 +431,6 @@ def get_card_types(
         (CardType.client_id == current_user.client_id) | (CardType.client_id == None)
     ).all()
 
-
-@router.get("/card-charges", response_model=list[CardChargesHeaderRead])
-def get_card_charges(
-    db: Session = Depends(get_db),
-    current_user: UserInfo = Depends(get_current_user),
-):
-    # Fetch headers
-    if "super_admin" in current_user.roles:
-        headers = db.query(CardChargesHeader).all()
-    else:
-        headers = db.query(CardChargesHeader).filter(CardChargesHeader.client_id == current_user.client_id).all()
-        
-    res = []
-    for h in headers:
-        entries = db.query(CardChargeEntry).filter(CardChargeEntry.header_id == h.id).all()
-        # Build read response
-        h_read = CardChargesHeaderRead(
-            id=h.id,
-            client_id=h.client_id,
-            charge_name=h.charge_name,
-            active=h.active,
-            created_by=h.created_by,
-            created_date=h.created_date,
-            entries=[CardChargeEntryRead.model_validate(e) for e in entries]
-        )
-        res.append(h_read)
-    return res
-
-
-@router.get("/card-segment-programme-charges", response_model=list[CardSegmentProgrammeChargeRead])
-def get_card_segment_programme_charges(
-    db: Session = Depends(get_db),
-    current_user: UserInfo = Depends(get_current_user),
-):
-    if "super_admin" in current_user.roles:
-        return db.query(CardSegmentProgrammeCharge).all()
-    return db.query(CardSegmentProgrammeCharge).filter(CardSegmentProgrammeCharge.client_id == current_user.client_id).all()
 
 
 @router.get("/local-accounts", response_model=list[LocalAccountRead])

@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { Link } from 'react-router-dom'
 import {
   Plus,
   Search,
@@ -25,6 +26,9 @@ import { useToast } from '../components/ui/toast'
 import { SortableHeader, SortOrder } from '../components/ui/sortable-header'
 import { useWorkQueue } from '../context/work-queue-context'
 import { Dialog } from '../components/ui/dialog'
+import { Checkbox } from '../components/ui/checkbox'
+import { SelectionToolbar } from '../components/ui/selection-toolbar'
+import { useRowSelection } from '../hooks/use-row-selection'
 
 export interface CardSegmentsPageProps {
   currentUser: UserInfo
@@ -37,7 +41,7 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
   const [segments, setSegments] = React.useState<CardSegment[]>([])
   const [isLoading, setIsLoading] = React.useState(true)
   const [searchQuery, setSearchQuery] = React.useState('')
-  const [activeFilter, setActiveFilter] = React.useState<'all' | 'active' | 'inactive'>('all')
+  const [activeFilter, setActiveFilter] = React.useState<'all' | 'active' | 'inactive'>('active')
 
   // Sorting
   const [sortField, setSortField] = React.useState<string | null>('priority')
@@ -153,6 +157,78 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
       return sortOrder === 'asc' ? comp : -comp
     })
   }, [segments, searchQuery, sortField, sortOrder])
+
+  const {
+    selectedIds,
+    selectedCount,
+    isSelected,
+    toggleRow,
+    clearSelection,
+    isAllSelected,
+    isSomeSelected,
+    toggleSelectAll,
+  } = useRowSelection<CardSegment>({
+    items: filteredSegments,
+    getKey: (s) => s.id,
+  })
+
+  const handleBulkActivate = async () => {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    if (
+      !window.confirm(
+        `Are you sure you want to Activate ${ids.length} selected record(s)? This will submit ${ids.length} request(s) for Maker/Checker approval.`
+      )
+    ) {
+      return
+    }
+    let successCount = 0
+    let failureCount = 0
+    for (const id of ids) {
+      try {
+        await apiService.activateCardSegment(Number(id))
+        successCount++
+      } catch (err: any) {
+        failureCount++
+      }
+    }
+    clearSelection()
+    fetchSegments()
+    alert(
+      `Bulk Activate Completed: ${successCount} item(s) submitted for approval.${
+        failureCount > 0 ? ` ${failureCount} item(s) failed or have pending changes.` : ''
+      }`
+    )
+  }
+
+  const handleBulkDeactivate = async () => {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    if (
+      !window.confirm(
+        `Are you sure you want to Deactivate ${ids.length} selected record(s)? This will submit ${ids.length} request(s) for Maker/Checker approval.`
+      )
+    ) {
+      return
+    }
+    let successCount = 0
+    let failureCount = 0
+    for (const id of ids) {
+      try {
+        await apiService.deactivateCardSegment(Number(id))
+        successCount++
+      } catch (err: any) {
+        failureCount++
+      }
+    }
+    clearSelection()
+    fetchSegments()
+    alert(
+      `Bulk Deactivate Completed: ${successCount} item(s) submitted for approval.${
+        failureCount > 0 ? ` ${failureCount} item(s) failed or have pending changes.` : ''
+      }`
+    )
+  }
 
   // Form Reset / Open
   const handleOpenCreate = () => {
@@ -424,9 +500,9 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
               onChange={(e) => setActiveFilter(e.target.value as 'all' | 'active' | 'inactive')}
               className="w-32 text-xs"
               options={[
-                { label: 'All', value: 'all' },
-                { label: 'Active', value: 'active' },
-                { label: 'Inactive', value: 'inactive' },
+                { label: 'All Statuses', value: 'all' },
+                { label: 'Active Only', value: 'active' },
+                { label: 'Inactive Only', value: 'inactive' },
               ]}
             />
           </div>
@@ -444,12 +520,29 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
         </div>
       </div>
 
+      {/* Selection Status Bar */}
+      <SelectionToolbar
+        selectedCount={selectedCount}
+        totalCount={filteredSegments.length}
+        onClearSelection={clearSelection}
+        onBulkActivate={canManage ? handleBulkActivate : undefined}
+        onBulkDeactivate={canManage ? handleBulkDeactivate : undefined}
+      />
+
       {/* Segments DataGrid */}
       <div className="bg-card rounded-xl border shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-muted/50 border-b text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               <tr>
+                <th className="py-3.5 px-4 text-center w-12">
+                  <Checkbox
+                    checked={isAllSelected}
+                    indeterminate={isSomeSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all segments"
+                  />
+                </th>
                 <th className="px-4 py-3">
                   <SortableHeader label="Segment Code" sortField="segment_code" currentSortField={sortField} currentSortOrder={sortOrder} onSort={handleSort} />
                 </th>
@@ -459,7 +552,9 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
                 <th className="px-4 py-3">
                   <SortableHeader label="Priority" sortField="priority" currentSortField={sortField} currentSortOrder={sortOrder} onSort={handleSort} />
                 </th>
-                <th className="px-4 py-3">Assigned Programmes</th>
+                <th className="px-4 py-3">
+                  <SortableHeader label="Assigned Programmes" sortField="assigned_programmes_count" currentSortField={sortField} currentSortOrder={sortOrder} onSort={handleSort} />
+                </th>
                 <th className="px-4 py-3">
                   <SortableHeader label="Status" sortField="active" currentSortField={sortField} currentSortOrder={sortOrder} onSort={handleSort} />
                 </th>
@@ -469,47 +564,60 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
             <tbody className="divide-y divide-border">
               {isLoading ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
                     Loading Card Segments...
                   </td>
                 </tr>
               ) : filteredSegments.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
                     No card segments found matching criteria.
                   </td>
                 </tr>
               ) : (
-                filteredSegments.map((seg) => (
-                  <tr key={seg.id} className="hover:bg-muted/40 transition-colors">
+                filteredSegments.map((seg) => {
+                  const selected = isSelected(seg.id)
+                  return (
+                    <tr key={seg.id} className={`hover:bg-muted/40 transition-colors ${selected ? 'bg-blue-50/60 dark:bg-blue-950/30' : ''}`}>
+                      <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selected}
+                          onChange={() => toggleRow(seg.id)}
+                          aria-label={`Select segment ${seg.segment_code}`}
+                        />
+                      </td>
                     <td className="px-4 py-3 font-medium text-foreground font-mono">{seg.segment_code}</td>
                     <td className="px-4 py-3 text-foreground font-semibold">{seg.segment_name}</td>
                     <td className="px-4 py-3 text-muted-foreground font-mono">{seg.priority}</td>
                     <td className="px-4 py-3">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2.5 text-xs text-primary font-medium hover:bg-primary/10"
-                        onClick={() => handleOpenProgrammes(seg)}
-                      >
-                        <Layers className="w-3.5 h-3.5 mr-1.5" />
-                        {seg.assigned_programmes_count ?? 0} Programmes
-                      </Button>
+                      <div className="inline-flex items-center text-xs font-medium text-muted-foreground px-2 py-1">
+                        <Layers className="w-3.5 h-3.5 mr-1.5 shrink-0 text-muted-foreground" />
+                        <span>{seg.assigned_programmes_count ?? 0} Programmes</span>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <StatusBadge status={seg.active ? 'ACTIVE' : 'INACTIVE'} />
                         {seg.has_pending_change && (
-                          <Tooltip content={`Pending approval: ${seg.pending_operation_code || 'Change'} (${seg.pending_work_item_number || `Work Item #${seg.pending_work_item_id}`})`}>
+                          <Tooltip content={`Pending approval: ${seg.pending_operation_code || 'Change'} - Click to review Work Item in Approval Queue`}>
                             <div className="flex flex-col gap-0.5">
                               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300">
                                 <Clock className="w-3 h-3 mr-1 animate-pulse" />
                                 Pending
                               </span>
-                              <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 pl-1">
-                                {seg.pending_work_item_number || (seg.pending_work_item_id ? `MC-${String(seg.pending_work_item_id).padStart(8, '0')}` : '')}
-                              </span>
+                              {seg.pending_work_item_number ? (
+                                <Link
+                                  to={`/maker-checker?workItem=${seg.pending_work_item_number}`}
+                                  className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 pl-1 hover:underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                >
+                                  {seg.pending_work_item_number}
+                                </Link>
+                              ) : (
+                                <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 pl-1">
+                                  {seg.pending_work_item_id ? `MC-${String(seg.pending_work_item_id).padStart(8, '0')}` : ''}
+                                </span>
+                              )}
                             </div>
                           </Tooltip>
                         )}
@@ -593,8 +701,9 @@ export const CardSegmentsPage: React.FC<CardSegmentsPageProps> = ({ currentUser 
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
+                )
+              })
+            )}
             </tbody>
           </table>
         </div>

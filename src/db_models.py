@@ -397,11 +397,14 @@ class CardChargesHeader(Base):
     __table_args__ = schema_args("config")
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    client_id = Column(Integer, nullable=False)
+    client_id = Column(Integer, ForeignKey(fk_ref("config.clients.tenant_id")), nullable=False)
     charge_name = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
     active = Column(Boolean, nullable=False, default=True)
     created_by = Column(String(30), nullable=False)
     created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
 
 
 class CardChargeEntry(Base):
@@ -409,11 +412,58 @@ class CardChargeEntry(Base):
     __table_args__ = schema_args("config")
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    header_id = Column(Integer, nullable=False)
-    charge_type = Column(String(50), nullable=False)
+    client_id = Column(Integer, ForeignKey(fk_ref("config.clients.tenant_id")), nullable=False)
+    charge_header_id = Column(Integer, ForeignKey(fk_ref("config.card_charges_headers.id")), nullable=False)
+    sequence_no = Column(Integer, nullable=False, default=1)
+    posting_account_type = Column(String(10), nullable=False, default="GL")
+    dr_cr = Column(String(1), nullable=False, default="D")
+    narration = Column(String(100), nullable=False)
+    posting_account_number = Column(String(20), nullable=True)
+    posting_branch_type = Column(String(10), nullable=True)
+    posting_entry_type = Column(String(50), nullable=False)
     amount = Column(Numeric(18, 2), nullable=False)
-    currency = Column(String(3), nullable=False)
+    currency_code = Column(String(3), nullable=False, default="NGN")
     active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=False)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
+
+
+class PostingBranchType(Base):
+    __tablename__ = "posting_branch_types"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    posting_branch_type = Column(String(10), nullable=False)
+    posting_branch_name = Column(String(100), nullable=False)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class PostingEntryType(Base):
+    __tablename__ = "posting_entry_types"
+    __table_args__ = schema_args("config")
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
+    posting_entry_type = Column(String(50), nullable=False)
+    description = Column(String(255), nullable=True)
+    active = Column(Boolean, nullable=False, default=True)
+
+
+class ProcessingMode(Base):
+    __tablename__ = "processing_modes"
+    __table_args__ = schema_args("config")
+
+    processing_mode_code = Column(String(50), primary_key=True)
+    processing_mode_name = Column(String(100), nullable=False)
+    display_order = Column(Integer, nullable=False, default=1)
+    active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=False, default="system")
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
 
 
 

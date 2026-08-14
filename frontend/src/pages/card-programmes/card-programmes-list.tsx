@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import {
   Search,
   Plus,
@@ -52,7 +52,7 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = React.useState('')
   const [brandFilter, setBrandFilter] = React.useState('ALL')
-  const [statusFilter, setStatusFilter] = React.useState('ALL')
+  const [statusFilter, setStatusFilter] = React.useState('ACTIVE')
 
   // Sorting State
   const [sortField, setSortField] = React.useState<string | null>('card_programme_code')
@@ -135,6 +135,7 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
 
   // Reusable Row Selection Hook
   const {
+    selectedIds,
     selectedCount,
     isSelected,
     toggleRow,
@@ -173,6 +174,64 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
       mounted = false
     }
   }, [currentUser.roles])
+
+  const handleBulkActivate = async () => {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    if (
+      !window.confirm(
+        `Are you sure you want to Activate ${ids.length} selected record(s)? This will submit ${ids.length} request(s) for Maker/Checker approval.`
+      )
+    ) {
+      return
+    }
+    let successCount = 0
+    let failureCount = 0
+    for (const id of ids) {
+      try {
+        await apiService.activateCardProgramme(Number(id))
+        successCount++
+      } catch (err: any) {
+        failureCount++
+      }
+    }
+    clearSelection()
+    onRefresh()
+    alert(
+      `Bulk Activate Completed: ${successCount} item(s) submitted for approval.${
+        failureCount > 0 ? ` ${failureCount} item(s) failed or have pending changes.` : ''
+      }`
+    )
+  }
+
+  const handleBulkDeactivate = async () => {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    if (
+      !window.confirm(
+        `Are you sure you want to Deactivate ${ids.length} selected record(s)? This will submit ${ids.length} request(s) for Maker/Checker approval.`
+      )
+    ) {
+      return
+    }
+    let successCount = 0
+    let failureCount = 0
+    for (const id of ids) {
+      try {
+        await apiService.deactivateCardProgramme(Number(id))
+        successCount++
+      } catch (err: any) {
+        failureCount++
+      }
+    }
+    clearSelection()
+    onRefresh()
+    alert(
+      `Bulk Deactivate Completed: ${successCount} item(s) submitted for approval.${
+        failureCount > 0 ? ` ${failureCount} item(s) failed or have pending changes.` : ''
+      }`
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -256,6 +315,8 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
         selectedCount={selectedCount}
         totalCount={filteredProgrammes.length}
         onClearSelection={clearSelection}
+        onBulkActivate={canManage ? handleBulkActivate : undefined}
+        onBulkDeactivate={canManage ? handleBulkDeactivate : undefined}
       />
 
       {/* Full-Width Grid Table */}
@@ -466,15 +527,24 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
                         <div className="flex items-center justify-center gap-1.5 flex-wrap">
                           <StatusBadge status={prog.active ? 'ACTIVE' : 'INACTIVE'} />
                           {prog.has_pending_change && (
-                            <Tooltip content={`Pending approval: ${prog.pending_operation_code || 'Change'} (${prog.pending_work_item_number || `Work Item #${prog.pending_work_item_id}`})`}>
+                            <Tooltip content={`Pending approval: ${prog.pending_operation_code || 'Change'} - Click to review Work Item in Approval Queue`}>
                               <div className="flex flex-col items-center gap-0.5">
                                 <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-300">
                                   <Clock className="w-2.5 h-2.5 mr-1 animate-pulse" />
                                   Pending
                                 </span>
-                                <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
-                                  {prog.pending_work_item_number || (prog.pending_work_item_id ? `MC-${String(prog.pending_work_item_id).padStart(8, '0')}` : '')}
-                                </span>
+                                {prog.pending_work_item_number ? (
+                                  <Link
+                                    to={`/maker-checker?workItem=${prog.pending_work_item_number}`}
+                                    className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400 hover:underline hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                                  >
+                                    {prog.pending_work_item_number}
+                                  </Link>
+                                ) : (
+                                  <span className="text-[10px] font-mono font-bold text-amber-700 dark:text-amber-400">
+                                    {prog.pending_work_item_id ? `MC-${String(prog.pending_work_item_id).padStart(8, '0')}` : ''}
+                                  </span>
+                                )}
                               </div>
                             </Tooltip>
                           )}
@@ -511,7 +581,7 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
                           <Tooltip content="View Programme Details">
                             <button
                               onClick={() => handleViewDetails(prog.id)}
-                              className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors"
+                              className="p-1.5 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </button>
@@ -532,7 +602,7 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
                                 <Tooltip content="Edit Card Programme">
                                   <button
                                     onClick={() => handleEdit(prog)}
-                                    className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/60 text-blue-600 dark:text-blue-400 transition-colors"
+                                    className="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-950/60 text-blue-600 dark:text-blue-400 transition-colors cursor-pointer"
                                   >
                                     <Edit2 className="h-3.5 w-3.5" />
                                   </button>
@@ -552,7 +622,7 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
                                 <Tooltip content="Copy Specification (Create New)">
                                   <button
                                     onClick={() => handleCopy(prog)}
-                                    className="p-1.5 rounded-md hover:bg-purple-50 dark:hover:bg-purple-950/60 text-purple-600 dark:text-purple-400 transition-colors"
+                                    className="p-1.5 rounded-md hover:bg-purple-50 dark:hover:bg-purple-950/60 text-purple-600 dark:text-purple-400 transition-colors cursor-pointer"
                                   >
                                     <Copy className="h-3.5 w-3.5" />
                                   </button>
@@ -572,7 +642,7 @@ export const CardProgrammesList: React.FC<CardProgrammesListProps> = ({
                                 <Tooltip content={prog.active ? 'Deactivate Card Programme' : 'Activate Card Programme'}>
                                   <button
                                     onClick={() => handleToggleActive(prog)}
-                                    className={`p-1.5 rounded-md transition-colors ${
+                                    className={`p-1.5 rounded-md transition-colors cursor-pointer ${
                                       prog.active
                                         ? 'hover:bg-amber-50 dark:hover:bg-amber-950/60 text-amber-600 dark:text-amber-400'
                                         : 'hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400'

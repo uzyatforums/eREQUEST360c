@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import {
   Edit2,
   Copy,
@@ -127,13 +127,29 @@ export const CardProgrammeDetails: React.FC<CardProgrammeDetailsProps> = ({
             <Clock className="h-5 w-5 text-amber-600 animate-pulse shrink-0" />
             <div>
               <h4 className="text-xs font-bold text-amber-900 dark:text-amber-200">
-                Pending Approval Protection Active ({programme.pending_work_item_number || `Work Item #${programme.pending_work_item_id}`})
+                Pending Approval Protection Active ({programme.pending_work_item_number ? (
+                  <Link
+                    to={`/maker-checker?workItem=${programme.pending_work_item_number}`}
+                    className="underline hover:text-blue-600 dark:hover:text-blue-400 font-mono transition-colors"
+                  >
+                    {programme.pending_work_item_number}
+                  </Link>
+                ) : (
+                  `Work Item #${programme.pending_work_item_id}`
+                )})
               </h4>
               <p className="text-[11px] text-amber-700 dark:text-amber-300">
                 A {programme.pending_operation_code || 'configuration'} request is currently awaiting Checker review. Further mutations are disabled until approved or rejected.
               </p>
             </div>
           </div>
+          {programme.pending_work_item_number && (
+            <Link to={`/maker-checker?workItem=${programme.pending_work_item_number}`}>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs text-amber-800 border-amber-300 hover:bg-amber-100 dark:text-amber-200 dark:border-amber-700 dark:hover:bg-amber-900/60 shrink-0">
+                Review Request →
+              </Button>
+            </Link>
+          )}
         </div>
       )}
 

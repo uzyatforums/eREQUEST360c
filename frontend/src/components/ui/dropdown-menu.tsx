@@ -32,7 +32,7 @@ export const DropdownMenu: React.FC<DropdownMenuProps> = ({ items }) => {
     <div className="relative inline-block text-left" ref={menuRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="p-1.5 text-slate-500 hover:text-slate-900 rounded-md hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 dark:hover:bg-slate-800 dark:text-slate-400"
+        className="p-1.5 text-slate-500 hover:text-slate-900 rounded-md hover:bg-slate-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-600 dark:hover:bg-slate-800 dark:text-slate-400 cursor-pointer"
         aria-label="Row Actions"
         aria-haspopup="true"
         aria-expanded={isOpen}

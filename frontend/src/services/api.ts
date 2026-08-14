@@ -107,6 +107,13 @@ export const apiService = {
   },
 
   /**
+   * Fetches configurable session inactivity timeout configuration.
+   */
+  async getSessionConfig(): Promise<{ inactivity_timeout_minutes: number; inactivity_timeout_seconds: number }> {
+    return apiClient<{ inactivity_timeout_minutes: number; inactivity_timeout_seconds: number }>('/auth/session-config')
+  },
+
+  /**
    * Fetches active IAM roles from /auth/roles.
    */
   async getIAMRoles(): Promise<IAMRole[]> {
@@ -408,4 +415,131 @@ export const apiService = {
       body: JSON.stringify({ remarks }),
     })
   },
+
+  // Card Charges API Methods
+  async getCardCharges(search?: string, statusFilter: string = 'ACTIVE'): Promise<import('../types').CardChargesHeader[]> {
+    const params = new URLSearchParams()
+    if (search) params.append('search', search)
+    if (statusFilter) params.append('status_filter', statusFilter)
+    const queryString = params.toString() ? `?${params.toString()}` : ''
+    return apiClient<import('../types').CardChargesHeader[]>(`/config/card-charges${queryString}`)
+  },
+
+  async getCardChargeById(id: number): Promise<import('../types').CardChargesHeader> {
+    return apiClient<import('../types').CardChargesHeader>(`/config/card-charges/${id}`)
+  },
+
+  async createCardCharge(payload: any): Promise<any> {
+    return apiClient<any>('/config/card-charges', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async updateCardCharge(id: number, payload: any): Promise<any> {
+    return apiClient<any>(`/config/card-charges/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async activateCardCharge(id: number): Promise<any> {
+    return apiClient<any>(`/config/card-charges/${id}/activate`, {
+      method: 'POST',
+    })
+  },
+
+  async deactivateCardCharge(id: number): Promise<any> {
+    return apiClient<any>(`/config/card-charges/${id}/deactivate`, {
+      method: 'POST',
+    })
+  },
+
+  async getPostingBranchTypes(): Promise<import('../types').PostingBranchType[]> {
+    return apiClient<import('../types').PostingBranchType[]>('/config/posting-branch-types')
+  },
+
+  async getPostingEntryTypes(): Promise<import('../types').PostingEntryType[]> {
+    return apiClient<import('../types').PostingEntryType[]>('/config/posting-entry-types')
+  },
+
+  // Card Segment Programme Charges API Methods
+  async getCardSegmentProgrammeCharges(
+    search?: string,
+    statusFilter: string = 'active',
+    cardSegmentProgrammeId?: number,
+    chargeHeaderId?: number,
+    processingModeCode?: string,
+    page: number = 1,
+    pageSize: number = 25,
+    segmentId?: number,
+    cardProgrammeId?: number,
+    sortBy?: string,
+    sortDir?: string
+  ): Promise<{ items: import('../types').CardSegmentProgrammeChargeListItem[]; total: number; page: number; page_size: number }> {
+    const params = new URLSearchParams()
+    if (search) params.append('search', search)
+    if (statusFilter) params.append('status_filter', statusFilter)
+    if (cardSegmentProgrammeId) params.append('card_segment_programme_id', cardSegmentProgrammeId.toString())
+    if (segmentId) params.append('segment_id', segmentId.toString())
+    if (cardProgrammeId) params.append('card_programme_id', cardProgrammeId.toString())
+    if (chargeHeaderId) params.append('charge_header_id', chargeHeaderId.toString())
+    if (processingModeCode) params.append('processing_mode_code', processingModeCode)
+    if (sortBy) params.append('sort_by', sortBy)
+    if (sortDir) params.append('sort_dir', sortDir)
+    params.append('page', page.toString())
+    params.append('page_size', pageSize.toString())
+    const queryString = params.toString() ? `?${params.toString()}` : ''
+    return apiClient<{ items: import('../types').CardSegmentProgrammeChargeListItem[]; total: number; page: number; page_size: number }>(
+      `/config/card-segment-programme-charges${queryString}`
+    )
+  },
+
+  async getCardSegmentProgrammeChargeById(id: number): Promise<import('../types').CardSegmentProgrammeChargeDetail> {
+    return apiClient<import('../types').CardSegmentProgrammeChargeDetail>(`/config/card-segment-programme-charges/${id}`)
+  },
+
+  async getSegmentProgrammeLookups(): Promise<import('../types').CardSegmentProgrammeLookup[]> {
+    return apiClient<import('../types').CardSegmentProgrammeLookup[]>('/config/card-segment-programme-charges/segment-programmes/lookup')
+  },
+
+  async getChargeHeaderLookups(): Promise<Array<{ id: number; charge_name: string; description?: string; active: boolean }>> {
+    return apiClient<Array<{ id: number; charge_name: string; description?: string; active: boolean }>>(
+      '/config/card-segment-programme-charges/charge-headers/lookup'
+    )
+  },
+
+  async getProcessingModeLookups(): Promise<Array<{ processing_mode_code: string; processing_mode_name: string; display_order: number; active: boolean }>> {
+    return apiClient<Array<{ processing_mode_code: string; processing_mode_name: string; display_order: number; active: boolean }>>(
+      '/config/card-segment-programme-charges/processing-modes/lookup'
+    )
+  },
+
+  async createCardSegmentProgrammeCharge(payload: import('../types').CardSegmentProgrammeChargeCreate): Promise<any> {
+    return apiClient<any>('/config/card-segment-programme-charges', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async updateCardSegmentProgrammeCharge(id: number, payload: import('../types').CardSegmentProgrammeChargeUpdate): Promise<any> {
+    return apiClient<any>(`/config/card-segment-programme-charges/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+  },
+
+  async activateCardSegmentProgrammeCharge(id: number): Promise<any> {
+    return apiClient<any>(`/config/card-segment-programme-charges/${id}/activate`, {
+      method: 'POST',
+    })
+  },
+
+  async deactivateCardSegmentProgrammeCharge(id: number): Promise<any> {
+    return apiClient<any>(`/config/card-segment-programme-charges/${id}/deactivate`, {
+      method: 'POST',
+    })
+  },
 }
+
+export const api = apiService

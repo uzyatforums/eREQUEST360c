@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from src.db import get_db
@@ -65,6 +66,18 @@ def list_card_segments(
         )
     segments = query.order_by(CardSegment.priority.asc(), CardSegment.segment_code.asc()).all()
 
+    # Query assigned programmes count per segment for client_id
+    counts_query = (
+        db.query(
+            CardSegmentProgramme.segment_id,
+            func.count(CardSegmentProgramme.id).label("prog_count"),
+        )
+        .filter(CardSegmentProgramme.client_id == client_id)
+        .group_by(CardSegmentProgramme.segment_id)
+        .all()
+    )
+    counts_map = {segment_id: count for segment_id, count in counts_query}
+
     # Query active pending work items for CARD_SEGMENT
     pending_items = (
         db.query(MakerCheckerWorkItem)
@@ -80,6 +93,7 @@ def list_card_segments(
     result: List[CardSegmentRead] = []
     for seg in segments:
         read_obj = CardSegmentRead.model_validate(seg)
+        read_obj.assigned_programmes_count = counts_map.get(seg.id, 0)
         wi = pending_map.get(seg.id)
         if wi:
             read_obj.has_pending_change = True

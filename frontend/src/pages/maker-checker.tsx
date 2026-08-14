@@ -27,10 +27,14 @@ import { Button } from '../components/ui/button'
 import { Tooltip } from '../components/ui/tooltip'
 import { Sheet } from '../components/ui/sheet'
 import { Input } from '../components/ui/input'
+import { useSearchParams } from 'react-router-dom'
 import { useToast } from '../components/ui/toast'
 import { SortableHeader, SortOrder } from '../components/ui/sortable-header'
-import { formatDate } from '../lib/utils'
+import { formatDate, cn } from '../lib/utils'
 import { useWorkQueue } from '../context/work-queue-context'
+import { Checkbox } from '../components/ui/checkbox'
+import { SelectionToolbar } from '../components/ui/selection-toolbar'
+import { useRowSelection } from '../hooks/use-row-selection'
 
 export interface MakerCheckerPageProps {
   currentUser: UserInfo
@@ -79,6 +83,9 @@ export const MakerCheckerPage: React.FC<MakerCheckerPageProps> = ({
   // Confirmation Modals
   const [confirmApproveModal, setConfirmApproveModal] = React.useState<WorkItemRead | null>(null)
   const [confirmRejectModal, setConfirmRejectModal] = React.useState<WorkItemRead | null>(null)
+  const [isBulkApproveModalOpen, setIsBulkApproveModalOpen] = React.useState(false)
+  const [isBulkRejectModalOpen, setIsBulkRejectModalOpen] = React.useState(false)
+  const [bulkRemarks, setBulkRemarks] = React.useState('')
 
   // Fetch Pending Work Items
   const fetchWorkItems = React.useCallback(async () => {
@@ -102,8 +109,13 @@ export const MakerCheckerPage: React.FC<MakerCheckerPageProps> = ({
     fetchWorkItems()
   }, [fetchWorkItems])
 
+  const [searchParams] = useSearchParams()
+  const targetWorkItemParam = searchParams.get('workItem')
+  const [highlightedWorkItemNum, setHighlightedWorkItemNum] = React.useState<string | null>(null)
+  const hasHandledUrlParamRef = React.useRef(false)
+
   // Open Drawer & Load Details
-  const handleInspect = async (item: WorkItemRead) => {
+  const handleInspect = React.useCallback(async (item: WorkItemRead) => {
     setSelectedWorkItem(item)
     setPayloadData(null)
     setActionHistory([])
@@ -128,7 +140,37 @@ export const MakerCheckerPage: React.FC<MakerCheckerPageProps> = ({
     } finally {
       setIsDrawerLoading(false)
     }
-  }
+  }, [toast])
+
+  // Handle URL navigation parameter (?workItem=MC-XXXXXXXX)
+  React.useEffect(() => {
+    if (!isLoading && workItems.length >= 0 && targetWorkItemParam && !hasHandledUrlParamRef.current) {
+      hasHandledUrlParamRef.current = true
+      const targetQuery = targetWorkItemParam.trim().toUpperCase()
+      const foundItem = workItems.find(
+        (wi) =>
+          wi.work_item_number?.toUpperCase() === targetQuery ||
+          String(wi.id) === targetQuery
+      )
+
+      if (foundItem) {
+        setHighlightedWorkItemNum(foundItem.work_item_number)
+        handleInspect(foundItem)
+        setTimeout(() => {
+          const el = document.getElementById(`work-item-row-${foundItem.id}`)
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          }
+        }, 150)
+      } else {
+        toast({
+          title: 'Work Item Unavailable',
+          description: `Work item ${targetWorkItemParam} is no longer pending or is unavailable.`,
+          variant: 'destructive',
+        })
+      }
+    }
+  }, [isLoading, workItems, targetWorkItemParam, handleInspect, toast])
 
   // Handle Approve Execution
   const handleExecuteApprove = async (item: WorkItemRead) => {
@@ -238,6 +280,97 @@ export const MakerCheckerPage: React.FC<MakerCheckerPageProps> = ({
 
     return list
   }, [workItems, searchQuery, entityTypeFilter, operationFilter, sortField, sortOrder])
+
+  const getKey = React.useCallback((item: WorkItemRead) => item.id, [])
+
+  // Reusable Row Selection Hook
+  const {
+    selectedIds,
+    selectedCount,
+    isSelected,
+    toggleRow,
+    clearSelection,
+    isAllSelected,
+    isSomeSelected,
+    toggleSelectAll,
+  } = useRowSelection<WorkItemRead>({
+    items: filteredWorkItems,
+    getKey,
+  })
+
+  const handleExecuteBulkApprove = async () => {
+    if (selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    setIsSubmittingAction(true)
+    let successCount = 0
+    let failureCount = 0
+    const rem = bulkRemarks.trim() || undefined
+
+    for (const id of ids) {
+      try {
+        await apiService.approveWorkItem(Number(id), rem)
+        successCount++
+      } catch (err: any) {
+        failureCount++
+      }
+    }
+
+    setIsSubmittingAction(false)
+    setIsBulkApproveModalOpen(false)
+    setBulkRemarks('')
+    clearSelection()
+    fetchWorkItems()
+    await refreshPendingCount()
+
+    toast({
+      title: 'Bulk Approval Completed',
+      description: `Successfully approved ${successCount} work item(s).${
+        failureCount > 0 ? ` ${failureCount} request(s) failed or were blocked by governance rules (e.g. self-approval).` : ''
+      }`,
+      variant: failureCount > 0 && successCount === 0 ? 'destructive' : 'info',
+    })
+  }
+
+  const handleExecuteBulkReject = async () => {
+    if (selectedIds.size === 0) return
+    if (!bulkRemarks.trim()) {
+      toast({
+        title: 'Remarks Required',
+        description: 'You must specify rejection remarks for bulk rejection.',
+        variant: 'destructive',
+      })
+      return
+    }
+    const ids = Array.from(selectedIds)
+    setIsSubmittingAction(true)
+    let successCount = 0
+    let failureCount = 0
+    const rem = bulkRemarks.trim()
+
+    for (const id of ids) {
+      try {
+        await apiService.rejectWorkItem(Number(id), rem)
+        successCount++
+      } catch (err: any) {
+        failureCount++
+      }
+    }
+
+    setIsSubmittingAction(false)
+    setIsBulkRejectModalOpen(false)
+    setBulkRemarks('')
+    clearSelection()
+    fetchWorkItems()
+    await refreshPendingCount()
+
+    toast({
+      title: 'Bulk Rejection Completed',
+      description: `Rejected ${successCount} work item(s).${
+        failureCount > 0 ? ` ${failureCount} request(s) failed.` : ''
+      }`,
+      variant: failureCount > 0 && successCount === 0 ? 'destructive' : 'info',
+    })
+  }
 
   // Unique Entity Types & Operations for Filter Selects
   const availableEntityTypes = React.useMemo(() => {
@@ -460,6 +593,23 @@ export const MakerCheckerPage: React.FC<MakerCheckerPageProps> = ({
         </div>
       </div>
 
+      {/* Selection Status Bar */}
+      {selectedCount > 0 && (
+        <SelectionToolbar
+          selectedCount={selectedCount}
+          totalCount={filteredWorkItems.length}
+          onClearSelection={clearSelection}
+          onBulkApprove={() => {
+            setBulkRemarks('')
+            setIsBulkApproveModalOpen(true)
+          }}
+          onBulkReject={() => {
+            setBulkRemarks('')
+            setIsBulkRejectModalOpen(true)
+          }}
+        />
+      )}
+
       {/* Main Work Items DataGrid (SCR-MC-001) */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm overflow-hidden">
         {isLoading ? (
@@ -482,6 +632,14 @@ export const MakerCheckerPage: React.FC<MakerCheckerPageProps> = ({
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider font-semibold">
+                  <th className="py-3 px-4 text-center w-12">
+                    <Checkbox
+                      checked={isAllSelected}
+                      indeterminate={isSomeSelected}
+                      onChange={toggleSelectAll}
+                      aria-label="Select all work items"
+                    />
+                  </th>
                   <th className="py-3 px-4">
                     <SortableHeader
                       label="Work Item #"
@@ -533,12 +691,26 @@ export const MakerCheckerPage: React.FC<MakerCheckerPageProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                {filteredWorkItems.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
-                  >
-                    <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">
+                {filteredWorkItems.map((item) => {
+                  const selected = isSelected(item.id)
+                  return (
+                    <tr
+                      key={item.id}
+                      id={`work-item-row-${item.id}`}
+                      className={cn(
+                        'hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors',
+                        selected && 'bg-blue-50/60 dark:bg-blue-950/30',
+                        highlightedWorkItemNum === item.work_item_number && 'bg-amber-50/90 dark:bg-amber-950/50 ring-2 ring-amber-500/80'
+                      )}
+                    >
+                      <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selected}
+                          onChange={() => toggleRow(item.id)}
+                          aria-label={`Select work item ${item.work_item_number}`}
+                        />
+                      </td>
+                      <td className="py-3.5 px-4 font-mono font-bold text-blue-600 dark:text-blue-400">
                       {item.work_item_number}
                     </td>
                     <td className="py-3.5 px-4 font-medium text-slate-900 dark:text-slate-100">
@@ -599,7 +771,8 @@ export const MakerCheckerPage: React.FC<MakerCheckerPageProps> = ({
                       </div>
                     </td>
                   </tr>
-                ))}
+                )
+              })}
               </tbody>
             </table>
           </div>
@@ -1020,6 +1193,109 @@ export const MakerCheckerPage: React.FC<MakerCheckerPageProps> = ({
                 disabled={isSubmittingAction || !remarks.trim()}
               >
                 {isSubmittingAction ? 'Rejecting...' : 'Confirm Reject'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal: BULK APPROVE */}
+      {isBulkApproveModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg max-w-md w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-3 text-emerald-600">
+              <CheckCircle2 className="h-6 w-6 shrink-0" />
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                Confirm Bulk Approval
+              </h3>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Are you sure you want to approve <strong className="font-bold text-slate-900 dark:text-slate-100">{selectedCount}</strong> selected work item(s)? Approved changes will take immediate effect.
+            </p>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Approval Remarks <span className="text-slate-400 font-normal">(Optional)</span>
+              </label>
+              <textarea
+                rows={2}
+                value={bulkRemarks}
+                onChange={(e) => setBulkRemarks(e.target.value)}
+                placeholder="Enter optional bulk approval remarks..."
+                className="w-full text-xs p-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsBulkApproveModalOpen(false)}
+                disabled={isSubmittingAction}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleExecuteBulkApprove}
+                disabled={isSubmittingAction}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              >
+                {isSubmittingAction ? 'Approving...' : `Approve ${selectedCount} Item(s)`}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal: BULK REJECT */}
+      {isBulkRejectModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg max-w-md w-full p-6 shadow-xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-600">
+              <XCircle className="h-6 w-6 shrink-0" />
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                Confirm Bulk Rejection
+              </h3>
+            </div>
+
+            <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+              Are you sure you want to reject <strong className="font-bold text-slate-900 dark:text-slate-100">{selectedCount}</strong> selected work item(s)?
+            </p>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                Rejection Remarks <span className="text-rose-500">* (Required)</span>
+              </label>
+              <textarea
+                rows={3}
+                value={bulkRemarks}
+                onChange={(e) => setBulkRemarks(e.target.value)}
+                placeholder="Enter mandatory reason for bulk rejection..."
+                className="w-full text-xs p-2.5 rounded-md border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-rose-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsBulkRejectModalOpen(false)}
+                disabled={isSubmittingAction}
+              >
+                Cancel
+              </Button>
+
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleExecuteBulkReject}
+                disabled={isSubmittingAction || !bulkRemarks.trim()}
+              >
+                {isSubmittingAction ? 'Rejecting...' : `Reject ${selectedCount} Item(s)`}
               </Button>
             </div>
           </div>

@@ -288,6 +288,59 @@ class CardSegmentProgrammeChargeRead(BaseModel):
         from_attributes = True
 
 
+class CardSegmentProgrammeChargeCreate(BaseModel):
+    card_segment_programme_id: int
+    charge_header_id: int
+    priority: Optional[int] = 0
+    processing_mode_code: str = Field(default="NORMAL", max_length=20)
+
+
+class CardSegmentProgrammeChargeUpdate(BaseModel):
+    charge_header_id: int
+    priority: Optional[int] = 0
+    processing_mode_code: str = Field(default="NORMAL", max_length=20)
+
+
+class CardSegmentProgrammeChargeListItem(BaseModel):
+    id: int
+    client_id: int
+    card_segment_programme_id: int
+    segment_code: str
+    segment_name: str
+    card_programme_code: str
+    card_programme_name: str
+    card_brand: Optional[str] = None
+    charge_header_id: int
+    charge_name: str
+    priority: int
+    active: bool
+    processing_mode_code: str
+    has_pending_change: bool = False
+    pending_work_item_id: Optional[str] = None
+    created_by: str
+    created_date: datetime
+    last_modified_by: Optional[str] = None
+    last_modified_date: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class CardSegmentProgrammeChargeDetail(CardSegmentProgrammeChargeListItem):
+    entries: list[dict] = []
+
+
+class CardSegmentProgrammeLookup(BaseModel):
+    id: int
+    segment_id: int
+    segment_code: str
+    segment_name: str
+    card_programme_id: int
+    card_programme_code: str
+    card_programme_name: str
+    card_brand: Optional[str] = None
+
+
 class DuplicateCheckRequest(BaseModel):
     client_id: int
     account_number: str = Field(..., pattern=r"^\d{10}$", description="Account number must be exactly 10 digits")
@@ -392,25 +445,95 @@ class CardTypeRead(BaseModel):
 
 
 class CardChargeEntryRead(BaseModel):
-    id: int
-    header_id: int
-    charge_type: str
+    id: Optional[int] = None
+    client_id: Optional[int] = None
+    charge_header_id: Optional[int] = None
+    sequence_no: int = 1
+    posting_account_type: str = "GL"
+    dr_cr: str = "D"
+    narration: str
+    posting_account_number: Optional[str] = None
+    posting_branch_type: Optional[str] = None
+    posting_entry_type: str
     amount: float
-    currency: str
-    active: bool
+    currency_code: str = "NGN"
+    active: bool = True
+    created_by: Optional[str] = None
+    created_date: Optional[datetime] = None
+    last_modified_by: Optional[str] = None
+    last_modified_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True
+
+
+class CardChargeEntryCreate(BaseModel):
+    id: Optional[int] = None
+    sequence_no: Optional[int] = 1
+    posting_account_type: str = "GL"
+    dr_cr: str = "D"
+    narration: str
+    posting_account_number: Optional[str] = None
+    posting_branch_type: Optional[str] = None
+    posting_entry_type: str
+    amount: float
+    currency_code: str = "NGN"
+    active: bool = True
+
+
+class CardChargesHeaderCreate(BaseModel):
+    charge_name: str
+    description: Optional[str] = None
+    active: bool = True
+    entries: list[CardChargeEntryCreate] = []
+
+
+class CardChargesHeaderUpdate(BaseModel):
+    charge_name: Optional[str] = None
+    description: Optional[str] = None
+    active: Optional[bool] = None
+    entries: Optional[list[CardChargeEntryCreate]] = None
 
 
 class CardChargesHeaderRead(BaseModel):
     id: int
     client_id: int
     charge_name: str
+    description: Optional[str] = None
     active: bool
-    created_by: str
-    created_date: datetime
+    created_by: Optional[str] = None
+    created_date: Optional[datetime] = None
+    last_modified_by: Optional[str] = None
+    last_modified_date: Optional[datetime] = None
     entries: list[CardChargeEntryRead] = []
+    entries_count: Optional[int] = 0
+    effective_currency: Optional[str] = "NGN"
+    has_pending_change: Optional[bool] = False
+    pending_work_item_id: Optional[int] = None
+    pending_work_item_number: Optional[str] = None
+    pending_operation_code: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class PostingBranchTypeRead(BaseModel):
+    id: int
+    client_id: int
+    posting_branch_type: str
+    posting_branch_name: str
+    active: bool
+
+    class Config:
+        from_attributes = True
+
+
+class PostingEntryTypeRead(BaseModel):
+    id: int
+    client_id: int
+    posting_entry_type: str
+    description: Optional[str] = None
+    active: bool
 
     class Config:
         from_attributes = True

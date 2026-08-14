@@ -1,9 +1,12 @@
+import uuid
+import time
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import hashlib
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
@@ -16,6 +19,70 @@ from src.api.audit_service import log_audit_event
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 security = HTTPBearer(auto_error=False)
+
+# Non-qualifying system / background endpoint path prefixes
+NON_QUALIFYING_PATH_PREFIXES = (
+    "/health",
+    "/maker-checker/pending/count",
+    "/maker-checker/work-items/count",
+    "/auth/session-config",
+    "/auth/me",
+)
+
+
+class SessionActivityTracker:
+    _lock = threading.Lock()
+    _last_activity: dict[str, float] = {}
+
+    @classmethod
+    def register_session(cls, jti: str, timestamp: float) -> None:
+        with cls._lock:
+            cls._last_activity[jti] = timestamp
+
+    @classmethod
+    def touch_session(cls, jti: str, timestamp: float) -> None:
+        with cls._lock:
+            cls._last_activity[jti] = timestamp
+
+    @classmethod
+    def revoke_session(cls, jti: str) -> None:
+        with cls._lock:
+            cls._last_activity.pop(jti, None)
+
+    @classmethod
+    def check_and_update_activity(
+        cls,
+        jti: str,
+        token_iat: float,
+        current_time: float,
+        timeout_seconds: float,
+        is_qualifying: bool,
+    ) -> bool:
+        """
+        Returns True if session is ACTIVE.
+        Returns False if session has EXPIRED due to inactivity (elapsed >= timeout_seconds).
+        """
+        with cls._lock:
+            last = cls._last_activity.get(jti)
+            if last is None:
+                # Process restart fallback: use token issued-at time
+                last = token_iat
+                cls._last_activity[jti] = last
+
+            elapsed = current_time - last
+            if elapsed >= timeout_seconds:
+                cls._last_activity.pop(jti, None)
+                return False
+
+            if is_qualifying:
+                cls._last_activity[jti] = current_time
+
+            return True
+
+    @classmethod
+    def clear_all(cls) -> None:
+        with cls._lock:
+            cls._last_activity.clear()
 
 
 class AuthService:
@@ -34,7 +101,14 @@ class AuthService:
         if is_head_office_user is None:
             is_head_office_user = (role_scope == "HEAD_OFFICE")
 
+        now_ts = time.time()
+        now_dt = datetime.fromtimestamp(now_ts, timezone.utc)
+        jti = uuid.uuid4().hex
+        iat = float(now_ts)
+
         payload = {
+            "jti": jti,
+            "iat": iat,
             "sub": username,
             "user_id": user_id or username,
             "client_id": client_id,
@@ -43,9 +117,11 @@ class AuthService:
             "role_scope": role_scope,
             "is_head_office_user": is_head_office_user,
             "roles": roles,
-            "exp": datetime.now(timezone.utc) + timedelta(hours=8),
+            "exp": now_dt + timedelta(hours=8),
         }
-        return jwt.encode(payload, settings.database_url, algorithm="HS256")
+        token = jwt.encode(payload, settings.database_url, algorithm="HS256")
+        SessionActivityTracker.register_session(jti, iat)
+        return token
 
     @staticmethod
     def authenticate(db: Session, username: str, password: str) -> Optional[dict]:
@@ -96,6 +172,7 @@ class AuthService:
 
 
 def get_current_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ) -> CurrentUserContext:
@@ -103,9 +180,32 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     try:
-        payload = jwt.decode(credentials.credentials, settings.database_url, algorithms=["HS256"])
+        payload = jwt.decode(credentials.credentials, settings.database_url, algorithms=["HS256"], options={"verify_iat": False})
     except Exception as exc:  # pragma: no cover - defensive path
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
+
+    # Enforce Server-Authoritative Inactivity Timeout
+    jti = payload.get("jti")
+    iat = float(payload.get("iat", 0))
+    if jti:
+        current_time = time.time()
+        timeout_seconds = float(settings.session_inactivity_timeout_minutes * 60)
+
+        path = request.url.path.rstrip("/")
+        is_qualifying = not any(path.startswith(prefix) for prefix in NON_QUALIFYING_PATH_PREFIXES)
+
+        is_active = SessionActivityTracker.check_and_update_activity(
+            jti=jti,
+            token_iat=iat,
+            current_time=current_time,
+            timeout_seconds=timeout_seconds,
+            is_qualifying=is_qualifying,
+        )
+        if not is_active:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired due to inactivity. Please log in again.",
+            )
 
     effective_branch = payload.get("effective_branch_code") or payload.get("branch_code")
     role_scope = payload.get("role_scope", "BRANCH")
@@ -121,6 +221,14 @@ def get_current_user(
         is_head_office_user=is_head_office,
         roles=list(payload.get("roles", [])),
     )
+
+
+@router.get("/session-config")
+def get_session_config():
+    return {
+        "inactivity_timeout_minutes": settings.session_inactivity_timeout_minutes,
+        "inactivity_timeout_seconds": settings.session_inactivity_timeout_minutes * 60,
+    }
 
 
 @router.post("/login", response_model=TokenResponse)

@@ -37,3 +37,7 @@ All future modules SHALL conform to the architectural, navigation, UI, and lifec
 6. **API Reuse & Documentation**:
    - Reuse existing REST API endpoints before proposing new ones.
    - Update documentation in `docs/ui/` whenever a new reusable standard is introduced.
+
+7. **Task Completion Sound Alert**:
+   - At the end of every task, after all implementation and verification steps finish, execute a PowerShell sound alert (`[System.Console]::Beep`) to chime a bell for the user.
+

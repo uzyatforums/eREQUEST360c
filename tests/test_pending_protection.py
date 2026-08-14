@@ -251,7 +251,7 @@ def test_concurrent_submissions_prevent_duplicate_pending_items():
     db = TestingSessionLocal()
     pending_items = (
         db.query(MakerCheckerWorkItem)
-        .filter_by(client_id=1, entity_type_code="CARD_SEGMENT", entity_id="101", status_code="PENDING")
+        .filter_by(client_id=1, entity_type_code="CARD_SEGMENT", entity_id=101, status_code="PENDING")
         .all()
     )
     assert len(pending_items) == 1

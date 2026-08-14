@@ -42,6 +42,7 @@ from src.db_models import (
     LocalEmailRecipient,
     MakerCheckerEntityType,
     MakerCheckerOperation,
+    ProcessingMode,
 )
 
 logger = logging.getLogger(__name__)
@@ -385,20 +386,20 @@ def seed_data(db: Session):
         h1 = CardChargesHeader(client_id=apex_tenant_id, charge_name="Verve Classic Card Charges", created_by="system")
         db.add(h1)
         db.flush()
-        db.add(CardChargeEntry(header_id=h1.id, charge_type="ISSUANCE_FEE", amount=1000.00, currency="NGN"))
-        db.add(CardChargeEntry(header_id=h1.id, charge_type="VAT", amount=75.00, currency="NGN"))
+        db.add(CardChargeEntry(client_id=apex_tenant_id, charge_header_id=h1.id, sequence_no=1, posting_account_type="GL", dr_cr="D", narration="CARD ISSUANCE", posting_entry_type="CISSUANCE", amount=1000.00, currency_code="NGN", created_by="system"))
+        db.add(CardChargeEntry(client_id=apex_tenant_id, charge_header_id=h1.id, sequence_no=2, posting_account_type="GL", dr_cr="C", narration="CARD ISSUANCE INCOME", posting_entry_type="GINC", amount=1000.00, currency_code="NGN", created_by="system"))
 
         h2 = CardChargesHeader(client_id=apex_tenant_id, charge_name="Visa Gold Card Charges", created_by="system")
         db.add(h2)
         db.flush()
-        db.add(CardChargeEntry(header_id=h2.id, charge_type="ISSUANCE_FEE", amount=1500.00, currency="NGN"))
-        db.add(CardChargeEntry(header_id=h2.id, charge_type="VAT", amount=112.50, currency="NGN"))
+        db.add(CardChargeEntry(client_id=apex_tenant_id, charge_header_id=h2.id, sequence_no=1, posting_account_type="GL", dr_cr="D", narration="CARD ISSUANCE", posting_entry_type="CISSUANCE", amount=1500.00, currency_code="NGN", created_by="system"))
+        db.add(CardChargeEntry(client_id=apex_tenant_id, charge_header_id=h2.id, sequence_no=2, posting_account_type="GL", dr_cr="C", narration="CARD ISSUANCE INCOME", posting_entry_type="GINC", amount=1500.00, currency_code="NGN", created_by="system"))
 
         h3 = CardChargesHeader(client_id=global_tenant_id, charge_name="Mastercard Platinum Card Charges", created_by="system")
         db.add(h3)
         db.flush()
-        db.add(CardChargeEntry(header_id=h3.id, charge_type="ISSUANCE_FEE", amount=2500.00, currency="NGN"))
-        db.add(CardChargeEntry(header_id=h3.id, charge_type="VAT", amount=187.50, currency="NGN"))
+        db.add(CardChargeEntry(client_id=global_tenant_id, charge_header_id=h3.id, sequence_no=1, posting_account_type="GL", dr_cr="D", narration="CARD ISSUANCE", posting_entry_type="CISSUANCE", amount=2500.00, currency_code="NGN", created_by="system"))
+        db.add(CardChargeEntry(client_id=global_tenant_id, charge_header_id=h3.id, sequence_no=2, posting_account_type="GL", dr_cr="C", narration="CARD ISSUANCE INCOME", posting_entry_type="GINC", amount=2500.00, currency_code="NGN", created_by="system"))
 
         csp1 = db.query(CardSegmentProgramme).filter(CardSegmentProgramme.card_programme_id == prog1_id).first()
         csp2 = db.query(CardSegmentProgramme).filter(CardSegmentProgramme.card_programme_id == prog2_id).first()
@@ -540,6 +541,17 @@ def seed_data(db: Session):
         if not db.query(InstantInventoryMovementType).filter(InstantInventoryMovementType.movement_code == mt["movement_code"]).first():
             db.add(InstantInventoryMovementType(**mt))
 
+    proc_modes = [
+        {"processing_mode_code": "NO_CHARGE", "processing_mode_name": "No Charge", "display_order": 1, "active": True, "created_by": "system"},
+        {"processing_mode_code": "NORMAL", "processing_mode_name": "Normal", "display_order": 2, "active": True, "created_by": "system"},
+        {"processing_mode_code": "NYSC", "processing_mode_name": "NYSC", "display_order": 3, "active": True, "created_by": "system"},
+        {"processing_mode_code": "REACTIVATION", "processing_mode_name": "Reactivation", "display_order": 4, "active": True, "created_by": "system"},
+        {"processing_mode_code": "RENEWAL", "processing_mode_name": "Renewal", "display_order": 5, "active": True, "created_by": "system"},
+    ]
+    for pm in proc_modes:
+        if not db.query(ProcessingMode).filter(ProcessingMode.processing_mode_code == pm["processing_mode_code"]).first():
+            db.add(ProcessingMode(**pm))
+
     recipients = [
         {"client_id": apex_tenant_id, "recipient_role": "internal_control_maker", "email_address": "control-maker@apexmfb.com"},
         {"client_id": apex_tenant_id, "recipient_role": "operations_admin_maker", "email_address": "ops-maker@apexmfb.com"},
@@ -556,6 +568,8 @@ def seed_data(db: Session):
         {"entity_type_code": "CARD_PROGRAMME", "entity_type_name": "Card Programme", "created_by": "system"},
         {"entity_type_code": "CARD_SEGMENT", "entity_type_name": "Card Segment", "created_by": "system"},
         {"entity_type_code": "CARD_SEGMENT_PROGRAMME", "entity_type_name": "Card Segment Programme Assignment", "created_by": "system"},
+        {"entity_type_code": "CARD_CHARGES_HEADER", "entity_type_name": "Card Charges Profile", "created_by": "system"},
+        {"entity_type_code": "CARD_SEGMENT_PROGRAMME_CHARGE", "entity_type_name": "Card Segment Programme Charge", "created_by": "system"},
         {"entity_type_code": "APPROVAL_POLICY", "entity_type_name": "Approval Policy", "created_by": "system"},
     ]
     for me in mc_entities:

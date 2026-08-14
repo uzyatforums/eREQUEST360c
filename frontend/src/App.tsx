@@ -10,6 +10,12 @@ import { ToastProvider } from './components/ui/toast'
 import { CardProgrammesPage } from './pages/card-programmes'
 import { CardSegmentsPage } from './pages/card-segments'
 import { MakerCheckerPage } from './pages/maker-checker'
+import { CardChargesList } from './pages/card-charges/card-charges-list'
+import { CardChargeDetails } from './pages/card-charges/card-charge-details'
+import { CardChargeForm } from './pages/card-charges/card-charge-form'
+import { CardSegmentProgrammeChargesList } from './pages/card-segment-programme-charges/card-segment-programme-charges-list'
+import { CardSegmentProgrammeChargeDetails } from './pages/card-segment-programme-charges/card-segment-programme-charge-details'
+import { CardSegmentProgrammeChargeForm } from './pages/card-segment-programme-charges/card-segment-programme-charge-form'
 import { WorkQueueProvider } from './context/work-queue-context'
 import { Loader2 } from 'lucide-react'
 
@@ -79,6 +85,18 @@ function MainContent() {
               <Route path="/card-programmes/*" element={<CardProgrammesPage currentUser={currentUser} />} />
               <Route path="/card-segments/*" element={<CardSegmentsPage currentUser={currentUser} />} />
               <Route path="/maker-checker/*" element={<MakerCheckerPage currentUser={currentUser} />} />
+              <Route path="/card-charges" element={<CardChargesList />} />
+              <Route path="/config/charges" element={<Navigate to="/card-charges" replace />} />
+              <Route path="/card-charges/new" element={<CardChargeForm />} />
+              <Route path="/card-charges/:id" element={<CardChargeDetails />} />
+              <Route path="/card-charges/:id/edit" element={<CardChargeForm />} />
+
+              {/* Card Segment Programme Charges */}
+              <Route path="/card-segment-programme-charges" element={<CardSegmentProgrammeChargesList />} />
+              <Route path="/config/card-segment-programme-charges" element={<Navigate to="/card-segment-programme-charges" replace />} />
+              <Route path="/card-segment-programme-charges/new" element={<CardSegmentProgrammeChargeForm />} />
+              <Route path="/card-segment-programme-charges/:id" element={<CardSegmentProgrammeChargeDetails />} />
+              <Route path="/card-segment-programme-charges/:id/edit" element={<CardSegmentProgrammeChargeForm />} />
               <Route path="*" element={<ModulePlaceholder />} />
             </Routes>
           </main>

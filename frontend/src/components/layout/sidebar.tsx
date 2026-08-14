@@ -37,7 +37,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
   }
 
   const isRouteActive = (route: string) => {
-    if (route === '/card-programmes' || route === '/card-segments' || route === '/maker-checker') {
+    if (
+      route === '/card-programmes' ||
+      route === '/card-segments' ||
+      route === '/card-charges' ||
+      route === '/maker-checker' ||
+      route === '/card-segment-programme-charges'
+    ) {
       return currentPath.startsWith(route)
     }
     return currentPath === route
@@ -57,7 +63,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
   const configItems = [
     { label: 'Card Programmes', route: '/card-programmes', icon: Layers },
     { label: 'Card Segments', route: '/card-segments', icon: Settings },
-    { label: 'Card Charges', route: '/config/charges', icon: Coins },
+    { label: 'Card Charges', route: '/card-charges', icon: Coins },
+    { label: 'Segment Programme Charges', route: '/card-segment-programme-charges', icon: Coins, indent: true },
     { label: 'Branch Directory', route: '/config/branches', icon: Building2 },
   ]
 
@@ -117,12 +124,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeRoute, onNavigate }) => 
               {configItems.map((item) => {
                 const Icon = item.icon
                 const isActive = isRouteActive(item.route)
+                const isIndented = Boolean(item.indent)
                 return (
                   <button
                     key={item.route}
                     onClick={() => handleNav(item.route)}
                     className={cn(
-                      'w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md transition-colors text-slate-700 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-800',
+                      'w-full flex items-center py-2 text-xs font-medium rounded-md transition-colors text-slate-700 hover:bg-slate-200/60 dark:text-slate-300 dark:hover:bg-slate-800',
+                      isIndented ? 'pl-6 pr-3 gap-2' : 'px-3 gap-2.5',
                       isActive && 'bg-blue-50 text-blue-700 font-semibold dark:bg-blue-950/50 dark:text-blue-400'
                     )}
                   >

@@ -12,7 +12,7 @@ from src.db import Base
 # Create single shared SQLite in-memory engine with StaticPool
 test_engine = create_engine(
     "sqlite:///:memory:",
-    connect_args={"check_same_thread": False},
+    connect_args={"check_same_thread": False, "timeout": 30},
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)

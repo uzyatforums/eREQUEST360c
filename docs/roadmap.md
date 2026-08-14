@@ -23,9 +23,9 @@
 [x] Card Programmes
 [x] Card Segments
 [x] Card Segment Programmes
-[ ] Card Charges Headers
-[ ] Card Charge Entries
-[ ] Card Segment Programme Charges
+[x] Card Charges Headers
+[x] Card Charge Entries
+[x] Card Segment Programme Charges
 [ ] Couriers
 [ ] Dispatch Types
 [ ] Dispatch Statuses
@@ -88,10 +88,23 @@
 [x] Maker / Checker Segregation of Duties
 [x] Activate / Deactivate Confirmation
 [x] Maker / Checker Pending Count Synchronization
-[ ] Work Item ID Display on Master Grids
-[ ] Master Grid → Maker / Checker Review Navigation
-[ ] Maker / Checker Target Row Focus / Highlight
-[ ] Status Filter — Active as Default
+[x] Work Item ID Display on Master Grids
+[x] Master Grid → Maker / Checker Review Navigation
+[x] Maker / Checker Target Row Focus / Highlight
+[x] Status Filter — Active as Default
+[x] Configurable User Inactivity Timeout
+[x] Master Grid Bulk-Selection / Row Checkboxes
+[x] Segment Programme Charges Menu Indentation
+[x] Consistent ACTIONS Button Mouse Cursor
+[x] Card Segment Programme Charges Dropdown Filters
+
+### Recent Completed Enhancements
+
+- **Configurable User Inactivity Timeout**: Configurable session idle timeout handling (currently defaults to 5 minutes) with automatic re-authentication prompt.
+- **Master Grid Bulk-Selection / Row Checkboxes**: Standardized row-selection framework (`useRowSelection`, header Select All / Deselect All checkbox, `SelectionToolbar`) across Card Programmes Master, Card Segments Master, Card Charges Master, and Card Segment Programme Charges Master.
+- **Consistent ACTIONS Button Mouse Cursor**: Enforced interactive pointer cursors (`cursor-pointer`) across all action buttons, table cell triggers, and dropdown controls.
+- **Segment Programme Charges Menu Indentation**: Standardized visual hierarchy for child workspace navigation in the sidebar.
+- **Card Segment Programme Charges Filtering**: Added dropdown filters for Card Segment, Card Programme, and Assigned Charge Header integrated with server-side query parameters and page reset handling.
 
 ## Backend APIs
 
@@ -117,6 +130,8 @@
 [x] Card Programme UI
 [x] Card Segment UI
 [x] Card Segment Programme UI
+[x] Card Segment Programme Charges UI
+[x] Master Grid Bulk-Selection / Checkboxes
 [ ] Approval Policy UI
 [ ] Request UI
 [ ] Card Lifecycle UI
@@ -129,6 +144,8 @@
 [x] Branch Tests
 [x] Card Programme Tests
 [x] Card Segment Tests
+[x] Card Segment Programme Charges Tests
+[x] Inactivity Timeout Tests
 [ ] API Integration Tests
 [ ] UI Tests
 [ ] End-to-End Tests
@@ -176,43 +193,52 @@ Requirements:
 
 #### Master Grid ↔ Maker / Checker Correlation
 
-**Status:** Planned  
+**Status:** Implemented — Phase 1
 **Priority:** Medium
 
-Master grids should clearly expose the associated Maker / Checker
+Master grids now clearly expose the associated Maker / Checker
 Work Item ID for records with pending governance actions.
 
 Example:
 
-    Status: PENDING
-    Work Item: MC-00000033
+Status: Pending Approval
+Work Item: MC-00000033
 
-The Maker / Checker Approval Queue should expose the corresponding
-Target Entity Type and Target Entity ID.
+The correlation is performed server-side using the existing
+Maker / Checker work item relationship:
+
+Target Entity Type + Target Entity ID.
+
+No duplicate persistence or database schema changes were introduced.
+
+Phase 1 enhancements now implemented:
+
+- Master Grid → Maker / Checker Review Navigation
+- Maker / Checker Target Row Focus / Highlight
 
 #### Master Grid → Maker / Checker Review
 
-**Status:** Planned  
+**Status:** Implemented — Phase 1
 **Priority:** Medium
 
-For records with pending Maker / Checker actions, provide a
+For records with pending Maker / Checker actions, provides a
 "Review" action that navigates directly to the corresponding
 Maker / Checker work item.
 
-The Approval Queue should be able to focus/highlight the target
-work item when navigated to from a Master grid.
+The Approval Queue focuses/highlights the target work item when navigated to from a Master grid.
 
 The Approval Queue remains the authoritative location for
 Approve / Reject actions.
 
 #### Master Grid Status Filtering
 
-**Status:** Planned  
+**Status:** Implemented
 **Priority:** Medium
 
-Review default filtering for Master screens.
+Master screens use Active as the default status filter.
 
 Preferred default:
+
 
     Status: Active
 

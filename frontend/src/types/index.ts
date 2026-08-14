@@ -213,3 +213,107 @@ export interface WorkItemActionRead {
   created_date: string;
   change_summary?: string | null;
 }
+
+export interface CardChargeEntry {
+  id?: number;
+  client_id?: number;
+  charge_header_id?: number;
+  sequence_no: number;
+  posting_account_type: string;
+  dr_cr: 'D' | 'C';
+  narration: string;
+  posting_account_number?: string | null;
+  posting_branch_type?: string | null;
+  posting_entry_type: string;
+  amount: number;
+  currency_code: string;
+  active: boolean;
+  created_by?: string;
+  created_date?: string;
+  last_modified_by?: string | null;
+  last_modified_date?: string | null;
+}
+
+export interface CardChargesHeader {
+  id: number;
+  client_id: number;
+  charge_name: string;
+  description?: string | null;
+  active: boolean;
+  created_by?: string;
+  created_date?: string;
+  last_modified_by?: string | null;
+  last_modified_date?: string | null;
+  entries: CardChargeEntry[];
+  entries_count?: number;
+  effective_currency?: string;
+  has_pending_change?: boolean;
+  pending_work_item_id?: string | null;
+  pending_operation_code?: string | null;
+}
+
+export interface CardSegmentProgrammeChargeListItem {
+  id: number;
+  client_id: number;
+  card_segment_programme_id: number;
+  segment_code: string;
+  segment_name: string;
+  card_programme_code: string;
+  card_programme_name: string;
+  card_brand?: string | null;
+  charge_header_id: number;
+  charge_name: string;
+  priority: number;
+  active: boolean;
+  processing_mode_code: string;
+  has_pending_change: boolean;
+  pending_work_item_id?: string | null;
+  created_by: string;
+  created_date: string;
+  last_modified_by?: string | null;
+  last_modified_date?: string | null;
+}
+
+export interface CardSegmentProgrammeChargeDetail extends CardSegmentProgrammeChargeListItem {
+  entries: CardChargeEntry[];
+}
+
+export interface CardSegmentProgrammeLookup {
+  id: number;
+  segment_id: number;
+  segment_code: string;
+  segment_name: string;
+  card_programme_id: number;
+  card_programme_code: string;
+  card_programme_name: string;
+  card_brand?: string | null;
+}
+
+export interface CardSegmentProgrammeChargeCreate {
+  card_segment_programme_id: number;
+  charge_header_id: number;
+  priority: number;
+  processing_mode_code: string;
+}
+
+export interface CardSegmentProgrammeChargeUpdate {
+  charge_header_id: number;
+  priority: number;
+  processing_mode_code: string;
+}
+
+export interface PostingBranchType {
+  id: number;
+  client_id: number;
+  posting_branch_type: string;
+  posting_branch_name: string;
+  active: boolean;
+}
+
+export interface PostingEntryType {
+  id: number;
+  client_id: number;
+  posting_entry_type: string;
+  description?: string;
+  active: boolean;
+}

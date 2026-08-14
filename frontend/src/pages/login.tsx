@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 
 export const LoginPage: React.FC = () => {
-  const { login } = useAuth()
+  const { login, sessionExpiredMessage } = useAuth()
 
   const [username, setUsername] = React.useState('')
   const [password, setPassword] = React.useState('')
@@ -79,6 +79,21 @@ export const LoginPage: React.FC = () => {
               <span>JWT Session</span>
             </div>
           </div>
+
+          {/* Session Inactivity Timeout Banner */}
+          {sessionExpiredMessage && !errorMessage && (
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="mb-6 p-3.5 bg-amber-950/60 border border-amber-700/80 rounded-lg flex items-start gap-3 text-xs text-amber-200 animate-in fade-in"
+            >
+              <AlertCircle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <span className="font-semibold text-amber-300 block">Session Expired</span>
+                <span>{sessionExpiredMessage}</span>
+              </div>
+            </div>
+          )}
 
           {/* Global Error Banner */}
           {errorMessage && (

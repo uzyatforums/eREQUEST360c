@@ -6,7 +6,7 @@ from typing import Optional, Any
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError, OperationalError, DatabaseError
 from sqlalchemy.orm import Session
-from sqlalchemy.orm.exc import FlushError
+from sqlalchemy.orm.exc import FlushError, StaleDataError
 
 from src.db_models import MakerCheckerWorkItem, MakerCheckerWorkItemPayload, MakerCheckerWorkItemAction
 from src.models import (
@@ -37,6 +37,77 @@ def _format_field_name(key: str) -> str:
 
 def generate_change_summary(before_raw: Optional[str], after_raw: str) -> str:
     before_dict: dict[str, Any] = {}
+def format_card_charges_summary(before_dict: dict, after_dict: dict) -> str:
+    parts: list[str] = []
+
+    # 1. Header Changes
+    header_changes: list[str] = []
+    for field, label in [("charge_name", "Charge Name"), ("description", "Description"), ("active", "Active Status")]:
+        b_val = before_dict.get(field)
+        a_val = after_dict.get(field)
+        if a_val is not None:
+            if b_val is not None and b_val != a_val:
+                header_changes.append(f"{label}: '{b_val}' → '{a_val}'")
+            elif b_val is None:
+                header_changes.append(f"{label}: '{a_val}'")
+    if header_changes:
+        parts.append("Header: " + ", ".join(header_changes))
+
+    # 2. Entries Changes
+    b_entries = before_dict.get("entries") or []
+    a_entries = after_dict.get("entries") or []
+
+    b_map = {e.get("id"): e for e in b_entries if isinstance(e, dict) and e.get("id")}
+    entry_diffs: list[str] = []
+
+    total_debits = 0.0
+    total_credits = 0.0
+    curr_code = "NGN"
+
+    for idx, a_e in enumerate(a_entries, start=1):
+        if not isinstance(a_e, dict):
+            continue
+        act_raw = a_e.get("active")
+        is_act = True if act_raw is None or act_raw is True or str(act_raw).lower() == "true" else False
+        amt = float(a_e.get("amount", 0.0))
+        dr_cr = str(a_e.get("dr_cr", "D")).upper().strip()
+        curr_code = str(a_e.get("currency_code", curr_code)).upper().strip()
+
+        if is_act:
+            if dr_cr == "D":
+                total_debits += amt
+            elif dr_cr == "C":
+                total_credits += amt
+
+        e_id = a_e.get("id")
+        entry_type = str(a_e.get("posting_entry_type", "")).strip()
+
+        if e_id and e_id in b_map:
+            b_e = b_map[e_id]
+            diffs = []
+            for k, lbl in [("narration", "Narration"), ("posting_entry_type", "Entry Type"), ("dr_cr", "Dr/Cr"), ("amount", "Amount"), ("posting_account_number", "Acct Number"), ("active", "Status")]:
+                bv = b_e.get(k)
+                av = a_e.get(k)
+                if av is not None and bv != av:
+                    diffs.append(f"{lbl}: '{bv}' → '{av}'")
+            if diffs:
+                entry_diffs.append(f"Entry #{idx} ({entry_type}): {', '.join(diffs)}")
+        else:
+            entry_diffs.append(f"New Entry #{idx} ({entry_type}): {dr_cr} {amt} {curr_code} '{a_e.get('narration', '')}'")
+
+    if entry_diffs:
+        parts.append("Entries: " + "; ".join(entry_diffs))
+
+    # 3. Balance Summary
+    diff = abs(total_debits - total_credits)
+    bal_str = "Balanced" if diff < 0.01 else f"Unbalanced ({diff:.2f})"
+    parts.append(f"Balance: Debits {curr_code} {total_debits:,.2f} | Credits {curr_code} {total_credits:,.2f} ({bal_str})")
+
+    return " | ".join(parts)
+
+
+def generate_change_summary(before_raw: Any, after_raw: Any) -> str:
+    before_dict: dict[str, Any] = {}
     if before_raw:
         if isinstance(before_raw, str):
             try:
@@ -54,6 +125,9 @@ def generate_change_summary(before_raw: Optional[str], after_raw: str) -> str:
             after_dict = {}
     elif isinstance(after_raw, dict):
         after_dict = after_raw
+
+    if "entries" in after_dict or "entries" in before_dict:
+        return format_card_charges_summary(before_dict, after_dict)
 
     changes: list[str] = []
 
@@ -158,7 +232,10 @@ class MakerCheckerService:
             )
 
             db.commit()
-            db.refresh(work_item)
+            try:
+                db.refresh(work_item)
+            except Exception:
+                pass
             duration_ms = (time.perf_counter() - start_time) * 1000
             logger.info(
                 f"[MakerCheckerService] submit: work_item_id={work_item.id}, user_id={user.user_id}, "
@@ -166,7 +243,7 @@ class MakerCheckerService:
                 f"operation={req.operation_code}, transition=NONE->PENDING, duration_ms={duration_ms:.2f}"
             )
             return work_item
-        except (IntegrityError, FlushError, OperationalError, DatabaseError):
+        except (IntegrityError, FlushError, OperationalError, DatabaseError, StaleDataError):
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

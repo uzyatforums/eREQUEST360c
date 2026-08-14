@@ -1,12 +1,16 @@
 import * as React from 'react'
 import { Button } from './button'
 import { Tooltip } from './tooltip'
-import { X, Layers } from 'lucide-react'
+import { X, CheckCircle2, Power, XCircle } from 'lucide-react'
 
 export interface SelectionToolbarProps {
   selectedCount: number
   totalCount?: number
   onClearSelection: () => void
+  onBulkActivate?: () => void
+  onBulkDeactivate?: () => void
+  onBulkApprove?: () => void
+  onBulkReject?: () => void
   bulkActionsDisabledTooltip?: string
   customActions?: React.ReactNode
   className?: string
@@ -16,7 +20,11 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
   selectedCount,
   totalCount,
   onClearSelection,
-  bulkActionsDisabledTooltip = 'Bulk actions will be enabled in a future release.',
+  onBulkActivate,
+  onBulkDeactivate,
+  onBulkApprove,
+  onBulkReject,
+  bulkActionsDisabledTooltip = 'Select one or more rows to perform bulk actions.',
   customActions,
   className = '',
 }) => {
@@ -66,19 +74,85 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
 
         {customActions}
 
-        {/* Future Bulk Actions Trigger (Disabled with Tooltip) */}
-        <Tooltip content={bulkActionsDisabledTooltip} position="top">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            disabled={true}
-            className="text-xs font-semibold h-8 opacity-60 cursor-not-allowed border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500"
-          >
-            <Layers className="h-3.5 w-3.5 mr-1.5" />
-            Bulk Actions
-          </Button>
-        </Tooltip>
+        {onBulkApprove && (
+          <Tooltip content={selectedCount > 0 ? `Approve ${selectedCount} selected work item${selectedCount === 1 ? '' : 's'}` : bulkActionsDisabledTooltip} position="top">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={selectedCount === 0}
+              onClick={onBulkApprove}
+              className={`text-xs font-semibold h-8 px-3 transition-colors ${
+                selectedCount > 0
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 border-none cursor-pointer shadow-xs'
+                  : 'opacity-60 cursor-not-allowed border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500'
+              }`}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+              Bulk Approve
+            </Button>
+          </Tooltip>
+        )}
+
+        {onBulkReject && (
+          <Tooltip content={selectedCount > 0 ? `Reject ${selectedCount} selected work item${selectedCount === 1 ? '' : 's'}` : bulkActionsDisabledTooltip} position="top">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={selectedCount === 0}
+              onClick={onBulkReject}
+              className={`text-xs font-semibold h-8 px-3 transition-colors ${
+                selectedCount > 0
+                  ? 'bg-rose-600 text-white hover:bg-rose-700 dark:bg-rose-600 dark:hover:bg-rose-700 border-none cursor-pointer shadow-xs'
+                  : 'opacity-60 cursor-not-allowed border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500'
+              }`}
+            >
+              <XCircle className="h-3.5 w-3.5 mr-1.5" />
+              Bulk Reject
+            </Button>
+          </Tooltip>
+        )}
+
+        {onBulkActivate && (
+          <Tooltip content={selectedCount > 0 ? `Activate ${selectedCount} selected record${selectedCount === 1 ? '' : 's'}` : bulkActionsDisabledTooltip} position="top">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={selectedCount === 0}
+              onClick={onBulkActivate}
+              className={`text-xs font-semibold h-8 px-3 transition-colors ${
+                selectedCount > 0
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 border-none cursor-pointer shadow-xs'
+                  : 'opacity-60 cursor-not-allowed border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500'
+              }`}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+              Bulk Activate
+            </Button>
+          </Tooltip>
+        )}
+
+        {onBulkDeactivate && (
+          <Tooltip content={selectedCount > 0 ? `Deactivate ${selectedCount} selected record${selectedCount === 1 ? '' : 's'}` : bulkActionsDisabledTooltip} position="top">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={selectedCount === 0}
+              onClick={onBulkDeactivate}
+              className={`text-xs font-semibold h-8 px-3 transition-colors ${
+                selectedCount > 0
+                  ? 'bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700 border-none cursor-pointer shadow-xs'
+                  : 'opacity-60 cursor-not-allowed border-slate-300 dark:border-slate-700 text-slate-400 dark:text-slate-500'
+              }`}
+            >
+              <Power className="h-3.5 w-3.5 mr-1.5" />
+              Bulk Deactivate
+            </Button>
+          </Tooltip>
+        )}
       </div>
     </div>
   )
