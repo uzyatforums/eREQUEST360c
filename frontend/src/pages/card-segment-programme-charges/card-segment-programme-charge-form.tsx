@@ -15,8 +15,8 @@ export const CardSegmentProgrammeChargeForm: React.FC = () => {
   const { refreshPendingCount } = useWorkQueue()
 
   const [segmentProgrammes, setSegmentProgrammes] = useState<CardSegmentProgrammeLookup[]>([])
-  const [chargeHeaders, setChargeHeaders] = useState<Array<{ id: number; charge_name: string; description?: string; active: boolean }>>([])
-  const [processingModes, setProcessingModes] = useState<Array<{ processing_mode_code: string; processing_mode_name: string }>>([])
+  const [chargeHeaders, setChargeHeaders] = useState<Array<{ id: number; charge_name: string; description?: string; active: boolean; isCurrentInactive?: boolean }>>([])
+  const [processingModes, setProcessingModes] = useState<Array<{ processing_mode_code: string; processing_mode_name: string; isCurrentInactive?: boolean }>>([])
 
   const [cardSegmentProgrammeId, setCardSegmentProgrammeId] = useState<number | ''>('')
   const [chargeHeaderId, setChargeHeaderId] = useState<number | ''>('')
@@ -37,9 +37,9 @@ export const CardSegmentProgrammeChargeForm: React.FC = () => {
         api.getChargeHeaderLookups(),
         api.getProcessingModeLookups(),
       ])
-      setSegmentProgrammes(spLookups)
-      setChargeHeaders(chLookups)
-      setProcessingModes(pmLookups)
+      let finalSegmentProgrammes = spLookups
+      let finalHeaders = chLookups
+      let finalModes = pmLookups
 
       if (pmLookups.length > 0 && !processingModeCode) {
         setProcessingModeCode(pmLookups[0].processing_mode_code)
@@ -51,6 +51,52 @@ export const CardSegmentProgrammeChargeForm: React.FC = () => {
         setChargeHeaderId(detail.charge_header_id)
         setProcessingModeCode(detail.processing_mode_code)
         setPriority(detail.priority)
+
+        // Inject current inactive Card Segment Programme mapping if missing from active lookups
+        const hasSegProg = spLookups.some((sp) => sp.id === detail.card_segment_programme_id)
+        if (!hasSegProg && detail.card_segment_programme_id) {
+          finalSegmentProgrammes = [
+            {
+              id: detail.card_segment_programme_id,
+              segment_id: 0,
+              segment_code: detail.segment_code,
+              segment_name: detail.segment_name,
+              card_programme_id: 0,
+              card_programme_code: detail.card_programme_code,
+              card_programme_name: detail.card_programme_name,
+              card_brand: detail.card_brand,
+              isCurrentInactive: true,
+            },
+            ...spLookups,
+          ]
+        }
+
+        // Inject current inactive Charge Header if missing from active lookups
+        const hasHeader = chLookups.some((h) => h.id === detail.charge_header_id)
+        if (!hasHeader && detail.charge_header_id) {
+          finalHeaders = [
+            {
+              id: detail.charge_header_id,
+              charge_name: `${detail.charge_name} (Inactive - Current)`,
+              active: false,
+              isCurrentInactive: true,
+            },
+            ...chLookups,
+          ]
+        }
+
+        // Inject current inactive Processing Mode if missing from active lookups
+        const hasMode = pmLookups.some((m) => m.processing_mode_code === detail.processing_mode_code)
+        if (!hasMode && detail.processing_mode_code) {
+          finalModes = [
+            {
+              processing_mode_code: detail.processing_mode_code,
+              processing_mode_name: `${detail.processing_mode_code} (Inactive - Current)`,
+              isCurrentInactive: true,
+            },
+            ...pmLookups,
+          ]
+        }
       } else if (copyFromId) {
         const source = await api.getCardSegmentProgrammeChargeById(parseInt(copyFromId, 10))
         setCardSegmentProgrammeId(source.card_segment_programme_id)
@@ -58,6 +104,10 @@ export const CardSegmentProgrammeChargeForm: React.FC = () => {
         setPriority(source.priority)
         setInfoMsg(`Pre-populated fields from Charge Mapping #${copyFromId}. Select Charge Header to complete.`)
       }
+
+      setSegmentProgrammes(finalSegmentProgrammes)
+      setChargeHeaders(finalHeaders)
+      setProcessingModes(finalModes)
     } catch (err: any) {
       setError(err.message || 'Failed to load form lookup dependencies.')
     } finally {
@@ -167,9 +217,9 @@ export const CardSegmentProgrammeChargeForm: React.FC = () => {
               className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
             >
               <option value="">-- Select Segment & Programme --</option>
-              {segmentProgrammes.map((sp) => (
+              {segmentProgrammes.map((sp: any) => (
                 <option key={sp.id} value={sp.id}>
-                  {sp.segment_name} ({sp.segment_code}) → {sp.card_programme_name} ({sp.card_programme_code})
+                  {sp.segment_name} ({sp.segment_code}) → {sp.card_programme_name} ({sp.card_programme_code}){sp.isCurrentInactive ? ' (Inactive - Current)' : ''}
                 </option>
               ))}
             </select>
@@ -187,7 +237,7 @@ export const CardSegmentProgrammeChargeForm: React.FC = () => {
             >
               <option value="">-- Select Charge Header --</option>
               {chargeHeaders.map((ch) => (
-                <option key={ch.id} value={ch.id}>
+                <option key={ch.id} value={ch.id} disabled={ch.isCurrentInactive && Number(chargeHeaderId) !== ch.id}>
                   {ch.charge_name} {ch.description ? `- ${ch.description}` : ''}
                 </option>
               ))}
@@ -206,7 +256,7 @@ export const CardSegmentProgrammeChargeForm: React.FC = () => {
                 className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg text-sm dark:text-white focus:ring-2 focus:ring-indigo-500"
               >
                 {processingModes.map((pm) => (
-                  <option key={pm.processing_mode_code} value={pm.processing_mode_code}>
+                  <option key={pm.processing_mode_code} value={pm.processing_mode_code} disabled={pm.isCurrentInactive && processingModeCode !== pm.processing_mode_code}>
                     {pm.processing_mode_name} ({pm.processing_mode_code})
                   </option>
                 ))}

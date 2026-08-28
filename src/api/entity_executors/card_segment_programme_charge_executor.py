@@ -174,6 +174,8 @@ class CardSegmentProgrammeChargeExecutor(EntityExecutor):
                 priority=priority,
                 is_update=True,
                 current_charge_mapping_id=entity_id,
+                existing_processing_mode_code=mapping.processing_mode_code,
+                existing_charge_header_id=mapping.charge_header_id,
             )
 
         mapping.card_segment_programme_id = card_segment_programme_id

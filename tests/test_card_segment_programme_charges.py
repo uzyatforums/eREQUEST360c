@@ -15,6 +15,7 @@ from src.db_models import (
     CardChargeEntry,
     CardSegmentProgrammeCharge,
     MakerCheckerWorkItem,
+    ProcessingMode,
 )
 from src.api.auth import AuthService
 
@@ -489,3 +490,248 @@ def test_list_card_segment_programme_charges_sorting():
     priorities_desc = [i["priority"] for i in items_desc]
     assert priorities_desc == sorted(priorities_desc, reverse=True)
 
+
+def test_edit_card_segment_programme_charge_retain_inactive_reference():
+    db = TestingSessionLocal()
+    csp_id, header_id = seed_test_dependencies(db, client_id=1)
+
+    # 1. Create a charge mapping with NORMAL mode
+    spc = CardSegmentProgrammeCharge(
+        client_id=1,
+        card_segment_programme_id=csp_id,
+        charge_header_id=header_id,
+        processing_mode_code="NORMAL",
+        priority=0,
+        active=True,
+        created_by="test_setup",
+    )
+    db.add(spc)
+    db.commit()
+    mapping_id = spc.id
+
+    # 2. Deactivate NORMAL processing mode in database
+    pm_normal = db.query(ProcessingMode).filter(ProcessingMode.processing_mode_code == "NORMAL").first()
+    if pm_normal:
+        pm_normal.active = False
+        db.commit()
+    db.close()
+
+    headers = get_auth_header("controlm", client_id=1)
+
+    # 3. Update priority while retaining existing (now inactive) NORMAL processing mode
+    update_payload = {
+        "charge_header_id": header_id,
+        "processing_mode_code": "NORMAL",
+        "priority": 5,
+    }
+    res_up = client.put(f"/config/card-segment-programme-charges/{mapping_id}", json=update_payload, headers=headers)
+    assert res_up.status_code == 200, f"Expected 200 OK when retaining existing inactive mode, got {res_up.status_code}: {res_up.text}"
+
+    # Clean up / reactivate NORMAL for other tests
+    db = TestingSessionLocal()
+    pm_normal = db.query(ProcessingMode).filter(ProcessingMode.processing_mode_code == "NORMAL").first()
+    if pm_normal:
+        pm_normal.active = True
+        db.commit()
+    db.close()
+
+
+def test_edit_card_segment_programme_charge_reject_new_inactive_reference():
+    db = TestingSessionLocal()
+    csp_id, header_id = seed_test_dependencies(db, client_id=1)
+
+    # 1. Create a charge mapping with RENEWAL mode
+    spc = CardSegmentProgrammeCharge(
+        client_id=1,
+        card_segment_programme_id=csp_id,
+        charge_header_id=header_id,
+        processing_mode_code="RENEWAL",
+        priority=0,
+        active=True,
+        created_by="test_setup",
+    )
+    db.add(spc)
+
+    # 2. Deactivate NORMAL processing mode
+    pm_normal = db.query(ProcessingMode).filter(ProcessingMode.processing_mode_code == "NORMAL").first()
+    if pm_normal:
+        pm_normal.active = False
+    db.commit()
+    mapping_id = spc.id
+    db.close()
+
+    headers = get_auth_header("controlm", client_id=1)
+
+    # 3. Attempt to change from RENEWAL to inactive NORMAL -> should be rejected
+    update_payload = {
+        "charge_header_id": header_id,
+        "processing_mode_code": "NORMAL",
+        "priority": 5,
+    }
+    res_up = client.put(f"/config/card-segment-programme-charges/{mapping_id}", json=update_payload, headers=headers)
+    assert res_up.status_code == 400
+    assert "Invalid or inactive processing mode code" in res_up.json()["detail"]
+
+    # Clean up / reactivate NORMAL for other tests
+    db = TestingSessionLocal()
+    pm_normal = db.query(ProcessingMode).filter(ProcessingMode.processing_mode_code == "NORMAL").first()
+    if pm_normal:
+        pm_normal.active = True
+        db.commit()
+    db.close()
+
+
+def test_edit_charge_mapping_retains_inactive_parent_segment_programme():
+    db = TestingSessionLocal()
+    csp_id, header_id = seed_test_dependencies(db, client_id=1)
+
+    spc = CardSegmentProgrammeCharge(
+        client_id=1,
+        card_segment_programme_id=csp_id,
+        charge_header_id=header_id,
+        processing_mode_code="NORMAL",
+        priority=0,
+        active=True,
+        created_by="test_setup",
+    )
+    db.add(spc)
+    db.commit()
+    mapping_id = spc.id
+
+    # Deactivate the parent CardSegmentProgramme mapping
+    csp = db.query(CardSegmentProgramme).get(csp_id)
+    csp.active = False
+    db.commit()
+    db.close()
+
+    headers = get_auth_header("controlm", client_id=1)
+
+    # UPDATE priority on mapping with inactive parent -> MUST SUCCEED
+    update_payload = {
+        "charge_header_id": header_id,
+        "processing_mode_code": "NORMAL",
+        "priority": 10,
+    }
+    res_up = client.put(f"/config/card-segment-programme-charges/{mapping_id}", json=update_payload, headers=headers)
+    assert res_up.status_code == 200, f"Expected 200 OK when updating mapping with inactive parent, got {res_up.status_code}: {res_up.text}"
+
+    # Re-activate parent CSP mapping for clean state
+    db = TestingSessionLocal()
+    csp = db.query(CardSegmentProgramme).get(csp_id)
+    csp.active = True
+    db.commit()
+    db.close()
+
+
+def test_create_charge_mapping_with_inactive_parent_rejected():
+    db = TestingSessionLocal()
+    csp_id, header_id = seed_test_dependencies(db, client_id=1)
+
+    # Deactivate parent CardSegmentProgramme mapping
+    csp = db.query(CardSegmentProgramme).get(csp_id)
+    csp.active = False
+    db.commit()
+    db.close()
+
+    headers = get_auth_header("controlm", client_id=1)
+
+    # CREATE new charge mapping referencing inactive parent -> MUST FAIL 400
+    create_payload = {
+        "card_segment_programme_id": csp_id,
+        "charge_header_id": header_id,
+        "processing_mode_code": "NORMAL",
+        "priority": 1,
+    }
+    res_create = client.post("/config/card-segment-programme-charges", json=create_payload, headers=headers)
+    assert res_create.status_code == 400
+    assert "inactive Card Segment Programme mapping" in res_create.json()["detail"]
+
+    # Re-activate parent CSP mapping for clean state
+    db = TestingSessionLocal()
+    csp = db.query(CardSegmentProgramme).get(csp_id)
+    csp.active = True
+    db.commit()
+    db.close()
+
+
+def test_edit_charge_mapping_with_cross_tenant_parent_rejected():
+    db = TestingSessionLocal()
+    csp_id_t1, header_id_t1 = seed_test_dependencies(db, client_id=1)
+    csp_id_t2, header_id_t2 = seed_test_dependencies(db, client_id=2)
+
+    # Create mapping for Tenant 1
+    spc = CardSegmentProgrammeCharge(
+        client_id=1,
+        card_segment_programme_id=csp_id_t1,
+        charge_header_id=header_id_t1,
+        processing_mode_code="NORMAL",
+        priority=0,
+        active=True,
+        created_by="test_setup",
+    )
+    db.add(spc)
+    db.commit()
+    mapping_id = spc.id
+    db.close()
+
+    # Attempt to update Tenant 1's mapping using Tenant 2 credentials -> MUST FAIL 404
+    tenant2_headers = get_auth_header("controlm", client_id=2)
+    update_payload = {
+        "charge_header_id": header_id_t2,
+        "processing_mode_code": "NORMAL",
+        "priority": 5,
+    }
+    res_up = client.put(f"/config/card-segment-programme-charges/{mapping_id}", json=update_payload, headers=tenant2_headers)
+    assert res_up.status_code == 404
+
+
+def test_maker_checker_approve_edit_retaining_inactive_parent():
+    db = TestingSessionLocal()
+    csp_id, header_id = seed_test_dependencies(db, client_id=1)
+
+    spc = CardSegmentProgrammeCharge(
+        client_id=1,
+        card_segment_programme_id=csp_id,
+        charge_header_id=header_id,
+        processing_mode_code="NORMAL",
+        priority=0,
+        active=True,
+        created_by="test_setup",
+    )
+    db.add(spc)
+    db.commit()
+    mapping_id = spc.id
+
+    # Deactivate parent CardSegmentProgramme
+    csp = db.query(CardSegmentProgramme).get(csp_id)
+    csp.active = False
+    db.commit()
+    db.close()
+
+    maker_headers = get_auth_header("controlm_maker", client_id=1, is_checker=False)
+    checker_headers = get_auth_header("controlm_checker", client_id=1, is_checker=True)
+
+    # 1. Maker submits edit
+    update_payload = {
+        "charge_header_id": header_id,
+        "processing_mode_code": "NORMAL",
+        "priority": 99,
+    }
+    res_sub = client.put(f"/config/card-segment-programme-charges/{mapping_id}", json=update_payload, headers=maker_headers)
+    assert res_sub.status_code == 200
+    wi_id = res_sub.json()["work_item_id"]
+
+    # 2. Checker approves edit work item
+    res_app = client.post(f"/maker-checker/{wi_id}/approve", json={"remarks": "Approve edit on inactive parent"}, headers=checker_headers)
+    assert res_app.status_code == 200
+
+    # 3. Verify underlying charge mapping priority was updated to 99
+    db = TestingSessionLocal()
+    updated_spc = db.query(CardSegmentProgrammeCharge).get(mapping_id)
+    assert updated_spc.priority == 99
+
+    # Re-activate parent CSP mapping for clean state
+    csp = db.query(CardSegmentProgramme).get(csp_id)
+    csp.active = True
+    db.commit()
+    db.close()

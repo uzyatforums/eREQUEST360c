@@ -496,6 +496,8 @@ def update_card_segment_programme_charge(
         priority=payload.priority or 0,
         is_update=True,
         current_charge_mapping_id=id,
+        existing_processing_mode_code=existing.processing_mode_code,
+        existing_charge_header_id=existing.charge_header_id,
     )
 
     before_dict = {
