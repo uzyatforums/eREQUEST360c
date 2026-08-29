@@ -243,16 +243,16 @@ rules.
 
 The approval:
 
-- must exist before request submission;
-- is specific to the account;
-- is specific to the programme;
-- requires Maker/Checker;
-- is consumed when the card request is accepted;
+- must exist in `AUTHORIZED` status before request submission;
+- possesses a configurable lifetime (proposed baseline: 48 hours) starting strictly at `authorized_at`;
+- expires when `current_time >= expires_at` and cannot be consumed once expired;
+- is specific to the account and programme;
+- requires Maker/Checker governed by **BR-023** (approvable only by Branch A Checker or Same-Tenant HO Checker; Maker ≠ Checker);
+- is consumed atomically (`UPDATE ... WHERE id = ? AND status = 'AUTHORIZED' AND expires_at > now()`) when the card request is accepted;
+- must verify exactly one row affected;
 - must not be reusable after consumption.
 
 The request should record/indicate that duplicate approval was used.
-
-The exact persistence model is still to be finalized.
 
 ## 11. No-Charge Approval
 
@@ -261,11 +261,13 @@ specific account to receive a specific card programme without charge.
 
 It:
 
-- must be granted before request submission;
-- is specific to the account;
-- is specific to the programme;
-- requires Maker/Checker;
-- is consumed when the applicable request is accepted.
+- must be granted (`AUTHORIZED`) before request submission;
+- possesses a configurable lifetime (proposed baseline: 48 hours) starting strictly at `authorized_at`;
+- expires when `current_time >= expires_at` and cannot be consumed once expired;
+- is specific to the account and programme;
+- requires Maker/Checker governed by **BR-023** (approvable only by Branch A Checker or Same-Tenant HO Checker; Maker ≠ Checker);
+- is consumed atomically during pre-commitment validation when the applicable request is accepted;
+- verifies exactly one row affected.
 
 This is distinct from standing FREE-CARD and FIRST-CARD-ONLY rules.
 

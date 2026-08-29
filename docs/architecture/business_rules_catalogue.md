@@ -136,6 +136,30 @@ Exceptions require explicit business policy.
 
 ---
 
+## BR-023 — Authoritative Branch Approval Scope
+
+A request or authorization initiated by Branch A can only be approved by:
+
+1. A **Checker belonging to Branch A**, OR
+2. A **Head Office Checker belonging to the SAME TENANT/CLIENT**.
+
+This rule applies universally to ALL approval-related request types and operations, including:
+- Card requests (issuance/reissue)
+- Hotlist requests / actions
+- Duplicate Permission requests
+- No-Charge Permission requests
+
+**Authorization Matrix:**
+- Branch A request + Branch A Checker → **ALLOWED**
+- Branch A request + Same-Tenant Head Office Checker → **ALLOWED**
+- Branch A request + Branch B Checker → **DENIED** (Cross-branch violation)
+- Branch A request + Other-Tenant Head Office Checker → **DENIED** (Cross-tenant violation)
+
+**Maker/Checker Separation:**
+- The request creator (Maker) CANNOT approve their own request or authorization under any circumstances (`Creator/Maker ≠ Approving Checker`).
+
+---
+
 # Card Programmes
 
 ## BR-030 — Copy Card Programme
@@ -240,6 +264,38 @@ Maker/Checker is policy-driven.
 Whether an operation requires approval is determined by configuration.
 
 No business function is permanently hardcoded to require approval.
+
+---
+
+## BR-061 — Temporary Permission Lifetime & Expiry (Proposed Architectural Rule)
+
+Temporary one-time authorizations (such as **Duplicate Permission** and **Authorized No-Charge Permission**) possess a configurable lifetime per tenant.
+
+1. **Proposed Default Lifetime:** Initial proposed baseline is **48 hours**. The lifetime must be configurable per tenant and must not be hardcoded into business logic.
+2. **Start of Validity Window:** The validity window begins strictly at authorization time (`authorized_at`), NOT at creation/submission time (`created_at`). `expires_at = authorized_at + configured_lifetime`.
+3. **State Machine:**
+   - `PENDING` → `AUTHORIZED` (with `authorized_at` and `expires_at` populated upon Checker approval)
+   - `AUTHORIZED` → `CONSUMED` (when successfully applied to an accepted request while `current_time < expires_at`)
+   - `AUTHORIZED` → `EXPIRED` (when `current_time >= expires_at`)
+4. **Non-Consumable When Expired:** Once `expires_at` is reached, the permission is invalid, cannot be consumed, and must not be silently renewed or extended.
+
+---
+
+## BR-062 — Atomic Permission Consumption
+
+Consumption of an AUTHORIZED temporary permission must be atomic to prevent race conditions or duplicate consumption by concurrent requests.
+
+1. **Conditional Update Pattern:** Consumption must execute via an atomic conditional update / transactional guard:
+   ```sql
+   UPDATE permissions_table
+   SET status = 'CONSUMED',
+       consumed_at = CURRENT_TIMESTAMP,
+       consumed_by_request_id = :request_id
+   WHERE id = :permission_id
+     AND status = 'AUTHORIZED'
+     AND expires_at > CURRENT_TIMESTAMP;
+   ```
+2. **Strict Verification:** Exactly one row must be affected. If zero rows are updated (due to expiry, concurrent consumption, or invalid state), the permission consumption fails and the request must NOT be accepted under that permission.
 
 ---
 

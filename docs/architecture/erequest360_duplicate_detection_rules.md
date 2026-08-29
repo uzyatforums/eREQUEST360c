@@ -187,7 +187,40 @@ The same fulfilled card must never be counted once from eREQUEST360 and again fr
 
 A Duplicate Approval is a one-time exception allowing an otherwise duplicate request to proceed.
 
-The sequence is:
+### 9.1 Lifetime and Expiration (Proposed Architectural Rule)
+
+1. **Configurable Lifetime:** The validity lifetime is configurable per tenant (proposed default baseline: **48 hours**). It must not be hardcoded into business logic.
+2. **Start of Validity Window:** The validity window begins strictly when the permission is authorized (`authorized_at`), NOT when it is requested/created. `expires_at = authorized_at + configured_lifetime`.
+3. **State Transitions:**
+   ```text
+   PENDING (Requested)
+       |
+       v (Checker Approves: sets authorized_at, expires_at)
+   AUTHORIZED
+       |
+       +---> [current_time < expires_at & Request Accepted] ---> CONSUMED (Atomic update)
+       |
+       +---> [current_time >= expires_at] ---------------------> EXPIRED (Non-consumable)
+   ```
+4. **Expiry Enforcement:** An AUTHORIZED permission is consumable only while `current_time < expires_at`. Once expired, it cannot be consumed and must not be silently renewed or extended.
+
+### 9.2 Atomic Consumption Invariant
+
+Consumption occurs during server-side request acceptance and must be executed atomically to prevent concurrent requests from double-consuming the same approval:
+
+```sql
+UPDATE duplicate_permissions
+SET status = 'CONSUMED',
+    consumed_at = CURRENT_TIMESTAMP,
+    consumed_by_request_id = :request_id
+WHERE id = :permission_id
+  AND status = 'AUTHORIZED'
+  AND expires_at > CURRENT_TIMESTAMP;
+```
+
+**Verification:** Exactly one row must be affected. If zero rows are updated, the approval consumption fails and the request must NOT be accepted.
+
+The evaluation flow is:
 
 ```text
 Determine duplicate
@@ -201,16 +234,31 @@ Determine duplicate
              |
        +-----+-----+
        |           |
-      Valid      Not valid
+      Valid      Not valid / Expired
        |           |
        v           v
-    consume      duplicate
-    approval     handling required
+    Atomically   duplicate
+    consume      handling required
+    approval
+       |
+       v
+    Continue
 ```
 
-The approval must be consumed when the request is accepted.
+## 10. Duplicate Approval Authorization and Branch Restrictions
 
-## 10. Duplicate Approval Branch Restriction
+### 10.1 Approval Authority (Authoritative Branch / Checker Rule)
+
+In alignment with **BR-023**, a Duplicate Permission request initiated for or by Branch A can only be approved by:
+- A **Checker belonging to Branch A**, OR
+- A **Head Office Checker belonging to the SAME TENANT/CLIENT**.
+
+Approvals are strictly denied for:
+- Branch B Checkers (Cross-branch violation)
+- Other-Tenant Head Office Checkers (Cross-tenant isolation violation)
+- The Maker who created the Duplicate Permission request (`Creator/Maker ≠ Approving Checker`).
+
+### 10.2 Consumption Branch Restriction
 
 The legacy function is conceptually:
 
@@ -218,23 +266,10 @@ The legacy function is conceptually:
 is_dup_permitted($programme_id, $use_branch = TRUE)
 ```
 
-Branch restriction is configurable.
+Branch consumption restriction is configurable per tenant:
 
-Default:
-
-```text
-use_branch = TRUE
-```
-
-Only the `request_branch` may consume the duplicate approval.
-
-Optional:
-
-```text
-use_branch = FALSE
-```
-
-The approval may be consumed by another branch.
+- **Default (`use_branch = TRUE`):** Only the `request_branch` originating the request may consume the duplicate approval.
+- **Optional (`use_branch = FALSE`):** The approval may be consumed across branches within the same tenant.
 
 Therefore branch restriction must not be hard-coded.
 

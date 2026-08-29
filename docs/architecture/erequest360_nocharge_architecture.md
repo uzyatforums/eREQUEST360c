@@ -55,17 +55,43 @@ It is:
 - account-specific;
 - programme-specific;
 - Maker/Checker controlled;
-- commonly checked by a Head Office user rather than the requesting branch;
+- commonly checked by a Head Office user or requesting branch checker;
 - required before the New Request is submitted.
 
 If the card request is submitted before the No-Charge Approval is authorized, the account is charged.
 
-Legacy state semantics:
-- `inactive=0` → requested/pending
-- `inactive=2` → authorized
-- `inactive=1` → consumed
+### Lifetime and Expiration (Proposed Architectural Rule)
 
-The new design should preferably use explicit states rather than magic numeric values.
+1. **Configurable Lifetime:** The authorization validity lifetime is configurable per tenant (proposed baseline: **48 hours**). It must not be hardcoded into business logic.
+2. **Start of Validity Window:** The validity window begins strictly at authorization time (`authorized_at`), NOT at initial creation/submission time. `expires_at = authorized_at + configured_lifetime`.
+3. **Explicit State Model:**
+   - `PENDING` → Requested / awaiting Checker authorization.
+   - `AUTHORIZED` → Checker authorized; active and valid until `expires_at`.
+   - `CONSUMED` → Successfully applied to an accepted request record via atomic update.
+   - `EXPIRED` → Reached `expires_at` without being consumed. Expired permissions cannot be consumed and must not be silently renewed or extended.
+
+### Atomic Consumption Invariant
+
+Consumption occurs during request pre-commitment evaluation and MUST execute via an atomic conditional update:
+
+```sql
+UPDATE nocharge_permissions
+SET status = 'CONSUMED',
+    consumed_at = CURRENT_TIMESTAMP,
+    consumed_by_request_id = :request_id
+WHERE id = :permission_id
+  AND status = 'AUTHORIZED'
+  AND expires_at > CURRENT_TIMESTAMP;
+```
+
+**Verification:** Exactly one row must be affected. If zero rows are updated (due to expiration, concurrent consumption, or unapproved status), the no-charge authorization fails and the request cannot be accepted as a no-charge permission request.
+
+### Approval Authorization (Authoritative Branch / Checker Rule)
+
+In alignment with **BR-023**:
+- A No-Charge Permission initiated by Branch A can only be approved by a **Branch A Checker** or a **Head Office Checker of the SAME TENANT/CLIENT**.
+- Cross-branch Checkers (Branch B) and Other-Tenant Head Office Checkers are strictly denied.
+- Maker/Checker dual control applies: The Maker who initiated the permission request cannot approve it (`Creator/Maker ≠ Approving Checker`).
 
 ## Request-level recording
 
