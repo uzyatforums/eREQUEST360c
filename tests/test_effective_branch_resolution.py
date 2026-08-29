@@ -51,6 +51,10 @@ def setup_test_data():
         if not active_b:
             db.add(Branch(branch_code="B01", branch_name="Active Branch B01", client_id=1, active=True, created_by="test"))
 
+        active_b2 = db.query(Branch).filter(Branch.branch_code == "B02").first()
+        if not active_b2:
+            db.add(Branch(branch_code="B02", branch_name="Active Branch B02", client_id=1, active=True, created_by="test"))
+
         inactive_b = db.query(Branch).filter(Branch.branch_code == "B99").first()
         if not inactive_b:
             db.add(Branch(branch_code="B99", branch_name="Inactive Branch B99", client_id=1, active=False, created_by="test"))
@@ -86,7 +90,7 @@ def test_successful_branch_user_login():
     res = client.post("/auth/login", json={"username": "branch_user_active", "password": "pass123"})
     assert res.status_code == 200
     token = res.json()["access_token"]
-    payload = jwt.decode(token, settings.database_url, algorithms=["HS256"])
+    payload = jwt.decode(token, settings.jwt_secret_key, algorithms=["HS256"])
     
     assert payload["effective_branch_code"] == "B01"
     assert payload["role_scope"] == "BRANCH"
@@ -98,7 +102,7 @@ def test_successful_head_office_user_login():
     res = client.post("/auth/login", json={"username": "ho_user_active", "password": "pass123"})
     assert res.status_code == 200
     token = res.json()["access_token"]
-    payload = jwt.decode(token, settings.database_url, algorithms=["HS256"])
+    payload = jwt.decode(token, settings.jwt_secret_key, algorithms=["HS256"])
     
     assert payload["effective_branch_code"] is None
     assert payload["role_scope"] == "HEAD_OFFICE"

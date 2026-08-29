@@ -143,8 +143,12 @@ def get_request(
     request_id: int,
     branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
 ):
-    request_obj = db.query(RequestModel).filter(RequestModel.request_id == request_id).first()
+    request_obj = db.query(RequestModel).filter(
+        RequestModel.request_id == request_id,
+        RequestModel.client_id == current_user.client_id
+    ).first()
     if not request_obj:
         raise HTTPException(status_code=404, detail="Request not found")
 
@@ -160,7 +164,10 @@ def approve_request(
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
-    request_obj = db.query(RequestModel).filter(RequestModel.request_id == request_id).first()
+    request_obj = db.query(RequestModel).filter(
+        RequestModel.request_id == request_id,
+        RequestModel.client_id == current_user.client_id
+    ).first()
     if not request_obj:
         raise HTTPException(status_code=404, detail="Request not found")
 
@@ -171,6 +178,13 @@ def approve_request(
     )
     if not is_authorized:
         raise HTTPException(status_code=403, detail="Role does not have permission to approve requests")
+
+    # Prevent Self-Approval (Maker/Checker dual control)
+    if request_obj.created_by == current_user.username or (hasattr(current_user, "user_id") and request_obj.created_by == current_user.user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Maker cannot approve their own request"
+        )
 
     # Enforce branch scope
     branch_service.assert_branch_access(request_obj.request_branch, action_description="approve request")
@@ -240,8 +254,12 @@ def get_request_history(
     request_id: int,
     branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
 ):
-    request_obj = db.query(RequestModel).filter(RequestModel.request_id == request_id).first()
+    request_obj = db.query(RequestModel).filter(
+        RequestModel.request_id == request_id,
+        RequestModel.client_id == current_user.client_id
+    ).first()
     if not request_obj:
         raise HTTPException(status_code=404, detail="Request not found")
 
@@ -259,8 +277,12 @@ def get_request_audit(
     request_id: int,
     branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
+    current_user: UserInfo = Depends(get_current_user),
 ):
-    request_obj = db.query(RequestModel).filter(RequestModel.request_id == request_id).first()
+    request_obj = db.query(RequestModel).filter(
+        RequestModel.request_id == request_id,
+        RequestModel.client_id == current_user.client_id
+    ).first()
     if not request_obj:
         raise HTTPException(status_code=404, detail="Request not found")
 
@@ -297,16 +319,19 @@ def get_request_audit(
 @router.post("/{request_id}/hotlist", response_model=RequestRead)
 def hotlist_request(
     request_id: int,
+    branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
-    request_obj = db.query(RequestModel).filter(RequestModel.request_id == request_id).first()
+    request_obj = db.query(RequestModel).filter(
+        RequestModel.request_id == request_id,
+        RequestModel.client_id == current_user.client_id
+    ).first()
     if not request_obj:
         raise HTTPException(status_code=404, detail="Request not found")
         
-    # Enforce tenant scope
-    if request_obj.client_id != current_user.client_id:
-        raise HTTPException(status_code=403, detail="Access denied (tenant scope violation)")
+    # Enforce branch scope
+    branch_service.assert_branch_access(request_obj.request_branch, action_description="hotlist request")
         
     # Roles allowed: branch_submitter, branch_authorizer, super_admin, operations admins
     allowed = ["branch_submitter", "branch_authorizer", "super_admin", "operations_admin_maker", "operations_admin_checker", "internal_control_maker", "internal_control_checker"]
@@ -360,16 +385,19 @@ def hotlist_request(
 def link_account(
     request_id: int,
     payload: LinkAccountRequest,
+    branch_service: BranchContextService = Depends(get_branch_context),
     db: Session = Depends(get_db),
     current_user: UserInfo = Depends(get_current_user),
 ):
-    request_obj = db.query(RequestModel).filter(RequestModel.request_id == request_id).first()
+    request_obj = db.query(RequestModel).filter(
+        RequestModel.request_id == request_id,
+        RequestModel.client_id == current_user.client_id
+    ).first()
     if not request_obj:
         raise HTTPException(status_code=404, detail="Request not found")
-        
-    # Enforce tenant scope
-    if request_obj.client_id != current_user.client_id:
-        raise HTTPException(status_code=403, detail="Access denied (tenant scope violation)")
+
+    # Enforce branch scope
+    branch_service.assert_branch_access(request_obj.request_branch, action_description="link account")
         
     # Roles allowed: branch_submitter, branch_authorizer, super_admin, operations admins
     allowed = ["branch_submitter", "branch_authorizer", "super_admin", "operations_admin_maker", "operations_admin_checker", "internal_control_maker", "internal_control_checker"]

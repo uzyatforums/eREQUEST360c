@@ -85,7 +85,7 @@ class ApiLoggingMiddleware(BaseHTTPMiddleware):
         if auth_header and auth_header.startswith("Bearer "):
             token = auth_header.split(" ")[1]
             try:
-                payload = jwt.decode(token, settings.database_url, algorithms=["HS256"])
+                payload = jwt.decode(token, settings.jwt_secret_key, algorithms=["HS256"])
                 username = payload.get("sub")
                 client_id = payload.get("client_id")
             except Exception:

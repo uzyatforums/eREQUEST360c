@@ -119,7 +119,7 @@ class AuthService:
             "roles": roles,
             "exp": now_dt + timedelta(hours=8),
         }
-        token = jwt.encode(payload, settings.database_url, algorithm="HS256")
+        token = jwt.encode(payload, settings.jwt_secret_key, algorithm="HS256")
         SessionActivityTracker.register_session(jti, iat)
         return token
 
@@ -133,8 +133,6 @@ class AuthService:
             return None
 
         roles = [user_obj.role_code]
-        if user_obj.username == "admin" and "super_admin" in roles:
-            roles = ["branch_submitter", "branch_authorizer", "super_admin"]
 
         # Fetch Role definition from DB to check role_scope
         role_obj = db.query(Role).filter(Role.role_code == user_obj.role_code).first()
@@ -180,7 +178,7 @@ def get_current_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     try:
-        payload = jwt.decode(credentials.credentials, settings.database_url, algorithms=["HS256"], options={"verify_iat": False})
+        payload = jwt.decode(credentials.credentials, settings.jwt_secret_key, algorithms=["HS256"], options={"verify_iat": False})
     except Exception as exc:  # pragma: no cover - defensive path
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from exc
 

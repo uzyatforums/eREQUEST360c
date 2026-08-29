@@ -38,25 +38,38 @@ class BranchContextService:
     def can_access_branch(self, target_branch_code: Optional[str]) -> bool:
         """
         Validates access to a target branch.
-        - Head Office users: Always True for any branch within client_id.
-        - Branch Users: True ONLY if target_branch_code == effective_branch_code.
+        - Head Office users: True for any branch belonging to their client_id.
+        - Branch Users: True ONLY if target_branch_code == effective_branch_code (and belongs to client_id).
         """
+        if not target_branch_code:
+            return self.context.is_head_office_user
+
+        if self.db and self.context.client_id:
+            from src.db_models import Branch
+            branch = self.db.query(Branch).filter(
+                Branch.branch_code == target_branch_code,
+                Branch.client_id == self.context.client_id,
+                Branch.active == True
+            ).first()
+            if not branch:
+                return False
+
         if self.context.is_head_office_user:
             return True
-        if not target_branch_code:
-            return False
+
         return self.context.effective_branch_code == target_branch_code
 
     def can_access_request(self, request_branch: str, pickup_branch: Optional[str] = None) -> bool:
         """
         Validates if user can view/process a specific request record.
-        - Head Office: Always True.
+        - Head Office: True for any branch belonging to client_id.
         - Branch User: True if request originated at effective branch OR is assigned to effective branch for pickup.
         """
-        if self.context.is_head_office_user:
+        if self.can_access_branch(request_branch):
             return True
-        eff_branch = self.context.effective_branch_code
-        return (request_branch == eff_branch) or (pickup_branch == eff_branch)
+        if pickup_branch and self.can_access_branch(pickup_branch):
+            return True
+        return False
 
     def assert_branch_access(self, target_branch_code: Optional[str], action_description: str = "operation"):
         """Raises HTTP 403 Forbidden if branch user attempts cross-branch access."""
