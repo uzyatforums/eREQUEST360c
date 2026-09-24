@@ -18,8 +18,8 @@
 | 🛡️ Maker-Checker  | -----------------------------------------------------------------------------|
 | ⚙️ Configuration   | [ Filter Entity Type ▼ ] [ Filter User ▼ ] [ Date Range: Last 7 Days ▼ ]     |
 | 👥 Administration  | +--------------------------------------------------------------------------+ |
-| 📜 Audit Trail     | | Event ID | Entity | Entity ID | Source | Performed By | Timestamp    | Actions| |
-| 📈 Reports         | |----------|--------|-----------|--------|--------------|--------------|--------| |
+| 📜 Audit Trail     | | Event ID | Entity | Entity Key | Source | Performed By | Timestamp    | Actions| |
+| 📈 Reports         | |----------|--------|------------|--------|--------------|--------------|--------| |
 |                    | | 5001     | request| 1         | API    | submitter1   | 2026-07-26 21| [View] | |
 |                    | | 5002     | request| 2         | SYSTEM | system       | 2026-07-26 22| [View] | |
 |                    | | 5003     | user   | admin     | API    | super_admin  | 2026-07-27 09| [View] | |
@@ -29,7 +29,7 @@
 |                    | | Audit Event Detail (#5002)                                        [ X ]  |
 |                    | |--------------------------------------------------------------------------|
 |                    | | Event ID: 5002 | Source: SYSTEM | Performed By: system                    |
-|                    | | Entity Type: request | Entity ID: 2                                      |
+|                    | | Entity Type: request | Entity Key: 2 | Tenant: Apex MFB (100)               |
 |                    | | Timestamp: 2026-07-26 22:03:15 UTC                                      |
 |                    | | Remarks: Settlement status: SUCCESS. Charge posting succeeded.          |
 |                    | |                                                                          |
@@ -52,7 +52,7 @@
 ## 2. Key Components & Interactions
 
 1. **Audit Event Filter Bar:**
-   - Filters by `Entity Type` (`request`, `user`, `config`, `client_policy`), `Performed By` user, `Event Source` (`API`, `SYSTEM`), and Date Range.
+   - Filters by Tenant (`client_id`), `Entity Type` (`request`, `user`, `card_programme`, `card_segment`), `Performed By` user, `Event Source` (`API`, `SYSTEM`), and Date Range.
 2. **Audit Event Grid:**
    - Displays immutable audit events from `audit.audit_events`.
 3. **Audit Event Side Sheet Inspector:**
@@ -62,7 +62,7 @@
 
 ## 3. API Endpoints Mapping
 
-- `GET /reports/audit` - List audit events with filters.
+- `GET /reports/audit?client_id={client_id}` - List tenant-qualified audit events with filters (per ADR-008).
 - `GET /requests/{id}/audit` - List audit events for a specific card request.
 
 ---

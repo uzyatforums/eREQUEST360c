@@ -67,8 +67,9 @@ The Maker/Checker module shall not know anything about:
 
 It only understands:
 
-- Entity Type
-- Entity ID
+- Tenant (client_id)
+- Entity Type (entity_type_code)
+- Entity Key (entity_key VARCHAR(64); NULL for uncreated proposals per ADR-008)
 - Operation
 - Status
 - Payload

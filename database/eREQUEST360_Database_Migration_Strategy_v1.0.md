@@ -76,18 +76,9 @@ This provides consistent auditing throughout the platform.
 
 ## 2. Primary Keys
 
-Configuration tables should use surrogate keys.
+Configuration tables without stable natural keys should use surrogate keys (governed by ADR-007 Non-Sequential Identifier Policy).
 
-Example
-
-```sql
-tenant_id
-role_id
-permission_id
-channel_id
-```
-
-Business tables should also use surrogate keys unless a natural key is clearly superior.
+Where a stable natural or business code exists (such as `role_code`, `permission_code`, `card_type`, `branch_code`), that code should be used directly as the primary identifier (per ADR-005 and ADR-007).
 
 ---
 
@@ -107,21 +98,13 @@ request.approve
 card.issue
 ```
 
-The database relationships should reference IDs.
-
-```
-permission_id
-```
-
-This separates business meaning from database implementation.
+Where surrogate keys are used, database relationships reference those surrogate keys. Where natural keys are used, relationships reference the natural business code.
 
 ---
 
 ## 4. Foreign Keys
 
-Foreign keys should reference IDs.
-
-Do not create foreign keys on business codes.
+Foreign keys targeting surrogate-keyed entities must reference the entity's surrogate key. Foreign keys targeting natural master entities (such as `card_types`, `roles`, `permissions`, `statuses`) must reference the authoritative natural business code (per ADR-005 and ADR-007).
 
 ---
 

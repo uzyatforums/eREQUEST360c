@@ -7,7 +7,7 @@
 All future modules SHALL conform to the architectural, navigation, UI, and lifecycle standards established by `SCR-003`:
 
 1. **Navigation Architecture**:
-   - Master List → Details → Child Workspaces pattern (`/module`, `/module/new`, `/module/:id`, `/module/:id/edit`, `/module/:id/child-tab`).
+   - Master List → Details → Child Workspaces pattern (`/module`, `/module/new`, `/module/:id`, `/module/:id/edit`, `/module/:id/child-tab`). Route parameter `:id` represents the entity's opaque external identifier, natural business code, or grandfathered identifier (per ADR-007; new modules must not bind route `:id` to sequential database integer identities).
    - Dedicated route pages instead of slide-over drawers or popups.
    - Full support for Browser Back, Forward, F5 Refresh, and Deep Link URL navigation.
 

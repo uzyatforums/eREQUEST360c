@@ -17,6 +17,15 @@ Request processing uses the standard three-tier identifier pattern:
 - `request_uid`: External unique identifier (`UUID` / `UNIQUEIDENTIFIER`). Used by external REST APIs, integrations, webhooks, and all externally visible request references.
 - `request_number`: Human/business-facing request reference (`VARCHAR` / string). Used for user-facing business identification, receipts, operational references, and branch delivery tracking.
 
+> [!IMPORTANT]
+> **Scope Note (ADR-007 Alignment):** ADR-007 does NOT decide the final roles, types, persistence mechanics, or generation mechanisms of:
+> - `request_id`
+> - `request_uid`
+> - `request_number`
+> 
+> Those decisions remain reserved for the dedicated Request Processing architecture review.
+
+
 
 ## 2. Core Account and Customer Model
 

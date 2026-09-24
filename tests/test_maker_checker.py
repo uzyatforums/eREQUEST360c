@@ -120,7 +120,7 @@ def test_submit_work_item_success():
     headers = get_auth_header("maker_01", client_id=1)
     payload = {
         "entity_type_code": "BRANCH",
-        "entity_key": 101,
+        "entity_key": "101",
         "operation_code": "UPDATE",
         "entity_name": "Lagos Main Branch",
         "before_payload": {"branch_name": "Lagos Main", "charge_amount": 1000},
@@ -132,7 +132,7 @@ def test_submit_work_item_success():
     data = res.json()
     assert data["status_code"] == "PENDING"
     assert data["created_by"] == "maker_01"
-    assert data["entity_id"] == 101
+    assert data["entity_key"] == "101"
     work_item_id = data["id"]
 
     # Verify payload endpoint

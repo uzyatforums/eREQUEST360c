@@ -100,7 +100,7 @@ def get_card_programmes(
     if "super_admin" not in current_user.roles:
         pending_query = pending_query.filter(MakerCheckerWorkItem.client_id == current_user.client_id)
     pending_items = pending_query.all()
-    pending_map = {wi.entity_id: wi for wi in pending_items}
+    pending_map = {int(wi.entity_key): wi for wi in pending_items if wi.entity_key and wi.entity_key.isdigit()}
 
     result: list[CardProgrammeRead] = []
     for prog in programmes:
@@ -132,7 +132,7 @@ def get_card_programme_by_id(
     read_obj = CardProgrammeRead.model_validate(obj)
     wi_query = db.query(MakerCheckerWorkItem).filter(
         MakerCheckerWorkItem.entity_type_code == "CARD_PROGRAMME",
-        MakerCheckerWorkItem.entity_id == id,
+        MakerCheckerWorkItem.entity_key == str(id),
         MakerCheckerWorkItem.status_code == WorkItemStatus.PENDING,
     )
     if "super_admin" not in current_user.roles:
@@ -181,26 +181,26 @@ def create_card_programme(
         obj_data["client_id"] = target_client_id
         obj_data["card_programme_code"] = payload.card_programme_code.upper()
         obj_data["created_by"] = current_user.username
-        obj_data.setdefault("priority", 1)
 
         obj = CardProgramme(**obj_data)
         s.add(obj)
         s.flush()
         log_audit_event(
             db=s,
+            client_id=target_client_id,
             entity_type="CARD_PROGRAMME",
-            entity_id=obj.id,
+            entity_key=str(obj.id),
             event_code="CARD_PROGRAMME_CREATED",
             performed_by=current_user.username,
             remarks=f"Created Card Programme '{obj.card_programme_code}' - '{obj.card_programme_name}'",
         )
-        return obj.id
+        return str(obj.id)
 
     return ConfigurationOrchestrator.execute_change(
         db=db,
         user=current_user,
         entity_type_code="CARD_PROGRAMME",
-        entity_id=0,
+        entity_key=None,
         operation_code="CREATE",
         entity_name=payload.card_programme_name.strip(),
         before_payload=None,
@@ -242,7 +242,6 @@ def update_card_programme(
         "card_programme_name": obj.card_programme_name,
         "card_type": obj.card_type,
         "active": obj.active,
-        "priority": obj.priority,
     }
 
     def _commit_update(s: Session, data: dict):
@@ -256,8 +255,9 @@ def update_card_programme(
         prog.last_modified_date = datetime.utcnow()
         log_audit_event(
             db=s,
+            client_id=prog.client_id,
             entity_type="CARD_PROGRAMME",
-            entity_id=prog.id,
+            entity_key=str(prog.id),
             event_code="CARD_PROGRAMME_UPDATED",
             performed_by=current_user.username,
             remarks=f"Updated Card Programme '{prog.card_programme_code}'",
@@ -267,7 +267,7 @@ def update_card_programme(
         db=db,
         user=current_user,
         entity_type_code="CARD_PROGRAMME",
-        entity_id=id,
+        entity_key=str(id),
         operation_code="UPDATE",
         entity_name=obj.card_programme_name,
         before_payload=before_snapshot,
@@ -300,8 +300,9 @@ def activate_card_programme(
             prog.last_modified_date = datetime.utcnow()
             log_audit_event(
                 db=s,
+                client_id=prog.client_id,
                 entity_type="CARD_PROGRAMME",
-                entity_id=prog.id,
+                entity_key=str(prog.id),
                 event_code="CARD_PROGRAMME_ACTIVATED",
                 performed_by=current_user.username,
                 remarks=f"Activated Card Programme '{prog.card_programme_code}'",
@@ -311,7 +312,7 @@ def activate_card_programme(
         db=db,
         user=current_user,
         entity_type_code="CARD_PROGRAMME",
-        entity_id=id,
+        entity_key=str(id),
         operation_code="ACTIVATE",
         entity_name=obj.card_programme_name,
         before_payload={"active": obj.active},
@@ -344,8 +345,9 @@ def deactivate_card_programme(
             prog.last_modified_date = datetime.utcnow()
             log_audit_event(
                 db=s,
+                client_id=prog.client_id,
                 entity_type="CARD_PROGRAMME",
-                entity_id=prog.id,
+                entity_key=str(prog.id),
                 event_code="CARD_PROGRAMME_DEACTIVATED",
                 performed_by=current_user.username,
                 remarks=f"Deactivated Card Programme '{prog.card_programme_code}'",
@@ -355,7 +357,7 @@ def deactivate_card_programme(
         db=db,
         user=current_user,
         entity_type_code="CARD_PROGRAMME",
-        entity_id=id,
+        entity_key=str(id),
         operation_code="DEACTIVATE",
         entity_name=obj.card_programme_name,
         before_payload={"active": obj.active},
@@ -427,9 +429,7 @@ def get_card_types(
 ):
     if "super_admin" in current_user.roles:
         return db.query(CardType).all()
-    return db.query(CardType).filter(
-        (CardType.client_id == current_user.client_id) | (CardType.client_id == None)
-    ).all()
+    return db.query(CardType).filter(CardType.active == True).all()
 
 
 

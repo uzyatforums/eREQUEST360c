@@ -418,8 +418,9 @@ IF NOT EXISTS (SELECT 1 FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.
 BEGIN
     CREATE TABLE [audit].[audit_events] (
         event_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        client_id INT NOT NULL,
         entity_type VARCHAR(50) NOT NULL,
-        entity_id BIGINT NOT NULL,
+        entity_key VARCHAR(64) NOT NULL,
         event_type_id INT NOT NULL,
         event_source VARCHAR(50) NULL,
         performed_by VARCHAR(100) NULL,
@@ -447,8 +448,9 @@ IF NOT EXISTS (SELECT 1 FROM sys.tables t JOIN sys.schemas s ON t.schema_id = s.
 BEGIN
     CREATE TABLE [audit].[audit_snapshots] (
         snapshot_id BIGINT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        client_id INT NOT NULL,
         entity_type VARCHAR(50) NOT NULL,
-        entity_id BIGINT NOT NULL,
+        entity_key VARCHAR(64) NOT NULL,
         snapshot_time DATETIME NOT NULL CONSTRAINT DF_audit_snapshots_snapshot_time DEFAULT GETDATE(),
         snapshot_data NVARCHAR(MAX) NOT NULL,
         event_id BIGINT NULL

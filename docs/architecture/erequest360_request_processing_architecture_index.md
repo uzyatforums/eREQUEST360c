@@ -16,3 +16,12 @@ The eREQUEST360 architecture establishes a three-tier identifier pattern for car
 - `request_id` — Internal database surrogate key (`BIGINT` / `BIGINT IDENTITY`). Used strictly for internal relational integrity, database joins, and primary key indexing. Must not be exposed as the external API identifier.
 - `request_uid` — External unique identifier (`UUID` / `UNIQUEIDENTIFIER`). Used by external REST APIs, integrations, webhooks, and all externally visible request references to prevent integer enumeration vulnerabilities.
 - `request_number` — Human/business-facing request reference (`VARCHAR` / string). Used for user-facing business identification, receipts, branch operational references, and customer communications.
+
+> [!IMPORTANT]
+> **Scope Note (ADR-007 Alignment):** ADR-007 does NOT decide the final roles, types, persistence mechanics, or generation mechanisms of:
+> - `request_id`
+> - `request_uid`
+> - `request_number`
+> 
+> Those decisions remain reserved for the dedicated Request Processing architecture review.
+

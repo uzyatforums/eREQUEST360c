@@ -33,7 +33,7 @@ class CardSegmentProgrammeChargeExecutor(EntityExecutor):
     ) -> None:
         op = work_item.operation_code.upper()
         client_id = work_item.client_id
-        entity_id = work_item.entity_id
+        entity_key = work_item.entity_key
 
         after_dict: dict = {}
         before_dict: dict = {}
@@ -61,7 +61,19 @@ class CardSegmentProgrammeChargeExecutor(EntityExecutor):
         if op == "CREATE":
             self._execute_create(db, work_item, after_dict, checker_user_id)
         elif op in ("UPDATE", "EDIT", "ACTIVATE", "DEACTIVATE"):
-            self._execute_update(db, work_item, entity_id, client_id, before_dict, after_dict, checker_user_id)
+            if not entity_key:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Operation '{op}' requires an entity_key.",
+                )
+            try:
+                mapping_id = int(entity_key)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid entity_key '{entity_key}' for CARD_SEGMENT_PROGRAMME_CHARGE. Must be numeric.",
+                )
+            self._execute_update(db, work_item, mapping_id, client_id, before_dict, after_dict, checker_user_id)
         else:
             logger.warning(
                 f"[CardSegmentProgrammeChargeExecutor] Unhandled operation '{op}' for work_item #{work_item.id}."
@@ -106,12 +118,13 @@ class CardSegmentProgrammeChargeExecutor(EntityExecutor):
         db.add(new_mapping)
         db.flush()
 
-        work_item.entity_id = new_mapping.id
+        work_item.entity_key = str(new_mapping.id)
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_SEGMENT_PROGRAMME_CHARGE",
-            entity_id=new_mapping.id,
+            entity_key=str(new_mapping.id),
             event_code="CARD_SEG_PROG_CHG_CREATED",
             performed_by=checker_user_id,
             branch_code="001",
@@ -199,8 +212,9 @@ class CardSegmentProgrammeChargeExecutor(EntityExecutor):
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_SEGMENT_PROGRAMME_CHARGE",
-            entity_id=mapping.id,
+            entity_key=str(mapping.id),
             event_code=event_code,
             performed_by=checker_user_id,
             branch_code="001",

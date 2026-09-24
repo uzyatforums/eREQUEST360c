@@ -32,7 +32,7 @@ class CardChargesHeaderExecutor(EntityExecutor):
     ) -> None:
         op = work_item.operation_code.upper()
         client_id = work_item.client_id
-        entity_id = work_item.entity_id
+        entity_key = work_item.entity_key
 
         after_dict: dict = {}
         before_dict: dict = {}
@@ -60,7 +60,19 @@ class CardChargesHeaderExecutor(EntityExecutor):
         if op == "CREATE":
             self._execute_create(db, work_item, after_dict, checker_user_id)
         elif op in ("UPDATE", "EDIT", "ACTIVATE", "DEACTIVATE"):
-            self._execute_update(db, work_item, entity_id, client_id, before_dict, after_dict, checker_user_id)
+            if not entity_key:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Operation '{op}' requires an entity_key.",
+                )
+            try:
+                header_id = int(entity_key)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid entity_key '{entity_key}' for CARD_CHARGES_HEADER. Must be numeric.",
+                )
+            self._execute_update(db, work_item, header_id, client_id, before_dict, after_dict, checker_user_id)
         else:
             logger.warning(f"[CardChargesHeaderExecutor] Unhandled operation '{op}'.")
 
@@ -98,8 +110,8 @@ class CardChargesHeaderExecutor(EntityExecutor):
         db.add(new_header)
         db.flush()
 
-        # Link work_item entity_id to newly created Header ID
-        work_item.entity_id = new_header.id
+        # Link work_item entity_key to newly created Header ID
+        work_item.entity_key = str(new_header.id)
 
         # Insert entries
         for idx, e in enumerate(entries, start=1):
@@ -124,8 +136,9 @@ class CardChargesHeaderExecutor(EntityExecutor):
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_CHARGES_HEADER",
-            entity_id=new_header.id,
+            entity_key=str(new_header.id),
             event_code="CARD_CHARGES_HEADER_CREATED",
             performed_by=checker_user_id,
             remarks=f"Approved & Created Card Charges Header '{new_header.charge_name}'",
@@ -256,8 +269,9 @@ class CardChargesHeaderExecutor(EntityExecutor):
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_CHARGES_HEADER",
-            entity_id=header.id,
+            entity_key=str(header.id),
             event_code="CARD_CHARGES_HEADER_UPDATED",
             performed_by=checker_user_id,
             remarks=f"Approved & Updated Card Charges Header '{header.charge_name}'",

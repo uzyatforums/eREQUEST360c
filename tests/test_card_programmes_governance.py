@@ -11,7 +11,8 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from src.app import app
-from src.db import SessionLocal, init_db
+from src.db import Base, get_db
+from tests.conftest import test_engine, TestingSessionLocal
 from src.db_models import (
     CardProgramme,
     User,
@@ -28,6 +29,14 @@ from src.db_models import (
 from src.api.auth import AuthService
 from src.api.maker_checker_constants import WorkItemStatus
 
+def override_get_db():
+    try:
+        db = TestingSessionLocal()
+        yield db
+    finally:
+        db.close()
+
+app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 
@@ -56,14 +65,14 @@ def get_auth_header(username: str, client_id: int = 1) -> dict:
 @pytest.fixture
 def setup_governance_db():
     """Seed users, roles, permissions, entity types, and initial data for governance tests."""
-    init_db()
-    db_session = SessionLocal()
+    Base.metadata.create_all(bind=test_engine)
+    db_session = TestingSessionLocal()
     try:
         # Ensure CardType exists
         if not db_session.query(CardType).filter(CardType.card_type == "VERVE").first():
-            db_session.add(CardType(card_type="VERVE", description="Verve Card Scheme", client_id=1))
+            db_session.add(CardType(card_type="VERVE", description="Verve Card Scheme"))
         if not db_session.query(CardType).filter(CardType.card_type == "VISA").first():
-            db_session.add(CardType(card_type="VISA", description="Visa Card Scheme", client_id=1))
+            db_session.add(CardType(card_type="VISA", description="Visa Card Scheme"))
 
         # Entity types & operations
         mc_entities = [
@@ -130,6 +139,24 @@ def setup_governance_db():
             if not db_session.query(RolePermission).filter(RolePermission.role_code == role_code, RolePermission.permission_code == perm_code).first():
                 db_session.add(RolePermission(role_code=role_code, permission_code=perm_code, created_by="system"))
 
+        # Approval Policies for CARD_PROGRAMME
+        for cid in [1, 2]:
+            for op in ["ACTIVATE", "DEACTIVATE", "UPDATE", "CREATE"]:
+                pol = db_session.query(ApprovalPolicy).filter(
+                    ApprovalPolicy.client_id == cid,
+                    ApprovalPolicy.entity_type_code == "CARD_PROGRAMME",
+                    ApprovalPolicy.operation_code == op
+                ).first()
+                if not pol:
+                    db_session.add(ApprovalPolicy(
+                        client_id=cid,
+                        entity_type_code="CARD_PROGRAMME",
+                        operation_code=op,
+                        approval_required=True,
+                        active=True,
+                        created_by="system"
+                    ))
+
         # Initial Card Programme
         prog1 = db_session.query(CardProgramme).filter(CardProgramme.card_programme_code == "GOV_PROG_01").first()
         if not prog1:
@@ -138,8 +165,8 @@ def setup_governance_db():
                 card_programme_code="GOV_PROG_01",
                 card_programme_name="Governance Test Programme 01",
                 card_type="VERVE",
+                currency_code="NGN",
                 active=True,
-                priority=1,
                 created_by="system",
             )
             db_session.add(prog1)
@@ -151,8 +178,8 @@ def setup_governance_db():
                 card_programme_code="TENANT2_PROG",
                 card_programme_name="Tenant 2 Test Programme",
                 card_type="VISA",
+                currency_code="NGN",
                 active=True,
-                priority=1,
                 created_by="system",
             )
             db_session.add(prog2_tenant2)
@@ -245,7 +272,7 @@ def test_maker_can_initiate_deactivate_and_pending_exposed(setup_governance_db):
     assert item["pending_operation_code"] == "DEACTIVATE"
 
     # Clean up pending item for next tests
-    db_session = SessionLocal()
+    db_session = TestingSessionLocal()
     try:
         wi = db_session.query(MakerCheckerWorkItem).filter(MakerCheckerWorkItem.id == work_item_id).first()
         if wi:
@@ -270,7 +297,7 @@ def test_duplicate_mutation_returns_409_conflict(setup_governance_db):
     assert res2.status_code == 409
 
     # Clean up pending item
-    db_session = SessionLocal()
+    db_session = TestingSessionLocal()
     try:
         wi = db_session.query(MakerCheckerWorkItem).filter(MakerCheckerWorkItem.id == wi_id).first()
         if wi:
@@ -295,7 +322,7 @@ def test_maker_cannot_self_approve(setup_governance_db):
     assert "sufficient privileges" in res_app.json()["detail"].lower()
 
     # Clean up
-    db_session = SessionLocal()
+    db_session = TestingSessionLocal()
     try:
         wi = db_session.query(MakerCheckerWorkItem).filter(MakerCheckerWorkItem.id == wi_id).first()
         if wi:
@@ -324,7 +351,7 @@ def test_checker_approval_applies_database_change_and_clears_pending(setup_gover
     assert res_c.json()["status_code"] == "APPROVED"
 
     # Refresh DB session & verify domain active state changed to False
-    db_session = SessionLocal()
+    db_session = TestingSessionLocal()
     try:
         updated_prog = db_session.query(CardProgramme).filter(CardProgramme.id == prog.id).first()
         assert updated_prog.active is False
@@ -346,7 +373,7 @@ def test_checker_approval_applies_database_change_and_clears_pending(setup_gover
     assert res_c2.status_code == 200
 
     # Verify active state restored to True
-    db_session2 = SessionLocal()
+    db_session2 = TestingSessionLocal()
     try:
         updated_prog2 = db_session2.query(CardProgramme).filter(CardProgramme.id == prog.id).first()
         assert updated_prog2.active is True

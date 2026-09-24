@@ -116,8 +116,9 @@ class ApiLoggingMiddleware(BaseHTTPMiddleware):
 
 def log_audit_event(
     db: Session,
+    client_id: int,
     entity_type: str,
-    entity_id: int,
+    entity_key: str,
     event_code: str,
     performed_by: str,
     branch_code: Optional[str] = None,
@@ -127,6 +128,13 @@ def log_audit_event(
     changes: Optional[dict] = None,  # Formatted as: {column_name: (old_value, new_value)}
     commit: bool = True,
 ):
+    if client_id is None:
+        raise ValueError("client_id is required for audit event logging")
+    if not entity_type:
+        raise ValueError("entity_type is required for audit event logging")
+    if not entity_key:
+        raise ValueError("entity_key is required for audit event logging")
+
     try:
         # 1. Resolve or create event_type_id dynamically
         # To avoid integer collisions, we hash the event_code and use a positive int.
@@ -142,9 +150,11 @@ def log_audit_event(
             db.flush()
 
         # 2. Insert record into audit_events
+        # Remediated: entity_type stores actual domain classification, not event_code
         event = AuditEvent(
-            entity_type=event_type.event_code,
-            entity_id=entity_id,
+            client_id=client_id,
+            entity_type=entity_type,
+            entity_key=str(entity_key),
             event_type_id=event_type.event_type_id,
             event_source="API",
             performed_by=performed_by,
@@ -171,8 +181,9 @@ def log_audit_event(
         # 4. Create AuditSnapshot if snapshot_data is provided
         if snapshot_data:
             snapshot = AuditSnapshot(
-                entity_type=event_type.event_code,
-                entity_id=entity_id,
+                client_id=client_id,
+                entity_type=entity_type,
+                entity_key=str(entity_key),
                 snapshot_data=json.dumps(snapshot_data),
                 event_id=event.event_id,
                 snapshot_time=datetime.now(timezone.utc)

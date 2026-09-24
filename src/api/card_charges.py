@@ -69,7 +69,7 @@ def list_card_charges(
         )
         .all()
     )
-    pending_map = {item.entity_id: item for item in pending_items}
+    pending_map = {int(item.entity_key): item for item in pending_items if item.entity_key and item.entity_key.isdigit()}
 
     result = []
     for h in headers:
@@ -152,7 +152,7 @@ def get_card_charge_detail(
         db.query(MakerCheckerWorkItem)
         .filter(
             MakerCheckerWorkItem.entity_type_code == "CARD_CHARGES_HEADER",
-            MakerCheckerWorkItem.entity_id == header.id,
+            MakerCheckerWorkItem.entity_key == str(header.id),
             MakerCheckerWorkItem.status_code == "PENDING",
             MakerCheckerWorkItem.client_id == current_user.client_id,
         )
@@ -202,7 +202,7 @@ def create_card_charges(
         db=db,
         user=current_user,
         entity_type_code="CARD_CHARGES_HEADER",
-        entity_id=0,
+        entity_key=None,
         operation_code="CREATE",
         entity_name=payload.charge_name,
         before_payload=None,
@@ -301,7 +301,7 @@ def update_card_charges(
         db=db,
         user=current_user,
         entity_type_code="CARD_CHARGES_HEADER",
-        entity_id=id,
+        entity_key=str(id),
         operation_code="UPDATE",
         entity_name=charge_name,
         before_payload=before_payload,
@@ -341,7 +341,7 @@ def deactivate_card_charge(
         db=db,
         user=current_user,
         entity_type_code="CARD_CHARGES_HEADER",
-        entity_id=id,
+        entity_key=str(id),
         operation_code="DEACTIVATE",
         entity_name=f"Deactivate Card Charge Header '{header.charge_name}'",
         before_payload={"id": header.id, "charge_name": header.charge_name, "active": True},
@@ -382,7 +382,7 @@ def activate_card_charge(
         db=db,
         user=current_user,
         entity_type_code="CARD_CHARGES_HEADER",
-        entity_id=id,
+        entity_key=str(id),
         operation_code="ACTIVATE",
         entity_name=f"Activate Card Charge Header '{header.charge_name}'",
         before_payload={"id": header.id, "charge_name": header.charge_name, "active": False},

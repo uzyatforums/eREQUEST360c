@@ -30,7 +30,7 @@ class CardSegmentExecutor(EntityExecutor):
     ) -> None:
         op = work_item.operation_code.upper()
         client_id = work_item.client_id
-        entity_id = work_item.entity_id
+        entity_key = work_item.entity_key
 
         after_dict: dict = {}
         before_dict: dict = {}
@@ -57,12 +57,22 @@ class CardSegmentExecutor(EntityExecutor):
 
         if op == "CREATE":
             self._execute_create(db, work_item, after_dict, checker_user_id)
-        elif op == "UPDATE":
-            self._execute_update(db, work_item, entity_id, client_id, before_dict, after_dict, checker_user_id)
-        elif op == "ACTIVATE":
-            self._execute_activate(db, work_item, entity_id, client_id, checker_user_id)
-        elif op == "DEACTIVATE":
-            self._execute_deactivate(db, work_item, entity_id, client_id, checker_user_id)
+        elif op in ("UPDATE", "ACTIVATE", "DEACTIVATE"):
+            if not entity_key:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Missing entity_key for {op}.")
+            try:
+                segment_id = int(entity_key)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid entity_key '{entity_key}' for CARD_SEGMENT. Must be numeric.",
+                )
+            if op == "UPDATE":
+                self._execute_update(db, work_item, segment_id, client_id, before_dict, after_dict, checker_user_id)
+            elif op == "ACTIVATE":
+                self._execute_activate(db, work_item, segment_id, client_id, checker_user_id)
+            elif op == "DEACTIVATE":
+                self._execute_deactivate(db, work_item, segment_id, client_id, checker_user_id)
         else:
             logger.warning(f"[CardSegmentExecutor] Operation '{op}' not handled by CardSegmentExecutor.")
 
@@ -125,13 +135,14 @@ class CardSegmentExecutor(EntityExecutor):
         db.add(new_segment)
         db.flush()
 
-        # Link work_item entity_id to newly created CardSegment ID
-        work_item.entity_id = new_segment.id
+        # Link work_item entity_key to newly created CardSegment ID
+        work_item.entity_key = str(new_segment.id)
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_SEGMENT",
-            entity_id=new_segment.id,
+            entity_key=str(new_segment.id),
             event_code="CARD_SEGMENT_CREATED",
             performed_by=checker_user_id,
             remarks=f"Approved & Created Card Segment '{new_segment.segment_code}'",
@@ -195,8 +206,9 @@ class CardSegmentExecutor(EntityExecutor):
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_SEGMENT",
-            entity_id=segment.id,
+            entity_key=str(segment.id),
             event_code="CARD_SEGMENT_UPDATED",
             performed_by=checker_user_id,
             remarks=f"Approved & Updated Card Segment '{segment.segment_code}'",
@@ -233,8 +245,9 @@ class CardSegmentExecutor(EntityExecutor):
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_SEGMENT",
-            entity_id=segment.id,
+            entity_key=str(segment.id),
             event_code="CARD_SEGMENT_ACTIVATED",
             performed_by=checker_user_id,
             remarks=f"Approved & Activated Card Segment '{segment.segment_code}'",
@@ -266,8 +279,9 @@ class CardSegmentExecutor(EntityExecutor):
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_SEGMENT",
-            entity_id=segment.id,
+            entity_key=str(segment.id),
             event_code="CARD_SEGMENT_DEACTIVATED",
             performed_by=checker_user_id,
             remarks=f"Approved & Deactivated Card Segment '{segment.segment_code}'",

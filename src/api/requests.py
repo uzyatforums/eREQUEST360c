@@ -111,8 +111,9 @@ def create_request(
     }
     log_audit_event(
         db=db,
+        client_id=request_obj.client_id,
         entity_type="request",
-        entity_id=request_obj.request_id,
+        entity_key=str(request_obj.request_id),
         event_code="REQUEST_CREATED",
         performed_by=current_user.username,
         branch_code=branch_service.get_effective_branch(),
@@ -235,8 +236,9 @@ def approve_request(
     }
     log_audit_event(
         db=db,
+        client_id=request_obj.client_id,
         entity_type="request",
-        entity_id=request_obj.request_id,
+        entity_key=str(request_obj.request_id),
         event_code="REQUEST_APPROVED",
         performed_by=current_user.username,
         branch_code=branch_service.get_effective_branch(),
@@ -289,8 +291,9 @@ def get_request_audit(
     branch_service.assert_branch_access(request_obj.request_branch, action_description="view request audit")
 
     events = db.query(AuditEvent).filter(
+        AuditEvent.client_id == request_obj.client_id,
         AuditEvent.entity_type == "request",
-        AuditEvent.entity_id == request_id
+        AuditEvent.entity_key == str(request_id)
     ).order_by(AuditEvent.event_time.asc()).all()
 
     event_list = []
@@ -301,7 +304,7 @@ def get_request_audit(
         event_list.append({
             "event_id": e.event_id,
             "entity_type": e.entity_type,
-            "entity_id": e.entity_id,
+            "entity_key": e.entity_key,
             "event_type_id": e.event_type_id,
             "event_source": e.event_source,
             "performed_by": e.performed_by,
@@ -368,8 +371,9 @@ def hotlist_request(
     }
     log_audit_event(
         db=db,
+        client_id=request_obj.client_id,
         entity_type="request",
-        entity_id=request_obj.request_id,
+        entity_key=str(request_obj.request_id),
         event_code="CARD_HOTLISTED",
         performed_by=current_user.username,
         branch_code=current_user.branch_code,
@@ -455,8 +459,9 @@ def link_account(
         
     log_audit_event(
         db=db,
+        client_id=request_obj.client_id,
         entity_type="request",
-        entity_id=request_obj.request_id,
+        entity_key=str(request_obj.request_id),
         event_code="CARD_ACCOUNT_LINKED",
         performed_by=current_user.username,
         branch_code=current_user.branch_code,

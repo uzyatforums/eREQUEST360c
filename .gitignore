@@ -44,3 +44,4 @@ dev.db
 *.db
 *.sqlite
 *.sqlite3
+database/backups/

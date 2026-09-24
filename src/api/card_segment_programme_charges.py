@@ -118,7 +118,7 @@ def list_card_segment_programme_charges(
         )
         .all()
     )
-    pending_map = {item.entity_id: f"MC-{item.id:08d}" for item in pending_items if item.entity_id}
+    pending_map = {int(item.entity_key): f"MC-{item.id:08d}" for item in pending_items if item.entity_key and item.entity_key.isdigit()}
 
     if filter_lower == "active":
         query = query.filter(CardSegmentProgrammeCharge.active == True)
@@ -361,7 +361,7 @@ def get_card_segment_programme_charge_detail(
         .filter(
             MakerCheckerWorkItem.client_id == client_id,
             MakerCheckerWorkItem.entity_type_code == "CARD_SEGMENT_PROGRAMME_CHARGE",
-            MakerCheckerWorkItem.entity_id == id,
+            MakerCheckerWorkItem.entity_key == str(id),
             MakerCheckerWorkItem.status_code == "PENDING",
         )
         .first()
@@ -452,7 +452,7 @@ def create_card_segment_programme_charge(
         db=db,
         user=current_user,
         entity_type_code="CARD_SEGMENT_PROGRAMME_CHARGE",
-        entity_id=0,
+        entity_key=None,
         operation_code="CREATE",
         entity_name=entity_name,
         before_payload=None,
@@ -531,7 +531,7 @@ def update_card_segment_programme_charge(
         db=db,
         user=current_user,
         entity_type_code="CARD_SEGMENT_PROGRAMME_CHARGE",
-        entity_id=id,
+        entity_key=str(id),
         operation_code="UPDATE",
         entity_name=f"Card Segment Programme Charge #{id}",
         before_payload=before_dict,
@@ -584,7 +584,7 @@ def deactivate_card_segment_programme_charge(
         db=db,
         user=current_user,
         entity_type_code="CARD_SEGMENT_PROGRAMME_CHARGE",
-        entity_id=id,
+        entity_key=str(id),
         operation_code="DEACTIVATE",
         entity_name=f"Deactivate Card Segment Programme Charge #{id}",
         before_payload=before_dict,
@@ -637,7 +637,7 @@ def activate_card_segment_programme_charge(
         db=db,
         user=current_user,
         entity_type_code="CARD_SEGMENT_PROGRAMME_CHARGE",
-        entity_id=id,
+        entity_key=str(id),
         operation_code="ACTIVATE",
         entity_name=f"Activate Card Segment Programme Charge #{id}",
         before_payload=before_dict,

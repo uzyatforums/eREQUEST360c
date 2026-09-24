@@ -17,13 +17,16 @@ class ConfigurationOrchestrator:
         db: Session,
         user: UserInfo,
         entity_type_code: str,
-        entity_id: int,
-        operation_code: str,
-        entity_name: Optional[str],
-        before_payload: Optional[dict | str],
-        after_payload: dict | str,
+        entity_key: Optional[str] = None,
+        operation_code: str = "CREATE",
+        entity_name: Optional[str] = None,
+        before_payload: Optional[dict | str] = None,
+        after_payload: dict | str = None,
         commit_callback: Optional[Callable[[Session, Any], Any]] = None,
     ) -> ConfigExecutionResult:
+        if entity_key is not None:
+            entity_key = str(entity_key)
+
         approval_req = ApprovalPolicyService.requires_approval(
             db, user.client_id, entity_type_code, operation_code
         )
@@ -31,28 +34,28 @@ class ConfigurationOrchestrator:
         if not approval_req:
             logger.info(
                 f"[ConfigurationOrchestrator] Direct execution for entity_type={entity_type_code}, "
-                f"entity_id={entity_id}, operation={operation_code}, user_id={user.user_id}"
+                f"entity_key={entity_key}, operation={operation_code}, user_id={user.user_id}"
             )
             if commit_callback:
-                created_id = commit_callback(db, after_payload)
-                if created_id is not None:
-                    entity_id = created_id
+                created_key = commit_callback(db, after_payload)
+                if created_key is not None:
+                    entity_key = str(created_key)
             db.commit()
 
             return ConfigExecutionResult(
                 status="COMMITTED",
-                entity_id=entity_id,
+                entity_key=entity_key,
                 message=f"{entity_type_code} change executed and committed immediately.",
             )
 
         logger.info(
             f"[ConfigurationOrchestrator] Submitting to MakerChecker for entity_type={entity_type_code}, "
-            f"entity_id={entity_id}, operation={operation_code}, user_id={user.user_id}"
+            f"entity_key={entity_key}, operation={operation_code}, user_id={user.user_id}"
         )
 
         submit_req = MakerCheckerSubmitRequest(
             entity_type_code=entity_type_code,
-            entity_key=entity_id,
+            entity_key=entity_key,
             operation_code=operation_code,
             entity_name=entity_name,
             before_payload=before_payload,
@@ -65,6 +68,6 @@ class ConfigurationOrchestrator:
             status="PENDING_APPROVAL",
             work_item_id=work_item.id,
             work_item_number=work_item.work_item_number,
-            entity_id=entity_id,
+            entity_key=entity_key,
             message=f"{entity_type_code} change submitted for approval. Work item ID: {work_item.id}",
         )

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class LoginRequest(BaseModel):
@@ -110,60 +110,42 @@ class CardProgrammeCreate(BaseModel):
     card_programme_code: str = Field(..., max_length=35)
     card_programme_name: str = Field(..., max_length=100)
     card_type: str = Field(..., max_length=20)
+    currency_code: str = Field("NGN", max_length=3)
     active: bool = True
     client_id: Optional[int] = None
     description: Optional[str] = None
-    service_code: Optional[str] = None
-    default_validity_years: Optional[int] = 3
-    currency: Optional[str] = "NGN"
-    issuance_fee: Optional[float] = 1000.0
-    maintenance_fee: Optional[float] = 250.0
-    account_type_binding: Optional[str] = "SAVINGS_CURRENT"
-    bin: Optional[str] = None
-    platform_indicator: Optional[str] = "POSTILION_V2"
+    default_validity_years: Optional[int] = 5
+    bin: Optional[str] = Field(None, max_length=10)
+    fep_programme_id: Optional[str] = Field(None, max_length=35)
+    platform_indicator: Optional[str] = Field("POSTILION_V2", max_length=35)
+    instant_card_type: Optional[str] = Field("INSTANT_STANDARD", max_length=50)
     pan_length: Optional[int] = 16
-    sequence: Optional[int] = None
-    min_random_number: Optional[int] = 100000
-    max_random_number: Optional[int] = 999999
-    output_path: Optional[str] = None
-    table_prefix: Optional[str] = "TBL_CP_"
-    fep_programme_id: Optional[str] = None
-    instant_card_type: Optional[str] = "INSTANT_STANDARD"
-    payment_ref_prefix: Optional[str] = "PAY_REF_"
-    assigned_segment_group: Optional[str] = "Retail Segment (01)"
-    pp_bin: Optional[str] = "901234"
-    segment_count: Optional[int] = 2
-    charge_header_count: Optional[int] = 1
-    charge_header_name: Optional[str] = None
+    min_random_number: Optional[str] = Field("100000", max_length=15)
+    max_random_number: Optional[str] = Field("999999", max_length=15)
+    output_path: Optional[str] = Field(None, max_length=255)
+    duplicate_check_source: Optional[str] = Field(None, max_length=30)
+    payment_reference_prefix: Optional[str] = Field(None, max_length=3)
+    issuer_number: Optional[int] = None
 
 
 class CardProgrammeUpdate(BaseModel):
     card_programme_name: Optional[str] = Field(None, max_length=100)
     card_type: Optional[str] = Field(None, max_length=20)
+    currency_code: Optional[str] = Field(None, max_length=3)
     active: Optional[bool] = None
     description: Optional[str] = None
-    service_code: Optional[str] = None
     default_validity_years: Optional[int] = None
-    currency: Optional[str] = None
-    issuance_fee: Optional[float] = None
-    maintenance_fee: Optional[float] = None
-    account_type_binding: Optional[str] = None
-    bin: Optional[str] = None
-    platform_indicator: Optional[str] = None
+    bin: Optional[str] = Field(None, max_length=10)
+    fep_programme_id: Optional[str] = Field(None, max_length=35)
+    platform_indicator: Optional[str] = Field(None, max_length=35)
+    instant_card_type: Optional[str] = Field(None, max_length=50)
     pan_length: Optional[int] = None
-    sequence: Optional[int] = None
-    min_random_number: Optional[int] = None
-    max_random_number: Optional[int] = None
-    output_path: Optional[str] = None
-    table_prefix: Optional[str] = None
-    fep_programme_id: Optional[str] = None
-    instant_card_type: Optional[str] = None
-    payment_ref_prefix: Optional[str] = None
-    assigned_segment_group: Optional[str] = None
-    pp_bin: Optional[str] = None
-    segment_count: Optional[int] = None
-    charge_header_count: Optional[int] = None
-    charge_header_name: Optional[str] = None
+    min_random_number: Optional[str] = Field(None, max_length=15)
+    max_random_number: Optional[str] = Field(None, max_length=15)
+    output_path: Optional[str] = Field(None, max_length=255)
+    duplicate_check_source: Optional[str] = Field(None, max_length=30)
+    payment_reference_prefix: Optional[str] = Field(None, max_length=3)
+    issuer_number: Optional[int] = None
 
 
 class CardProgrammeRead(BaseModel):
@@ -172,34 +154,25 @@ class CardProgrammeRead(BaseModel):
     card_programme_code: str
     card_programme_name: str
     card_type: str
+    currency_code: str = "NGN"
     active: bool
     created_by: Optional[str] = None
     created_date: Optional[datetime] = None
     last_modified_by: Optional[str] = None
     last_modified_date: Optional[datetime] = None
     description: Optional[str] = None
-    service_code: Optional[str] = None
-    default_validity_years: Optional[int] = 3
-    currency: Optional[str] = "NGN"
-    issuance_fee: Optional[float] = 1000.0
-    maintenance_fee: Optional[float] = 250.0
-    account_type_binding: Optional[str] = "SAVINGS_CURRENT"
+    default_validity_years: Optional[int] = 5
     bin: Optional[str] = None
-    platform_indicator: Optional[str] = "POSTILION_V2"
-    pan_length: Optional[int] = 16
-    sequence: Optional[int] = None
-    min_random_number: Optional[int] = 100000
-    max_random_number: Optional[int] = 999999
-    output_path: Optional[str] = None
-    table_prefix: Optional[str] = "TBL_CP_"
     fep_programme_id: Optional[str] = None
+    platform_indicator: Optional[str] = "POSTILION_V2"
     instant_card_type: Optional[str] = "INSTANT_STANDARD"
-    payment_ref_prefix: Optional[str] = "PAY_REF_"
-    assigned_segment_group: Optional[str] = "Retail Segment (01)"
-    pp_bin: Optional[str] = "901234"
-    segment_count: Optional[int] = 2
-    charge_header_count: Optional[int] = 1
-    charge_header_name: Optional[str] = None
+    pan_length: Optional[int] = 16
+    min_random_number: Optional[str] = "100000"
+    max_random_number: Optional[str] = "999999"
+    output_path: Optional[str] = None
+    duplicate_check_source: Optional[str] = None
+    payment_reference_prefix: Optional[str] = None
+    issuer_number: Optional[int] = None
     has_pending_change: Optional[bool] = False
     pending_work_item_id: Optional[int] = None
     pending_work_item_number: Optional[str] = None
@@ -437,8 +410,11 @@ class LinkAccountRequest(BaseModel):
 class CardTypeRead(BaseModel):
     card_type: str
     description: Optional[str] = None
-    client_id: Optional[int] = None
     active: bool
+    created_by: Optional[str] = None
+    created_date: Optional[datetime] = None
+    last_modified_by: Optional[str] = None
+    last_modified_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -704,14 +680,18 @@ class LocalEmailRecipientRead(BaseModel):
 
 class MakerCheckerSubmitRequest(BaseModel):
     entity_type_code: str
-    entity_id: int = Field(..., alias="entity_key")
+    entity_key: Optional[str] = None
     operation_code: str
     entity_name: Optional[str] = None
     before_payload: Optional[dict | str] = None
     after_payload: dict | str
 
-    class Config:
-        populate_by_name = True
+    @field_validator("entity_key", mode="before")
+    @classmethod
+    def coerce_entity_key(cls, v):
+        if v is None:
+            return None
+        return str(v)
 
 
 class MakerCheckerActionRequest(BaseModel):
@@ -728,7 +708,7 @@ class WorkItemRead(BaseModel):
     work_item_number: str
     client_id: int
     entity_type_code: str
-    entity_id: int
+    entity_key: Optional[str] = None
     operation_code: str
     status_code: str
     checker_user_id: Optional[str] = None
@@ -811,7 +791,7 @@ class ConfigExecutionResult(BaseModel):
     status: str
     work_item_id: Optional[int] = None
     work_item_number: Optional[str] = None
-    entity_id: Optional[int] = None
+    entity_key: Optional[str] = None
     message: str
 
 

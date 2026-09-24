@@ -11,14 +11,16 @@ Confusing these concepts leads to data duplication, compromised multi-tenant iso
 ## Decision
 Establish a strict architectural separation between **`CardType`** and **`CardProgramme`**:
 
-1. **`CardType` (`config.card_types`)**: Global, shared lookup reference entity representing payment scheme network brands (`VERVE_CLASSIC`, `VERVE_WORLD`, `VISA_GOLD`, `MASTERCARD_WORLD`). Card Types are shared across all tenants (`client_id` is null or global) and define the underlying payment scheme network association.
+1. **`CardType` (`config.card_types`)**: Global, shared lookup reference entity representing payment scheme network brands (`VERVE`, `VISA`, `MASTERCARD`, `AFRIGO`). Card Types are shared across all tenants (no `client_id`; global reference master) and define the underlying payment scheme network association.
 2. **`CardProgramme` (`config.card_programmes`)**: Tenant-bound card product specification owned by a single bank (`client_id`). Card Programmes bind a global `CardType` to specific institution rules:
    - Bank Identification Number (BIN routing prefix).
    - Switch platform indicator (`POSTILION_V2`, `ISO_8583`, `PRIME`, `FLEXCUBE`).
-   - Service code, PAN length, and validity period.
-   - Financial pricing rules (issuance fee `₦`, maintenance fee `₦`, base currency `NGN`).
-   - Eligible core banking account type bindings (`SAVINGS_CURRENT`, `SAVINGS_ONLY`, etc.).
-   - Operational channel permissions (instant print, NFC contactless, PIN mailer, web 3DS, ATM dispense).
+   - PAN length, random number bounds, output path, duplicate check source, payment reference prefix, and issuer number.
+   - Base currency: `currency_code` (`VARCHAR(3) NOT NULL`, default `'NGN'`).
+   - Default validity period: `default_validity_years` (default `5` years).
+   - Instant card issuance type (`instant_card_type`).
+   - Financial fee rules are managed via dedicated charge headers (`config.card_charges_headers` and `config.card_segment_programme_charges`).
+   - Programme selection precedence is managed via Segment ↔ Programme mapping (`config.card_segment_programmes.priority`), NOT on the Card Programme entity itself.
 
 In maintenance forms, the **Card Scheme Brand** field acts as a lookup dropdown referencing global `CardType` records, while the Card Programme record itself is stored under the current user's `client_id`.
 

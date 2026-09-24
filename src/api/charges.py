@@ -78,8 +78,9 @@ def settlement_callback(
     }
     log_audit_event(
         db=db,
+        client_id=request.client_id,
         entity_type="request",
-        entity_id=request.request_id,
+        entity_key=str(request.request_id),
         event_code="REQUEST_SETTLED",
         performed_by="settlement_service",
         branch_code=request.request_branch,

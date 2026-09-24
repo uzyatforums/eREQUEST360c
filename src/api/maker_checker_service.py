@@ -176,10 +176,10 @@ class MakerCheckerService:
                 detail=f"Invalid or inactive entity_type_code ('{req.entity_type_code}') or operation_code ('{req.operation_code}')",
             )
 
-        # Generic Protection: Ensure at most ONE PENDING work item exists for an entity
-        if req.entity_id and req.entity_id > 0:
+        # Generic Protection: Ensure at most ONE PENDING work item exists for an existing entity
+        if req.entity_key:
             if MakerCheckerRepository.has_pending_for_entity(
-                db, user.client_id, req.entity_type_code, req.entity_id
+                db, user.client_id, req.entity_type_code, req.entity_key
             ):
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -207,7 +207,7 @@ class MakerCheckerService:
                 db,
                 client_id=user.client_id,
                 entity_type_code=req.entity_type_code,
-                entity_id=req.entity_id,
+                entity_key=req.entity_key,
                 operation_code=req.operation_code,
                 user_id=user.user_id,
             )
@@ -239,7 +239,7 @@ class MakerCheckerService:
             duration_ms = (time.perf_counter() - start_time) * 1000
             logger.info(
                 f"[MakerCheckerService] submit: work_item_id={work_item.id}, user_id={user.user_id}, "
-                f"client_id={user.client_id}, entity_type={req.entity_type_code}, entity_id={req.entity_id}, "
+                f"client_id={user.client_id}, entity_type={req.entity_type_code}, entity_key={req.entity_key}, "
                 f"operation={req.operation_code}, transition=NONE->PENDING, duration_ms={duration_ms:.2f}"
             )
             return work_item
@@ -410,7 +410,7 @@ class MakerCheckerService:
             duration_ms = (time.perf_counter() - start_time) * 1000
             logger.info(
                 f"[MakerCheckerService] {operation_code.lower()}: work_item_id={work_item.id}, user_id={user.user_id}, "
-                f"client_id={user.client_id}, entity_type={work_item.entity_type_code}, entity_id={work_item.entity_id}, "
+                f"client_id={user.client_id}, entity_type={work_item.entity_type_code}, entity_key={work_item.entity_key}, "
                 f"operation={operation_code}, transition={old_status}->{target_status}, duration_ms={duration_ms:.2f}"
             )
             return work_item

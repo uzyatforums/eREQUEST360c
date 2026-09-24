@@ -248,8 +248,9 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
     try:
         log_audit_event(
             db=db,
+            client_id=user["client_id"],
             entity_type="USER",
-            entity_id=abs(hash(user["user_id"])) % 2147483647,
+            entity_key=user["user_id"],
             event_code="AUTH_LOGIN_SUCCESS",
             performed_by=user["username"],
             branch_code=user["effective_branch_code"],

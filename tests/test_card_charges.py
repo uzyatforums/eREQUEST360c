@@ -110,7 +110,7 @@ def test_executor_create_and_id_propagation(db):
         user=user,
         req=MakerCheckerSubmitRequest(
             entity_type_code="CARD_CHARGES_HEADER",
-            entity_key=0,
+            entity_key=None,
             operation_code="CREATE",
             after_payload=after_dict,
         ),
@@ -119,8 +119,8 @@ def test_executor_create_and_id_propagation(db):
     executor._execute_create(db, work_item, after_dict, checker_user_id="checker1")
     db.commit()
 
-    assert work_item.entity_id > 0
-    header = db.query(CardChargesHeader).filter(CardChargesHeader.id == work_item.entity_id).first()
+    assert work_item.entity_key is not None
+    header = db.query(CardChargesHeader).filter(CardChargesHeader.id == int(work_item.entity_key)).first()
     assert header is not None
     assert header.charge_name == "New Test Profile"
 
@@ -159,7 +159,7 @@ def test_executor_update_reconciliation_and_soft_retirement(db):
         user=user,
         req=MakerCheckerSubmitRequest(
             entity_type_code="CARD_CHARGES_HEADER",
-            entity_key=h.id,
+            entity_key=str(h.id),
             operation_code="UPDATE",
             after_payload=after_dict,
         ),
@@ -241,7 +241,7 @@ def test_invalid_duplicate_payload_no_work_item_created(db):
     db.add_all([e1, e2])
     db.commit()
 
-    initial_wi_count = db.query(MakerCheckerWorkItem).filter(MakerCheckerWorkItem.entity_id == h.id).count()
+    initial_wi_count = db.query(MakerCheckerWorkItem).filter(MakerCheckerWorkItem.entity_key == str(h.id)).count()
 
     # Invalid update payload with duplicate CISSUANCE
     invalid_update = CardChargesHeaderUpdate(
@@ -259,5 +259,5 @@ def test_invalid_duplicate_payload_no_work_item_created(db):
     assert "Duplicate posting_entry_type" in exc.value.detail
 
     # Verify ZERO work items were created for this failed submission
-    after_wi_count = db.query(MakerCheckerWorkItem).filter(MakerCheckerWorkItem.entity_id == h.id).count()
+    after_wi_count = db.query(MakerCheckerWorkItem).filter(MakerCheckerWorkItem.entity_key == str(h.id)).count()
     assert after_wi_count == initial_wi_count

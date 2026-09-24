@@ -88,7 +88,7 @@ def set_approval_policy(
         db=db,
         user=current_user,
         entity_type_code="APPROVAL_POLICY",
-        entity_id=existing.id if existing else 0,
+        entity_key=str(existing.id) if existing else None,
         operation_code="UPDATE" if existing else "CREATE",
         entity_name=f"Approval Policy: {payload.entity_type_code}/{payload.operation_code}",
         before_payload=before_dict,

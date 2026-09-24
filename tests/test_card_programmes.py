@@ -62,8 +62,7 @@ def test_create_card_programme():
         "card_programme_name": "Test Card Programme",
         "card_type": "VERVE",
         "bin": "506119",
-        "issuance_fee": 1200.0,
-        "currency": "NGN",
+        "currency_code": "NGN",
         "active": True
     }
     res = client.post("/config/card-programmes", json=payload, headers=headers)
@@ -77,7 +76,6 @@ def test_update_card_programme():
     headers = get_auth_header()
     payload = {
         "card_programme_name": "Apex Verve Classic Updated",
-        "issuance_fee": 1300.0,
         "active": True
     }
     res = client.put("/config/card-programmes/1", json=payload, headers=headers)

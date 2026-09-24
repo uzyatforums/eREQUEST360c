@@ -60,7 +60,7 @@ def test_create_and_get_card_segment():
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == "COMMITTED"
-    seg_id = data["entity_id"]
+    seg_id = data["entity_key"]
 
     res_get = client.get(f"/config/card-segments/{seg_id}", headers=headers)
     assert res_get.status_code == 200
@@ -102,7 +102,7 @@ def test_update_and_toggle_card_segment():
         headers=headers,
     )
     assert res.status_code == 200
-    seg_id = res.json()["entity_id"]
+    seg_id = res.json()["entity_key"]
 
     # Update
     res_upd = client.put(
@@ -130,7 +130,7 @@ def test_programme_assignment_and_reorder_and_unassign():
         headers=headers,
     )
     assert res_seg.status_code == 200
-    seg_id = res_seg.json()["entity_id"]
+    seg_id = res_seg.json()["entity_key"]
 
     # 2. Assign Programme 901 (Verve 1)
     res_a1 = client.post(
@@ -227,4 +227,67 @@ def test_list_card_segments_active_filter():
     inact_codes = [s["segment_code"] for s in res_inact.json()]
     assert "INACT1" in inact_codes
     assert "ACT1" not in inact_codes
+
+
+def test_assign_programme_cross_tenant_rejection():
+    """Verify that attempting cross-tenant programme assignment is rejected at the
+    application layer with HTTP 404 (Card Programme not found / Card Segment not found).
+    """
+    db = SessionLocal()
+    try:
+        # 1. Dynamically resolve test Tenant 1 Programme (client_id=1)
+        t1_prog = db.query(CardProgramme).filter(
+            CardProgramme.client_id == 1,
+            CardProgramme.card_programme_code == "TEST_VERVE_1"
+        ).first()
+        assert t1_prog is not None, "Tenant 1 TEST_VERVE_1 programme must exist."
+
+        # 2. Dynamically resolve or create test Tenant 2 Segment (client_id=2)
+        t2_seg = db.query(CardSegment).filter(
+            CardSegment.client_id == 2,
+            CardSegment.segment_code == "T2_TEST_SEG"
+        ).first()
+        if not t2_seg:
+            t2_seg = CardSegment(
+                client_id=2,
+                segment_code="T2_TEST_SEG",
+                segment_name="Tenant 2 Test Segment",
+                priority=1,
+                active=True,
+                created_by="test"
+            )
+            db.add(t2_seg)
+            db.commit()
+            db.refresh(t2_seg)
+
+        t1_prog_id = t1_prog.id
+        t2_seg_id = t2_seg.id
+    finally:
+        db.close()
+
+    # 3. Authenticate as Tenant 2 User (Apex MFB)
+    t2_headers = get_auth_header(username="apex_admin", client_id=2)
+
+    # 4. Attempt to assign Tenant 1 Programme to Tenant 2 Segment under Tenant 2 auth
+    res = client.post(
+        f"/config/card-segments/{t2_seg_id}/programmes",
+        json={"card_programme_id": t1_prog_id},
+        headers=t2_headers,
+    )
+    # Application layer validation: filter(id == payload.card_programme_id, client_id == 2) -> 404 Not Found
+    assert res.status_code == 404
+    assert "Card Programme not found" in res.json()["detail"]
+
+    # 5. Inverse Test: Authenticate as Tenant 1 User and attempt to assign to Tenant 2 Segment
+    t1_headers = get_auth_header(username="super_admin", client_id=1)
+    res_inv = client.post(
+        f"/config/card-segments/{t2_seg_id}/programmes",
+        json={"card_programme_id": t1_prog_id},
+        headers=t1_headers,
+    )
+    # Application layer validation: filter(id == segment_id, client_id == 1) -> 404 Not Found
+    assert res_inv.status_code == 404
+    assert "Card Segment not found" in res_inv.json()["detail"]
+
+
 

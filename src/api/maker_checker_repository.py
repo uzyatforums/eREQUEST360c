@@ -42,16 +42,16 @@ class MakerCheckerRepository:
 
     @staticmethod
     def has_pending_for_entity(
-        db: Session, client_id: int, entity_type_code: str, entity_id: int
+        db: Session, client_id: int, entity_type_code: str, entity_key: Optional[str]
     ) -> bool:
-        if not entity_id or entity_id <= 0:
+        if not entity_key:
             return False
         return (
             db.query(MakerCheckerWorkItem.id)
             .filter(
                 MakerCheckerWorkItem.client_id == client_id,
                 MakerCheckerWorkItem.entity_type_code == entity_type_code,
-                MakerCheckerWorkItem.entity_id == entity_id,
+                MakerCheckerWorkItem.entity_key == entity_key,
                 MakerCheckerWorkItem.status_code == WorkItemStatus.PENDING,
             )
             .first()
@@ -63,7 +63,7 @@ class MakerCheckerRepository:
         db: Session,
         client_id: int,
         entity_type_code: str,
-        entity_id: int,
+        entity_key: Optional[str],
         operation_code: str,
         user_id: str,
     ) -> MakerCheckerWorkItem:
@@ -71,7 +71,7 @@ class MakerCheckerRepository:
             work_item_number=f"MC-TEMP-{datetime.utcnow().timestamp()}",
             client_id=client_id,
             entity_type_code=entity_type_code,
-            entity_id=entity_id,
+            entity_key=entity_key,
             operation_code=operation_code,
             status_code=WorkItemStatus.PENDING,
             created_by=user_id,

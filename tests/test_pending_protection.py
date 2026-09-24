@@ -247,11 +247,11 @@ def test_concurrent_submissions_prevent_duplicate_pending_items():
     assert success_count >= 1
     assert success_count + conflict_count == 10
 
-    # Invariant: Database has strictly at most/exactly ONE PENDING work item for (client_id, entity_type_code, entity_id)
+    # Invariant: Database has strictly at most/exactly ONE PENDING work item for (client_id, entity_type_code, entity_key)
     db = TestingSessionLocal()
     pending_items = (
         db.query(MakerCheckerWorkItem)
-        .filter_by(client_id=1, entity_type_code="CARD_SEGMENT", entity_id=101, status_code="PENDING")
+        .filter_by(client_id=1, entity_type_code="CARD_SEGMENT", entity_key="101", status_code="PENDING")
         .all()
     )
     assert len(pending_items) == 1

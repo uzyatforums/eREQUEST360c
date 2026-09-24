@@ -17,6 +17,8 @@ Dedicated **Master → Detail Navigation Architecture** (React Router True Route
 - `/card-programmes/:id/references` (Integration Mapping Workspace with Target Systems)
 - `/card-programmes/:id/audit` (Audit Trail & Maker-Checker History Workspace)
 
+*(Note on Route Parameter Semantics: In route definitions following `/module/:id`, `:id` represents the record's opaque external identifier, natural business code, or grandfathered identifier per ADR-007. New modules must not bind route `:id` to sequential database integer identities.)*
+
 ### Key Specifications & Standards
 1. **Full-Width Maintenance Form**:
    - Section 1: General Product Identity (Code, Name, Description, Brand, Active Status)

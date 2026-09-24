@@ -22,6 +22,8 @@ Every view, form, detail inspector, and child relationship workspace MUST be map
 - Dedicated Edit Form: `/card-programmes/:id/edit`
 - Child Workspaces: `/card-programmes/:id/segments`, `/charges`, `/references`, `/audit`
 
+*(Note on Route Parameter Semantics: In route definitions following the `/module/:id` pattern, `:id` represents the entity's opaque external identifier, its natural business code, or its grandfathered identifier. Per ADR-007, new modules must not bind route `:id` parameters to sequential database integer identities.)*
+
 Furthermore, enforce the **Route Separation Standard**: frontend React Router routes SHALL NEVER reuse backend REST API paths (reserved prefixes `/config`, `/auth`, `/iam`, `/maker-checker`). Clean business routes (`/card-programmes`, `/branches`, `/card-types`, `/users`, `/roles`) must be used instead.
 
 ## Consequences

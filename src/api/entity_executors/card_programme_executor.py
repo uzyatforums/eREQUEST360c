@@ -30,7 +30,7 @@ class CardProgrammeExecutor(EntityExecutor):
     ) -> None:
         op = work_item.operation_code.upper()
         client_id = work_item.client_id
-        entity_id = work_item.entity_id
+        entity_key = work_item.entity_key
 
         after_dict: dict = {}
         before_dict: dict = {}
@@ -57,12 +57,22 @@ class CardProgrammeExecutor(EntityExecutor):
 
         if op == "CREATE":
             self._execute_create(db, work_item, after_dict, checker_user_id)
-        elif op == "UPDATE":
-            self._execute_update(db, work_item, entity_id, client_id, before_dict, after_dict, checker_user_id)
-        elif op == "ACTIVATE":
-            self._execute_activate(db, work_item, entity_id, client_id, checker_user_id)
-        elif op == "DEACTIVATE":
-            self._execute_deactivate(db, work_item, entity_id, client_id, checker_user_id)
+        elif op in ("UPDATE", "ACTIVATE", "DEACTIVATE"):
+            if not entity_key:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Missing entity_key for {op}.")
+            try:
+                prog_id = int(entity_key)
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid entity_key '{entity_key}' for CARD_PROGRAMME. Must be numeric.",
+                )
+            if op == "UPDATE":
+                self._execute_update(db, work_item, prog_id, client_id, before_dict, after_dict, checker_user_id)
+            elif op == "ACTIVATE":
+                self._execute_activate(db, work_item, prog_id, client_id, checker_user_id)
+            elif op == "DEACTIVATE":
+                self._execute_deactivate(db, work_item, prog_id, client_id, checker_user_id)
         else:
             logger.warning(f"[CardProgrammeExecutor] Operation '{op}' not handled by CardProgrammeExecutor.")
 
@@ -79,11 +89,12 @@ class CardProgrammeExecutor(EntityExecutor):
 
         # Build CardProgramme object from after_dict
         valid_keys = {
-            "card_programme_code", "card_programme_name", "card_type", "description",
-            "service_code", "default_validity_years", "currency", "issuance_fee",
-            "maintenance_fee", "account_type_binding", "bin", "platform_indicator",
-            "pan_length", "sequence", "min_random_number", "max_random_number",
-            "output_path", "table_prefix", "priority", "active"
+            "card_programme_code", "card_programme_name", "card_type", "currency_code",
+            "description", "default_validity_years", "bin", "fep_programme_id",
+            "platform_indicator", "instant_card_type", "pan_length",
+            "min_random_number", "max_random_number", "output_path",
+            "duplicate_check_source", "payment_reference_prefix", "issuer_number",
+            "active"
         }
         filtered_data = {k: v for k, v in after_dict.items() if k in valid_keys and v is not None}
         filtered_data["client_id"] = client_id
@@ -96,13 +107,14 @@ class CardProgrammeExecutor(EntityExecutor):
         db.add(prog)
         db.flush()
 
-        # Update work_item.entity_id with new PK
-        work_item.entity_id = prog.id
+        # Update work_item.entity_key with new PK as canonical string
+        work_item.entity_key = str(prog.id)
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_PROGRAMME",
-            entity_id=prog.id,
+            entity_key=str(prog.id),
             event_code="CARD_PROGRAMME_CREATED",
             performed_by=checker_user_id,
             remarks=f"Approved & Created Card Programme '{code}' - '{name}' (Initiated by '{work_item.created_by}')",
@@ -131,11 +143,12 @@ class CardProgrammeExecutor(EntityExecutor):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Card Programme ID #{entity_id} not found for tenant #{client_id}")
 
         valid_keys = {
-            "card_programme_code", "card_programme_name", "card_type", "description",
-            "service_code", "default_validity_years", "currency", "issuance_fee",
-            "maintenance_fee", "account_type_binding", "bin", "platform_indicator",
-            "pan_length", "sequence", "min_random_number", "max_random_number",
-            "output_path", "table_prefix", "priority", "active"
+            "card_programme_code", "card_programme_name", "card_type", "currency_code",
+            "description", "default_validity_years", "bin", "fep_programme_id",
+            "platform_indicator", "instant_card_type", "pan_length",
+            "min_random_number", "max_random_number", "output_path",
+            "duplicate_check_source", "payment_reference_prefix", "issuer_number",
+            "active"
         }
 
         changes = {}
@@ -152,8 +165,9 @@ class CardProgrammeExecutor(EntityExecutor):
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_PROGRAMME",
-            entity_id=prog.id,
+            entity_key=str(prog.id),
             event_code="CARD_PROGRAMME_UPDATED",
             performed_by=checker_user_id,
             remarks=f"Approved & Updated Card Programme '{prog.card_programme_code}' (Initiated by '{work_item.created_by}')",
@@ -188,8 +202,9 @@ class CardProgrammeExecutor(EntityExecutor):
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_PROGRAMME",
-            entity_id=prog.id,
+            entity_key=str(prog.id),
             event_code="CARD_PROGRAMME_ACTIVATED",
             performed_by=checker_user_id,
             remarks=f"Approved & Activated Card Programme '{prog.card_programme_code}' (Initiated by '{work_item.created_by}')",
@@ -217,8 +232,9 @@ class CardProgrammeExecutor(EntityExecutor):
 
         log_audit_event(
             db=db,
+            client_id=client_id,
             entity_type="CARD_PROGRAMME",
-            entity_id=prog.id,
+            entity_key=str(prog.id),
             event_code="CARD_PROGRAMME_DEACTIVATED",
             performed_by=checker_user_id,
             remarks=f"Approved & Deactivated Card Programme '{prog.card_programme_code}' (Initiated by '{work_item.created_by}')",

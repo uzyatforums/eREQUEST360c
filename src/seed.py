@@ -259,9 +259,10 @@ def seed_data(db: Session):
     # Seed Card Types
     logger.info("Seeding card types...")
     card_types = [
-        {"card_type": "VERVE", "description": "Verve Card", "client_id": apex_tenant_id, "active": True},
-        {"card_type": "VISA", "description": "Visa Card", "client_id": apex_tenant_id, "active": True},
-        {"card_type": "MASTERCARD", "description": "Mastercard Card", "client_id": global_tenant_id, "active": True},
+        {"card_type": "VERVE", "description": "Verve Card", "active": True},
+        {"card_type": "VISA", "description": "Visa Card", "active": True},
+        {"card_type": "MASTERCARD", "description": "Mastercard Card", "active": True},
+        {"card_type": "AFRIGO", "description": "Afrigo Card", "active": True},
     ]
     for ct in card_types:
         existing_ct = db.query(CardType).filter(CardType.card_type == ct["card_type"]).first()
@@ -274,66 +275,49 @@ def seed_data(db: Session):
     logger.info("Seeding card programmes...")
     programmes = [
         {
-            "id": 1,
             "client_id": apex_tenant_id,
             "card_programme_code": "APEX_VERVE_CLASSIC",
             "card_programme_name": "Apex Verve Classic",
             "card_type": "VERVE",
+            "currency_code": "NGN",
+            "default_validity_years": 5,
             "bin": "506118",
             "platform_indicator": "POSTILION_V2",
             "pan_length": 16,
-            "service_code": "201",
-            "default_validity_years": 3,
-            "currency": "NGN",
-            "issuance_fee": 1000.0,
-            "maintenance_fee": 250.0,
-            "account_type_binding": "SAVINGS_CURRENT",
             "created_by": "system",
         },
         {
-            "id": 2,
             "client_id": apex_tenant_id,
             "card_programme_code": "APEX_VISA_GOLD",
             "card_programme_name": "Apex Visa Gold",
             "card_type": "VISA",
+            "currency_code": "NGN",
+            "default_validity_years": 5,
             "bin": "412345",
             "platform_indicator": "POSTILION_V2",
             "pan_length": 16,
-            "service_code": "201",
-            "default_validity_years": 3,
-            "currency": "NGN",
-            "issuance_fee": 1500.0,
-            "maintenance_fee": 500.0,
-            "account_type_binding": "SAVINGS_CURRENT",
             "created_by": "system",
         },
         {
-            "id": 3,
             "client_id": global_tenant_id,
             "card_programme_code": "GLOBAL_MC_PLATINUM",
             "card_programme_name": "Global Mastercard Platinum",
             "card_type": "MASTERCARD",
+            "currency_code": "USD",
+            "default_validity_years": 5,
             "bin": "512345",
             "platform_indicator": "POSTILION_V2",
             "pan_length": 16,
-            "service_code": "201",
-            "default_validity_years": 5,
-            "currency": "USD",
-            "issuance_fee": 2500.0,
-            "maintenance_fee": 1000.0,
-            "account_type_binding": "SAVINGS_CURRENT",
             "created_by": "system",
         },
     ]
     for p in programmes:
-        existing = db.query(CardProgramme).filter((CardProgramme.id == p["id"]) | (CardProgramme.card_programme_code == p["card_programme_code"])).first()
+        existing = db.query(CardProgramme).filter(
+            CardProgramme.client_id == p["client_id"],
+            CardProgramme.card_programme_code == p["card_programme_code"]
+        ).first()
         if not existing:
             db.add(CardProgramme(**p))
-        else:
-            for field, val in p.items():
-                if field in ["client_id", "card_type"]:
-                    continue
-                setattr(existing, field, val)
     db.commit()
 
     # 7. Seed Client Card Policies
@@ -353,32 +337,44 @@ def seed_data(db: Session):
         {"segment_code": "02", "segment_name": "HNI Segment", "client_id": apex_tenant_id, "priority": 2, "created_by": "system"},
     ]
     for seg in segments:
-        if not db.query(CardSegment).filter(CardSegment.segment_code == seg["segment_code"]).first():
+        if not db.query(CardSegment).filter(
+            CardSegment.client_id == seg["client_id"],
+            CardSegment.segment_code == seg["segment_code"]
+        ).first():
             db.add(CardSegment(**seg))
 
     db.commit()
 
-    seg1 = db.query(CardSegment).filter(CardSegment.segment_code == "01").first()
-    seg2 = db.query(CardSegment).filter(CardSegment.segment_code == "02").first()
-    seg1_id = seg1.id if seg1 else 1
-    seg2_id = seg2.id if seg2 else 2
+    seg1 = db.query(CardSegment).filter(CardSegment.client_id == apex_tenant_id, CardSegment.segment_code == "01").first()
+    seg2 = db.query(CardSegment).filter(CardSegment.client_id == apex_tenant_id, CardSegment.segment_code == "02").first()
+    seg1_id = seg1.id if seg1 else None
+    seg2_id = seg2.id if seg2 else None
 
-    prog1 = db.query(CardProgramme).filter(CardProgramme.card_programme_code == "APEX_VERVE_CLASSIC").first()
-    prog2 = db.query(CardProgramme).filter(CardProgramme.card_programme_code == "APEX_VISA_GOLD").first()
-    prog1_id = prog1.id if prog1 else 1
-    prog2_id = prog2.id if prog2 else 2
+    prog1 = db.query(CardProgramme).filter(CardProgramme.client_id == apex_tenant_id, CardProgramme.card_programme_code == "APEX_VERVE_CLASSIC").first()
+    prog2 = db.query(CardProgramme).filter(CardProgramme.client_id == apex_tenant_id, CardProgramme.card_programme_code == "APEX_VISA_GOLD").first()
+    prog3 = db.query(CardProgramme).filter(CardProgramme.client_id == global_tenant_id, CardProgramme.card_programme_code == "GLOBAL_MC_PLATINUM").first()
+    prog1_id = prog1.id if prog1 else None
+    prog2_id = prog2.id if prog2 else None
+    prog3_id = prog3.id if prog3 else None
 
     # Card Segment Programmes
-    seg_progs = [
-        {"segment_id": seg1_id, "card_programme_id": prog1_id, "client_id": apex_tenant_id, "priority": 1, "created_by": "system"},
-        {"segment_id": seg2_id, "card_programme_id": prog2_id, "client_id": apex_tenant_id, "priority": 1, "created_by": "system"},
-    ]
-    for sp in seg_progs:
+    if seg1_id and prog1_id:
         if not db.query(CardSegmentProgramme).filter(
-            CardSegmentProgramme.segment_id == sp["segment_id"],
-            CardSegmentProgramme.card_programme_id == sp["card_programme_id"]
+            CardSegmentProgramme.client_id == apex_tenant_id,
+            CardSegmentProgramme.segment_id == seg1_id,
+            CardSegmentProgramme.card_programme_id == prog1_id
         ).first():
-            db.add(CardSegmentProgramme(**sp))
+            db.add(CardSegmentProgramme(segment_id=seg1_id, card_programme_id=prog1_id, client_id=apex_tenant_id, priority=1, created_by="system"))
+
+    if seg2_id and prog2_id:
+        if not db.query(CardSegmentProgramme).filter(
+            CardSegmentProgramme.client_id == apex_tenant_id,
+            CardSegmentProgramme.segment_id == seg2_id,
+            CardSegmentProgramme.card_programme_id == prog2_id
+        ).first():
+            db.add(CardSegmentProgramme(segment_id=seg2_id, card_programme_id=prog2_id, client_id=apex_tenant_id, priority=1, created_by="system"))
+
+    db.commit()
 
     # 9. Seed Card Charges headers and entries
     logger.info("Seeding card charges...")
@@ -401,9 +397,9 @@ def seed_data(db: Session):
         db.add(CardChargeEntry(client_id=global_tenant_id, charge_header_id=h3.id, sequence_no=1, posting_account_type="GL", dr_cr="D", narration="CARD ISSUANCE", posting_entry_type="CISSUANCE", amount=2500.00, currency_code="NGN", created_by="system"))
         db.add(CardChargeEntry(client_id=global_tenant_id, charge_header_id=h3.id, sequence_no=2, posting_account_type="GL", dr_cr="C", narration="CARD ISSUANCE INCOME", posting_entry_type="GINC", amount=2500.00, currency_code="NGN", created_by="system"))
 
-        csp1 = db.query(CardSegmentProgramme).filter(CardSegmentProgramme.card_programme_id == prog1_id).first()
-        csp2 = db.query(CardSegmentProgramme).filter(CardSegmentProgramme.card_programme_id == prog2_id).first()
-        csp3 = db.query(CardSegmentProgramme).filter(CardSegmentProgramme.card_programme_id == 3).first()
+        csp1 = db.query(CardSegmentProgramme).filter(CardSegmentProgramme.client_id == apex_tenant_id, CardSegmentProgramme.card_programme_id == prog1_id).first() if prog1_id else None
+        csp2 = db.query(CardSegmentProgramme).filter(CardSegmentProgramme.client_id == apex_tenant_id, CardSegmentProgramme.card_programme_id == prog2_id).first() if prog2_id else None
+        csp3 = db.query(CardSegmentProgramme).filter(CardSegmentProgramme.client_id == global_tenant_id, CardSegmentProgramme.card_programme_id == prog3_id).first() if prog3_id else None
         if csp1:
             db.add(CardSegmentProgrammeCharge(client_id=apex_tenant_id, card_segment_programme_id=csp1.id, charge_header_id=h1.id, created_by="system"))
         if csp2:
@@ -626,8 +622,9 @@ def seed_data(db: Session):
         ))
         
         ae1 = AuditEvent(
+            client_id=req1.client_id,
             entity_type="request",
-            entity_id=req1.request_id,
+            entity_key=str(req1.request_id),
             event_type_id=1001,
             event_source="API",
             performed_by="submitter1",
@@ -639,8 +636,9 @@ def seed_data(db: Session):
         db.flush()
         
         db.add(AuditSnapshot(
+            client_id=req1.client_id,
             entity_type="request",
-            entity_id=req1.request_id,
+            entity_key=str(req1.request_id),
             snapshot_time=base_time,
             snapshot_data=json.dumps({
                 "request_id": req1.request_id,
@@ -708,8 +706,9 @@ def seed_data(db: Session):
         ))
         
         ae2_create = AuditEvent(
+            client_id=req2.client_id,
             entity_type="request",
-            entity_id=req2.request_id,
+            entity_key=str(req2.request_id),
             event_type_id=1001,
             event_source="API",
             performed_by="submitter1",
@@ -721,8 +720,9 @@ def seed_data(db: Session):
         db.flush()
         
         ae2_settle = AuditEvent(
+            client_id=req2.client_id,
             entity_type="request",
-            entity_id=req2.request_id,
+            entity_key=str(req2.request_id),
             event_type_id=1002,
             event_source="SYSTEM",
             performed_by="system",
@@ -741,8 +741,9 @@ def seed_data(db: Session):
         ))
         
         db.add(AuditSnapshot(
+            client_id=req2.client_id,
             entity_type="request",
-            entity_id=req2.request_id,
+            entity_key=str(req2.request_id),
             snapshot_time=time2_settle,
             snapshot_data=json.dumps({
                 "request_id": req2.request_id,
@@ -808,8 +809,9 @@ def seed_data(db: Session):
         ))
         
         ae3_create = AuditEvent(
+            client_id=req3.client_id,
             entity_type="request",
-            entity_id=req3.request_id,
+            entity_key=str(req3.request_id),
             event_type_id=1001,
             event_source="API",
             performed_by="submitter1",
@@ -821,8 +823,9 @@ def seed_data(db: Session):
         db.flush()
         
         ae3_approve = AuditEvent(
+            client_id=req3.client_id,
             entity_type="request",
-            entity_id=req3.request_id,
+            entity_key=str(req3.request_id),
             event_type_id=1003,
             event_source="API",
             performed_by="authorizer1",
@@ -841,8 +844,9 @@ def seed_data(db: Session):
         ))
         
         db.add(AuditSnapshot(
+            client_id=req3.client_id,
             entity_type="request",
-            entity_id=req3.request_id,
+            entity_key=str(req3.request_id),
             snapshot_time=time3_approve,
             snapshot_data=json.dumps({
                 "request_id": req3.request_id,
@@ -889,8 +893,9 @@ def seed_data(db: Session):
         ))
         
         ae4_create = AuditEvent(
+            client_id=req4.client_id,
             entity_type="request",
-            entity_id=req4.request_id,
+            entity_key=str(req4.request_id),
             event_type_id=1001,
             event_source="API",
             performed_by="submitter1",
@@ -902,8 +907,9 @@ def seed_data(db: Session):
         db.flush()
         
         db.add(AuditSnapshot(
+            client_id=req4.client_id,
             entity_type="request",
-            entity_id=req4.request_id,
+            entity_key=str(req4.request_id),
             snapshot_time=time4_create,
             snapshot_data=json.dumps({
                 "request_id": req4.request_id,

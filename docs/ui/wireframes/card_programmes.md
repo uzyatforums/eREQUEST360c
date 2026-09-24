@@ -62,7 +62,7 @@
      - Displays attached fee structures (`config.card_charges_headers` and `config.card_charge_entries`).
      - Detailed breakdown of Issuance Fee (NGN 1,000.00), VAT (NGN 75.00), total charge, GL account mappings, and reversal policies.
   4. **`[Audit]` Tab:**
-     - Embedded audit log timeline filtered by `entity_type='card_programmes'` and `entity_id=selected.id` from `audit.audit_events`.
+     - Embedded audit log timeline filtered by tenant (`client_id`), `entity_type='card_programme'`, and canonical `entity_key=str(selected.id)` (per ADR-008) from `audit.audit_events`.
      - Displays timestamps, performed by user, action type (`CREATE`, `UPDATE`, `STATUS_CHANGE`), and old vs new field diffs.
   5. **`[Usage]` Tab:**
      - Operational metrics: Total cards issued under this programme, active cards in circulation, charge collection total, and recent card requests link table (`SCR-008`).
@@ -90,7 +90,7 @@ Editing and creating programmes continue to use the standard 480px slide-over Sh
 - `GET /config/card-programmes` - Fetch master list.
 - `GET /config/card-segment-programme-charges` - Fetch mapped segments and charges for selected programme.
 - `GET /requests/?card_programme_id={id}` - Fetch usage metrics.
-- `GET /reports/audit?entity=card_programmes&entity_id={id}` - Fetch audit logs.
+- `GET /reports/audit?client_id={client_id}&entity_type=card_programme&entity_key={id}` - Fetch tenant-qualified audit logs (per ADR-008).
 
 ---
 

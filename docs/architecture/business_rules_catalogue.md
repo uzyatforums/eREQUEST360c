@@ -189,9 +189,11 @@ Segment creation and maintenance occur in the Card Segments module.
 Within a Card Segment, Card Programmes are ordered by:
 
 1. Card Brand
-2. Programme Selection Order
+2. Programme Selection Order (`config.card_segment_programmes.priority`)
 
-Lower numbers have higher priority.
+Lower numbers have higher priority (Priority 1 = highest precedence).
+
+`config.card_programmes` does not contain a priority column; selection order is strictly a property of the Segment ↔ Programme mapping.
 
 ---
 

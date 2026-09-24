@@ -88,7 +88,7 @@ def list_card_segments(
         )
         .all()
     )
-    pending_map = {wi.entity_id: wi for wi in pending_items}
+    pending_map = {int(wi.entity_key): wi for wi in pending_items if wi.entity_key and wi.entity_key.isdigit()}
 
     result: List[CardSegmentRead] = []
     for seg in segments:
@@ -126,7 +126,7 @@ def get_card_segment(
         .filter(
             MakerCheckerWorkItem.client_id == client_id,
             MakerCheckerWorkItem.entity_type_code == "CARD_SEGMENT",
-            MakerCheckerWorkItem.entity_id == segment_id,
+            MakerCheckerWorkItem.entity_key == str(segment_id),
             MakerCheckerWorkItem.status_code == WorkItemStatus.PENDING,
         )
         .first()
@@ -181,8 +181,9 @@ def create_card_segment(
 
         log_audit_event(
             db=s,
+            client_id=client_id,
             entity_type="CARD_SEGMENT",
-            entity_id=new_seg.id,
+            entity_key=str(new_seg.id),
             event_code="CARD_SEGMENT_CREATED",
             performed_by=current_user.username,
             branch_code=branch_service.get_effective_branch(),
@@ -196,13 +197,13 @@ def create_card_segment(
                 "active": new_seg.active,
             },
         )
-        return new_seg.id
+        return str(new_seg.id)
 
     return ConfigurationOrchestrator.execute_change(
         db=db,
         user=current_user,
         entity_type_code="CARD_SEGMENT",
-        entity_id=0,
+        entity_key=None,
         operation_code="CREATE",
         entity_name=name_strip,
         before_payload=None,
@@ -269,8 +270,9 @@ def update_card_segment(
 
         log_audit_event(
             db=s,
+            client_id=client_id,
             entity_type="CARD_SEGMENT",
-            entity_id=seg.id,
+            entity_key=str(seg.id),
             event_code="CARD_SEGMENT_UPDATED",
             performed_by=current_user.username,
             branch_code=branch_service.get_effective_branch(),
@@ -293,7 +295,7 @@ def update_card_segment(
         db=db,
         user=current_user,
         entity_type_code="CARD_SEGMENT",
-        entity_id=segment_id,
+        entity_key=str(segment_id),
         operation_code="UPDATE",
         entity_name=segment.segment_name,
         before_payload=before_snapshot,
@@ -327,8 +329,9 @@ def activate_card_segment(
             seg.last_modified_date = datetime.utcnow()
             log_audit_event(
                 db=s,
+                client_id=client_id,
                 entity_type="CARD_SEGMENT",
-                entity_id=seg.id,
+                entity_key=str(seg.id),
                 event_code="CARD_SEGMENT_ACTIVATED",
                 performed_by=current_user.username,
                 branch_code=branch_service.get_effective_branch(),
@@ -339,7 +342,7 @@ def activate_card_segment(
         db=db,
         user=current_user,
         entity_type_code="CARD_SEGMENT",
-        entity_id=segment_id,
+        entity_key=str(segment_id),
         operation_code="ACTIVATE",
         entity_name=segment.segment_name,
         before_payload={"active": segment.active},
@@ -373,8 +376,9 @@ def deactivate_card_segment(
             seg.last_modified_date = datetime.utcnow()
             log_audit_event(
                 db=s,
+                client_id=client_id,
                 entity_type="CARD_SEGMENT",
-                entity_id=seg.id,
+                entity_key=str(seg.id),
                 event_code="CARD_SEGMENT_DEACTIVATED",
                 performed_by=current_user.username,
                 branch_code=branch_service.get_effective_branch(),
@@ -385,7 +389,7 @@ def deactivate_card_segment(
         db=db,
         user=current_user,
         entity_type_code="CARD_SEGMENT",
-        entity_id=segment_id,
+        entity_key=str(segment_id),
         operation_code="DEACTIVATE",
         entity_name=segment.segment_name,
         before_payload={"active": segment.active},
@@ -513,8 +517,9 @@ def assign_programme_to_segment(
 
         log_audit_event(
             db=s,
+            client_id=client_id,
             entity_type="CARD_SEGMENT_PROGRAMME",
-            entity_id=new_csp.id,
+            entity_key=str(new_csp.id),
             event_code="CARD_SEGMENT_PROGRAMME_ASSIGNED",
             performed_by=current_user.username,
             branch_code=branch_service.get_effective_branch(),
@@ -528,13 +533,13 @@ def assign_programme_to_segment(
             },
         )
         _resequence_brand_programmes(s, client_id, segment_id, prog.card_type)
-        return new_csp.id
+        return str(new_csp.id)
 
     return ConfigurationOrchestrator.execute_change(
         db=db,
         user=current_user,
         entity_type_code="CARD_SEGMENT_PROGRAMME",
-        entity_id=0,
+        entity_key=None,
         operation_code="ASSIGN",
         entity_name=f"{segment.segment_code} - {prog.card_programme_code}",
         before_payload=None,
@@ -595,8 +600,9 @@ def remove_programme_from_segment(
             s.flush()
             log_audit_event(
                 db=s,
+                client_id=client_id,
                 entity_type="CARD_SEGMENT_PROGRAMME",
-                entity_id=before_snapshot["id"],
+                entity_key=str(before_snapshot["id"]),
                 event_code="CARD_SEGMENT_PROGRAMME_REMOVED",
                 performed_by=current_user.username,
                 branch_code=branch_service.get_effective_branch(),
@@ -609,7 +615,7 @@ def remove_programme_from_segment(
         db=db,
         user=current_user,
         entity_type_code="CARD_SEGMENT_PROGRAMME",
-        entity_id=csp.id,
+        entity_key=str(csp.id),
         operation_code="REMOVE",
         entity_name=f"Segment {segment_id} - {prog_code}",
         before_payload=before_snapshot,
@@ -682,8 +688,9 @@ def reorder_programme_selection_order(
             s.flush()
             log_audit_event(
                 db=s,
+                client_id=client_id,
                 entity_type="CARD_SEGMENT_PROGRAMME",
-                entity_id=t_item.id,
+                entity_key=str(t_item.id),
                 event_code="CARD_SEGMENT_PROGRAMME_REORDERED",
                 performed_by=current_user.username,
                 branch_code=branch_service.get_effective_branch(),
@@ -695,7 +702,7 @@ def reorder_programme_selection_order(
         db=db,
         user=current_user,
         entity_type_code="CARD_SEGMENT_PROGRAMME",
-        entity_id=csp_target.id,
+        entity_key=str(csp_target.id),
         operation_code="REORDER",
         entity_name=f"Segment {segment_id} Reorder",
         before_payload={"priority": csp_target.priority},

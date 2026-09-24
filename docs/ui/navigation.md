@@ -56,6 +56,8 @@ Frontend pages shall use clean business-oriented URLs.
 
 eREQUEST360 organizes enterprise functionality into 6 primary operational domains. All screens map to Screen Codes registered in `docs/ui/screen_registry.md`. Relationship tables are embedded as child tabs within their parent master screens.
 
+*(Note on Route Parameter Semantics: In route definitions using `:id`, this parameter represents the record's opaque external identifier, natural business code, or grandfathered identifier per ADR-007 Non-Sequential Identifier Policy. New modules must not bind route `:id` parameters to sequential database integer identities.)*
+
 ```
 eREQUEST360 Portal
 ├── 📊 Executive & Operations Dashboard (SCR-002, /dashboard)

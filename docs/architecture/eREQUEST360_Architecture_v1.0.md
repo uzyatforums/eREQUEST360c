@@ -797,12 +797,12 @@ The platform adopts surrogate keys for internal database relationships.
 
 The following principles apply:
 
-- Every table shall have an `id` column as its surrogate primary key.
+- Transactional and configuration entities without a genuine stable natural business code shall use surrogate primary keys (governed by ADR-007 Non-Sequential Identifier Policy). Tables that possess an authoritative, stable natural code (such as `card_type`, `role_code`, `branch_code`) shall use that natural code as their primary identifier. Mechanical addition of surrogate `id` columns to natural master tables is prohibited.
 - Surrogate keys exist solely to simplify joins and improve performance.
 - Business logic must rely on business codes (for example, `card_programme_code`, `segment_code`, `issuance_mode_code`, `charge_name`) rather than numeric IDs.
 - Numeric IDs are implementation details and should never appear in API contracts, request payloads, URLs, reports, configuration files, or business documentation unless there is a specific technical requirement.
 - Every business entity should expose a meaningful code that remains stable over time.
-- Foreign keys inside the database should reference surrogate keys (`id`), while user interfaces, support tools, and reports should display the corresponding business codes.
+- Foreign keys inside the database should reference surrogate keys (`id`) where surrogate keys are used, while user interfaces, support tools, and reports should display the corresponding business codes. Foreign keys targeting natural master entities shall reference their natural business code (per ADR-005 and ADR-007).
 
 
 Architecture Note

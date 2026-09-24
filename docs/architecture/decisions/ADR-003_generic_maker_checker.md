@@ -16,7 +16,7 @@ In traditional monolithic architectures, Maker-Checker logic is frequently hardc
 Implement a **Generic, Decoupled Dual-Control Engine** in the `maker_checker` database schema.
 
 Key Design Principles:
-1. **Zero Business Domain Awareness**: The engine understands only generic concept primitives: `entity_type`, `entity_id`, `operation`, `status`, `before_payload`, and `after_payload`.
+1. **Zero Business Domain Awareness**: The engine understands only generic concept primitives: tenant (`client_id`), `entity_type_code`, canonical `entity_key` (per [ADR-008](file:///c:/python/eREQUEST360c/docs/architecture/decisions/ADR-008_polymorphic_entity_reference_architecture.md); `NULL` for uncreated `CREATE` proposals), `operation`, `status`, `before_payload`, and `after_payload`.
 2. **Dedicated Schema**: All approval state and history tables reside in `maker_checker` (`work_items`, `work_item_actions`, `work_item_payloads`, `statuses`, `operations`, `entity_types`).
 3. **Immutable JSON Payloads**: Proposed changes are stored as immutable JSON before/after snapshots.
 4. **Decoupled Execution**: The Maker-Checker engine manages approval state transitions (`PENDING` ➔ `APPROVED` / `REJECTED` / `CANCELLED`) and action history, but DOES NOT update business tables directly. The calling business module remains responsible for committing approved changes upon authorization.
@@ -38,6 +38,7 @@ In the frontend UI, Maker users (`isMakerOnly`) see clear workflow notice banner
 
 ## References
 - `docs/implementation/maker_checker_contract.md` (Maker/Checker Contract Specification)
+- [ADR-008: Polymorphic Entity Reference Architecture](file:///c:/python/eREQUEST360c/docs/architecture/decisions/ADR-008_polymorphic_entity_reference_architecture.md)
 - `docs/architecture/eREQUEST360_Architecture_v1.0.md` (Section 1 & 4)
 - `docs/architecture/Configuration_Data_Model.md` (Maker-Checker Schema)
 - `docs/ui/ui_standards.md` (Section 21: Maker / Checker Readiness)

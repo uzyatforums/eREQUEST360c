@@ -1,5 +1,8 @@
 import os
-from sqlalchemy import Column, Integer, String, DateTime, BigInteger, Boolean, Numeric, func, ForeignKey, Index, text
+from sqlalchemy import (
+    Column, Integer, String, DateTime, BigInteger, Boolean, Numeric, func,
+    ForeignKey, ForeignKeyConstraint, UniqueConstraint, Index, text
+)
 from src.db import Base
 
 def schema_args(schema_name: str):
@@ -167,47 +170,43 @@ class State(Base):
 
 class CardProgramme(Base):
     __tablename__ = "card_programmes"
-    __table_args__ = schema_args("config")
+    __table_args__ = (
+        UniqueConstraint("client_id", "id", name="UQ_card_programmes_client_id"),
+        schema_args("config"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     client_id = Column(Integer, nullable=False)
     card_programme_code = Column(String(35), nullable=False)
     card_programme_name = Column(String(100), nullable=False)
     card_type = Column(String(20), ForeignKey(fk_ref("config.card_types.card_type")), nullable=False)
-    priority = Column(Integer, nullable=True, default=1)
+    currency_code = Column(String(3), nullable=False, default="NGN")
+    default_validity_years = Column(Integer, nullable=True, default=5)
+    description = Column(String(255), nullable=True)
+    bin = Column(String(10), nullable=True)
+    fep_programme_id = Column(String(35), nullable=True)
+    platform_indicator = Column(String(35), nullable=True, default="POSTILION_V2")
+    instant_card_type = Column(String(50), nullable=True, default="INSTANT_STANDARD")
+    pan_length = Column(Integer, nullable=True, default=16)
+    min_random_number = Column(String(15), nullable=True, default="100000")
+    max_random_number = Column(String(15), nullable=True, default="999999")
+    output_path = Column(String(255), nullable=True, default=None)
+    duplicate_check_source = Column(String(30), nullable=True)
+    payment_reference_prefix = Column(String(3), nullable=True)
+    issuer_number = Column(Integer, nullable=True)
     active = Column(Boolean, nullable=False, default=True)
     created_by = Column(String(30), nullable=False)
     created_date = Column(DateTime, nullable=False, server_default=func.now())
     last_modified_by = Column(String(30), nullable=True)
     last_modified_date = Column(DateTime, nullable=True)
-    description = Column(String(255), nullable=True)
-    service_code = Column(String(10), nullable=True)
-    default_validity_years = Column(Integer, nullable=True, default=3)
-    currency = Column(String(3), nullable=True, default="NGN")
-    issuance_fee = Column(Numeric(18, 2), nullable=True, default=1000.0)
-    maintenance_fee = Column(Numeric(18, 2), nullable=True, default=250.0)
-    account_type_binding = Column(String(50), nullable=True, default="SAVINGS_CURRENT")
-    bin = Column(String(10), nullable=True)
-    platform_indicator = Column(String(35), nullable=True, default="POSTILION_V2")
-    pan_length = Column(Integer, nullable=True, default=16)
-    sequence = Column(Integer, nullable=True)
-    min_random_number = Column(Integer, nullable=True, default=100000)
-    max_random_number = Column(Integer, nullable=True, default=999999)
-    output_path = Column(String(255), nullable=True, default=None)
-    table_prefix = Column(String(35), nullable=True, default="TBL_CP_")
-    fep_programme_id = Column(String(50), nullable=True)
-    instant_card_type = Column(String(50), nullable=True, default="INSTANT_STANDARD")
-    payment_ref_prefix = Column(String(35), nullable=True, default="PAY_REF_")
-    assigned_segment_group = Column(String(100), nullable=True, default="Retail Segment (01)")
-    pp_bin = Column(String(10), nullable=True, default="901234")
-    segment_count = Column(Integer, nullable=True, default=2)
-    charge_header_count = Column(Integer, nullable=True, default=1)
-    charge_header_name = Column(String(100), nullable=True)
 
 
 class CardSegment(Base):
     __tablename__ = "card_segments"
-    __table_args__ = schema_args("config")
+    __table_args__ = (
+        UniqueConstraint("client_id", "id", name="UQ_card_segments_client_id"),
+        schema_args("config"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     client_id = Column(Integer, ForeignKey(fk_ref("config.clients.tenant_id")), nullable=False)
@@ -223,12 +222,24 @@ class CardSegment(Base):
 
 class CardSegmentProgramme(Base):
     __tablename__ = "card_segment_programmes"
-    __table_args__ = schema_args("config")
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["client_id", "segment_id"],
+            [fk_ref("config.card_segments.client_id"), fk_ref("config.card_segments.id")],
+            name="FK_card_segment_programmes_segments",
+        ),
+        ForeignKeyConstraint(
+            ["client_id", "card_programme_id"],
+            [fk_ref("config.card_programmes.client_id"), fk_ref("config.card_programmes.id")],
+            name="FK_card_segment_programmes_programmes",
+        ),
+        schema_args("config"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     client_id = Column(Integer, ForeignKey(fk_ref("config.clients.tenant_id")), nullable=False)
-    segment_id = Column(Integer, ForeignKey(fk_ref("config.card_segments.id")), nullable=False)
-    card_programme_id = Column(Integer, ForeignKey(fk_ref("config.card_programmes.id")), nullable=False)
+    segment_id = Column(Integer, nullable=False)
+    card_programme_id = Column(Integer, nullable=False)
     priority = Column(Integer, nullable=True, default=0)
     description = Column(String(100), nullable=True)
     active = Column(Boolean, nullable=False, default=True)
@@ -329,11 +340,15 @@ class AuditEventType(Base):
 
 class AuditEvent(Base):
     __tablename__ = "audit_events"
-    __table_args__ = schema_args("audit")
+    __table_args__ = (
+        Index("ix_audit_events_tenant_entity", "client_id", "entity_type", "entity_key"),
+        schema_args("audit"),
+    )
 
     event_id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
     entity_type = Column(String(50), nullable=False)
-    entity_id = Column(BigInteger, nullable=False)
+    entity_key = Column(String(64), nullable=False)
     event_type_id = Column(Integer, nullable=False)
     event_source = Column(String(50), nullable=True)
     performed_by = Column(String(100), nullable=True)
@@ -356,11 +371,15 @@ class AuditEventDetail(Base):
 
 class AuditSnapshot(Base):
     __tablename__ = "audit_snapshots"
-    __table_args__ = schema_args("audit")
+    __table_args__ = (
+        Index("ix_audit_snapshots_tenant_entity", "client_id", "entity_type", "entity_key"),
+        schema_args("audit"),
+    )
 
     snapshot_id = Column(Integer, primary_key=True, autoincrement=True)
+    client_id = Column(Integer, nullable=False)
     entity_type = Column(String(50), nullable=False)
-    entity_id = Column(BigInteger, nullable=False)
+    entity_key = Column(String(64), nullable=False)
     snapshot_time = Column(DateTime, nullable=False, server_default=func.now())
     snapshot_data = Column(String, nullable=False)
     event_id = Column(BigInteger, nullable=True)
@@ -388,8 +407,11 @@ class CardType(Base):
 
     card_type = Column(String(20), primary_key=True)
     description = Column(String(50), nullable=True)
-    client_id = Column(Integer, nullable=True)
     active = Column(Boolean, nullable=False, default=True)
+    created_by = Column(String(30), nullable=True)
+    created_date = Column(DateTime, nullable=False, server_default=func.now())
+    last_modified_by = Column(String(30), nullable=True)
+    last_modified_date = Column(DateTime, nullable=True)
 
 
 class CardChargesHeader(Base):
@@ -667,12 +689,13 @@ class MakerCheckerWorkItem(Base):
             "uix_mc_work_items_unique_pending_entity",
             "client_id",
             "entity_type_code",
-            "entity_id",
+            "entity_key",
             unique=True,
-            postgresql_where=text("status_code = 'PENDING' AND entity_id > 0"),
-            mssql_where=text("status_code = 'PENDING' AND entity_id > 0"),
-            sqlite_where=text("status_code = 'PENDING' AND entity_id > 0"),
+            postgresql_where=text("status_code = 'PENDING' AND entity_key IS NOT NULL"),
+            mssql_where=text("status_code = 'PENDING' AND entity_key IS NOT NULL"),
+            sqlite_where=text("status_code = 'PENDING' AND entity_key IS NOT NULL"),
         ),
+        Index("ix_mc_work_items_entity", "client_id", "entity_type_code", "entity_key"),
         schema_args("maker_checker"),
     )
 
@@ -680,7 +703,7 @@ class MakerCheckerWorkItem(Base):
     work_item_number = Column(String(30), nullable=False, unique=True)
     client_id = Column(Integer, nullable=False)
     entity_type_code = Column(String(50), ForeignKey(fk_ref("maker_checker.entity_types.entity_type_code")), nullable=False)
-    entity_id = Column(BigInteger, nullable=False)
+    entity_key = Column(String(64), nullable=True)
     operation_code = Column(String(30), ForeignKey(fk_ref("maker_checker.operations.operation_code")), nullable=False)
     status_code = Column(String(20), ForeignKey(fk_ref("maker_checker.statuses.status_code")), nullable=False)
     checker_user_id = Column(String(31), ForeignKey(fk_ref("iam.users.user_id")), nullable=True)
